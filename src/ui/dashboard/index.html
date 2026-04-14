@@ -1,0 +1,151 @@
+<section class="card status-shell" id="disks">
+  <div class="card-head">
+    <h2>Sys Status</h2>
+  </div>
+  <div class="grid status-grid">
+    <article class="card status-card" tabindex="0">
+      <div class="meter-wrap">
+        <div class="status-title">Load status</div>
+        <div class="meter" id="load-meter" style="--accent-color: #20a53a">
+          <strong id="load-meter-value">0%</strong>
+        </div>
+        <div class="status-summary" id="load-summary">Preparing...</div>
+        <div class="status-copy">
+          <h3>Load Status</h3>
+          <p id="load-label">0.00</p>
+          <small id="load-detail">1 min average / normal</small>
+        </div>
+      </div>
+    </article>
+
+    <article class="card status-card" tabindex="0">
+      <div class="meter-wrap">
+        <div class="status-title">CPU usage</div>
+        <div class="meter" id="cpu-meter" style="--accent-color: #20a53a">
+          <strong id="cpu-meter-value">0%</strong>
+        </div>
+        <div class="status-summary" id="cpu-summary">Preparing...</div>
+        <div class="status-copy">
+          <h3>CPU Usage</h3>
+          <p id="cpu-label">0%</p>
+          <small id="cpu-detail">Preparing processor telemetry...</small>
+        </div>
+      </div>
+    </article>
+
+    <article class="card status-card" tabindex="0">
+      <div class="meter-wrap">
+        <div class="status-title">RAM usage</div>
+        <div class="meter" id="memory-meter" style="--accent-color: #20a53a">
+          <strong id="memory-meter-value">0%</strong>
+        </div>
+        <div class="status-summary" id="memory-summary">Preparing...</div>
+        <div class="status-copy">
+          <h3>Memory Usage</h3>
+          <p id="memory-label">0%</p>
+          <small id="memory-detail">Preparing memory telemetry...</small>
+        </div>
+      </div>
+    </article>
+
+    <article class="card status-card" tabindex="0">
+      <div class="meter-wrap">
+        <div class="status-title">Disk usage</div>
+        <div class="meter" id="disk-meter" style="--accent-color: #20a53a">
+          <strong id="disk-meter-value">0%</strong>
+        </div>
+        <div class="status-summary" id="disk-summary">Preparing...</div>
+        <div class="status-copy">
+          <h3>Disk Usage</h3>
+          <p id="disk-label">0%</p>
+          <small id="disk-detail">Preparing disk telemetry...</small>
+        </div>
+      </div>
+    </article>
+  </div>
+</section>
+
+<section class="card overview-card" id="overview">
+  <div class="card-head">
+    <h2>Overview</h2>
+  </div>
+  <div class="overview-grid">
+    <article class="overview-item">
+      <span>Site</span>
+      <strong class="overview-value is-good" id="overview-site-count">0</strong>
+    </article>
+    <article class="overview-item">
+      <span>FTP</span>
+      <strong class="overview-value is-good" id="overview-ftp-count">0</strong>
+    </article>
+    <article class="overview-item">
+      <span>DB</span>
+      <strong class="overview-value is-good" id="overview-db-count">0</strong>
+    </article>
+    <article class="overview-item">
+      <span>Security</span>
+      <strong class="overview-value is-danger" id="overview-security-count">0</strong>
+    </article>
+    <div class="overview-spacer" aria-hidden="true"></div>
+    <div class="overview-spacer" aria-hidden="true"></div>
+  </div>
+</section>
+
+<section class="grid split-grid dashboard-split-grid">
+  <article class="card software-card" id="software">
+    <div class="card-head software-head">
+      <h2>Software</h2>
+      <span>Installed software overview</span>
+    </div>
+    <div class="software-list" id="software-list"></div>
+  </article>
+
+  <article class="card traffic-card" id="traffic">
+    <div class="traffic-toolbar">
+      <div class="traffic-tabs" role="tablist" aria-label="Traffic metrics">
+        <button class="traffic-tab active" type="button" data-traffic-tab="traffic" aria-selected="true">Traffic</button>
+        <button class="traffic-tab" type="button" data-traffic-tab="disk" aria-selected="false">Disk IO</button>
+      </div>
+      <label class="traffic-select traffic-network-select">
+        <span class="sr-only">Network interface</span>
+        <select id="traffic-network-select" aria-label="Network interface">
+          <option value="all">Net: All</option>
+        </select>
+      </label>
+    </div>
+    <div class="traffic-panel" data-traffic-panel="traffic">
+      <div class="traffic-meta">
+        <div class="traffic-meta-item">
+          <span class="traffic-stat-label traffic-up"><span class="traffic-dot"></span>Upstream</span>
+          <strong id="upload-speed">0 KB/s</strong>
+        </div>
+        <div class="traffic-meta-item">
+          <span class="traffic-stat-label traffic-down"><span class="traffic-dot"></span>Downstream</span>
+          <strong id="download-speed">0 KB/s</strong>
+        </div>
+        <div class="traffic-meta-item">
+          <span>Total sent</span>
+          <strong id="total-upload">0 B</strong>
+        </div>
+        <div class="traffic-meta-item">
+          <span>Total received</span>
+          <strong id="total-download">0 B</strong>
+        </div>
+        <div class="traffic-meta-control">
+          <label class="traffic-select traffic-unit-select">
+          <span class="sr-only">Display unit</span>
+          <select id="traffic-unit-select" aria-label="Display unit">
+            <option value="kb">Unit: KB/s</option>
+            <option value="mb">Unit: MB/s</option>
+            <option value="bytes">Unit: B/s</option>
+          </select>
+          </label>
+        </div>
+      </div>
+      <div class="chart-wrap traffic-chart-wrap">
+        <canvas id="traffic-chart" width="960" height="220"></canvas>
+      </div>
+    </div>
+    <div class="traffic-panel traffic-panel-placeholder" data-traffic-panel="disk" hidden></div>
+  </article>
+</section>

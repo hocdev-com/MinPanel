@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{TITLE}}</title>
+    <link rel="icon" type="image/png" href="/assets/dashboard/favicon.png?v=1" />
+    <link rel="apple-touch-icon" href="/assets/dashboard/favicon.png?v=1" />
+    <link rel="stylesheet" href="/assets/dashboard/icons.css" />
+    <link rel="stylesheet" href="/assets/dashboard/styles.css" />
+    <script src="/assets/dashboard/app.js" defer></script>
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar" id="sidebar">
+        <div class="server-pill">
+          <span class="server-pill-icon" aria-hidden="true">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2.5" y="3.5" width="15" height="10" rx="1.8"></rect>
+              <path d="M8 16.5h4"></path>
+              <path d="M10 13.5v3"></path>
+            </svg>
+          </span>
+          <div class="server-pill-value" id="sidebar-host">Loading...</div>
+          <button class="server-pill-badge" id="sidebar-log-button" type="button" aria-haspopup="dialog" aria-controls="log-modal" aria-label="Open logs">0</button>
+        </div>
+
+        <div class="menu-group">
+          <div class="menu-title">Panel</div>
+          <ul class="menu">
+            <li><a href="/dashboard" data-menu="Dashboard"><span class="menu-icon dashboard-icon icon-dashboard" aria-hidden="true"></span><span>Dashboard</span></a></li>
+            <li><a href="/website" data-menu="Website"><span class="menu-icon dashboard-icon icon-website" aria-hidden="true"></span><span>Website</span></a></li>
+            <li><a href="/software" data-menu="App Store"><span class="menu-icon dashboard-icon icon-app-store" aria-hidden="true"></span><span>App Store</span></a></li>
+            <li><a href="/traffic" data-menu="Traffic"><span class="menu-icon dashboard-icon icon-traffic" aria-hidden="true"></span><span>Traffic</span></a></li>
+            <li><a href="/disks" data-menu="Disk"><span class="menu-icon dashboard-icon icon-disk" aria-hidden="true"></span><span>Disk</span></a></li>
+            <li><a href="/processes" data-menu="Process"><span class="menu-icon dashboard-icon icon-process" aria-hidden="true"></span><span>Process</span></a></li>
+          </ul>
+        </div>
+
+        <div class="menu-group">
+          <div class="menu-title">Management</div>
+          <ul class="menu">
+            <li><a href="/system" data-menu="System API"><span class="menu-icon dashboard-icon icon-system-api" aria-hidden="true"></span><span>System API</span></a></li>
+            <li><a href="/process" data-menu="Process API"><span class="menu-icon dashboard-icon icon-process-api" aria-hidden="true"></span><span>Process API</span></a></li>
+            <li><a href="/login" data-menu="Login API"><span class="menu-icon dashboard-icon icon-login-api" aria-hidden="true"></span><span>Login API</span></a></li>
+          </ul>
+        </div>
+      </aside>
+
+      <main class="main">
+{{TOPBAR}}
+
+{{CONTENT}}
+
+        <article class="card alert-card full-span edge-span" id="processes">
+          <div class="alert-list" id="alert-list"></div>
+          <div class="footnote">This dashboard is rendered directly from the Rust service and updates automatically every 4 seconds.</div>
+        </article>
+      </main>
+    </div>
+
+    <div class="messages-modal" id="messages-modal" hidden>
+      <div class="messages-modal-backdrop" data-messages-close></div>
+      <div class="messages-modal-panel" role="dialog" aria-modal="true" aria-labelledby="messages-modal-title">
+        <div class="messages-modal-head">
+          <h3 id="messages-modal-title">Messages Box</h3>
+          <button class="messages-modal-close" id="messages-modal-close" type="button" aria-label="Close messages">&times;</button>
+        </div>
+        <div class="messages-modal-body">
+          <aside class="messages-sidebar">
+            <ul class="messages-menu" id="messages-menu">
+              <li class="active" data-tab="task-list">Task list <span id="task-count-badge" class="count-badge">(0)</span></li>
+              <li data-tab="message-list">Message list <span class="count-badge">(23)</span></li>
+              <li data-tab="execution-log">Execution log</li>
+            </ul>
+          </aside>
+          <div class="messages-content-pane">
+            <div id="tab-task-list" class="messages-tab-content">
+              <div class="messages-tip-row">
+                <span class="messages-tip-text">Tip: If the task is stalled, click [Restart Panel] to reset the queue</span>
+                <button class="messages-restart-btn" type="button">Restart</button>
+              </div>
+              <div id="messages-active-tasks" class="messages-active-tasks">
+                <!-- Task items will be injected here -->
+                <div class="messages-empty-state">No active tasks.</div>
+              </div>
+            </div>
+            <div id="tab-message-list" class="messages-tab-content" hidden>
+              <div class="messages-empty-state">No messages right now.</div>
+            </div>
+            <div id="tab-execution-log" class="messages-tab-content" hidden>
+              <div class="messages-empty-state">Select a task to view execution log.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="log-modal" id="log-modal" hidden>
+      <div class="log-modal-backdrop" data-log-close></div>
+      <div class="log-modal-panel" role="dialog" aria-modal="true" aria-labelledby="log-modal-title">
+        <div class="log-modal-head">
+          <h3 id="log-modal-title">Logs</h3>
+          <button class="log-modal-close" id="log-modal-close" type="button" aria-label="Close logs">&times;</button>
+        </div>
+        <div class="log-modal-meta" id="log-modal-meta">Last update: --</div>
+        <div class="log-list" id="log-list"></div>
+      </div>
+    </div>
+  </body>
+</html>

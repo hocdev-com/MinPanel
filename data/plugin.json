@@ -1,0 +1,116 @@
+{
+  "type": [
+    {
+      "id": 1,
+      "title": "Runtime",
+      "sort": 1
+    },
+    {
+      "id": 2,
+      "title": "Database",
+      "sort": 2
+    },
+    {
+      "id": 3,
+      "title": "Tools",
+      "sort": 3
+    }
+  ],
+  "list": [
+    {
+      "name": "apache",
+      "title": "Apache",
+      "version": "2.4.57",
+      "ps": "Powerful HTTP service for PHP sites, reverse proxy, and rewrite rules.",
+      "price": "0",
+      "endtime": 0,
+      "type": 1,
+      "sort": 1,
+      "install_checks": "data/plugins/apache",
+      "dependent": "apache",
+      "versions": [
+        {
+          "version": "2.4.57",
+          "full_version": "2.4.57",
+          "f_path": "http://d.hocdev.com/files/apache-2.4.57.zip"
+        }
+      ]
+    },
+    {
+      "name": "mysql",
+      "title": "MySQL",
+      "version": "5.7.40",
+      "ps": "Classic relational database service for WordPress, Laravel, and CMS stacks.",
+      "price": "0",
+      "endtime": 0,
+      "type": 2,
+      "sort": 1,
+      "install_checks": "data/plugins/mysql",
+      "dependent": "mysql",
+      "versions": [
+        {
+          "version": "5.7.40",
+          "full_version": "5.7.40",
+          "f_path": "http://d.hocdev.com/files/mysql-5.7.40.zip"
+        }
+      ]
+    },
+    {
+      "name": "phpmyadmin",
+      "title": "phpMyAdmin",
+      "version": "5.2.1",
+      "ps": "Browser-based MySQL administration tool for tables, users, and exports.",
+      "price": "0",
+      "endtime": 0,
+      "type": 3,
+      "sort": 1,
+      "install_checks": "data/plugins/phpmyadmin",
+      "dependent": "mysql",
+      "versions": [
+        {
+          "version": "5.2.1",
+          "full_version": "5.2.1",
+          "f_path": "http://d.hocdev.com/files/phpmyadmin-5.2.1.zip"
+        }
+      ]
+    },
+    {
+      "name": "php",
+      "title": "PHP",
+      "version": "8.3.30",
+      "ps": "Latest PHP runtime with FPM support for modern frameworks and CMS sites.",
+      "price": "0",
+      "endtime": 0,
+      "type": 1,
+      "sort": 2,
+      "install_checks": "data/plugins/php-8.3",
+      "dependent": "php",
+      "versions": [
+        {
+          "version": "8.3.30",
+          "full_version": "8.3.30",
+          "f_path": "http://d.hocdev.com/files/php-8.3.30.zip"
+        }
+      ]
+    },
+    {
+      "name": "php",
+      "title": "PHP",
+      "version": "8.4.19",
+      "ps": "Latest PHP runtime with FPM support for modern frameworks and CMS sites.",
+      "price": "0",
+      "endtime": 0,
+      "type": 1,
+      "sort": 2,
+      "install_checks": "data/plugins/php-8.4",
+      "dependent": "php",
+      "versions": [
+        {
+          "version": "8.4.19",
+          "full_version": "8.4.19",
+          "f_path": "http://d.hocdev.com/files/php-8.4.19.zip"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,108 @@
+<section class="grid split-grid">
+  <article class="card software-card" id="software">
+    <div class="software-page-tabbar">
+      <button class="software-page-tab active" type="button">App Store</button>
+    </div>
+    <div class="software-shell">
+      <div class="software-filter-card">
+        <div class="software-filter-row software-filter-row-primary">
+          <span class="software-filter-title">Search App</span>
+          <label class="software-search" for="software-search-input">
+            <input id="software-search-input" type="text" placeholder="search" />
+            <button id="software-search-button" type="button" aria-label="Search App">
+              <svg viewBox="0 0 20 20">
+                <circle cx="9" cy="9" r="5.5"></circle>
+                <path d="M13 13 17 17"></path>
+              </svg>
+            </button>
+          </label>
+        </div>
+        <div class="software-filter-row software-filter-row-stack">
+          <span class="software-filter-title">App Sort</span>
+          <div class="software-category-list" id="software-category-list"></div>
+        </div>
+      </div>
+
+      <div class="software-table-card">
+        <div class="software-recently" id="software-recently"></div>
+
+        <div class="software-table-wrap">
+          <table class="software-table">
+            <thead>
+              <tr>
+                <th class="software-app-col">App Name</th>
+                <th class="software-developer-col">Developer</th>
+                <th class="software-description-col">Instructions</th>
+                <th class="software-price-col">Price</th>
+                <th class="software-expire-col">Expire Time</th>
+                <th class="software-location-col">Location</th>
+                <th class="software-status-col">Status</th>
+                <th class="software-operate-col">Operate</th>
+              </tr>
+            </thead>
+            <tbody id="software-table-body"></tbody>
+          </table>
+        </div>
+
+        <div class="software-table-footer">
+          <div class="software-page-meta" id="software-page-meta">0 apps</div>
+          <div class="software-pagination">
+            <button class="software-page-button" id="software-prev-page" type="button" aria-label="Previous page">
+              <svg viewBox="0 0 20 20">
+                <path d="m11.5 5-5 5 5 5"></path>
+              </svg>
+            </button>
+            <span class="software-page-current" id="software-page-current">1 / 1</span>
+            <button class="software-page-button" id="software-next-page" type="button" aria-label="Next page">
+              <svg viewBox="0 0 20 20">
+                <path d="m8.5 5 5 5-5 5"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </article>
+</section>
+
+<section class="software-install-modal" id="software-install-modal" hidden>
+  <div class="software-install-backdrop" data-software-install-close></div>
+  <div class="software-install-panel" role="dialog" aria-modal="true" aria-labelledby="software-install-title">
+    <button class="software-install-close" id="software-install-close" type="button" aria-label="Close installation window"></button>
+    <div class="software-install-header">
+      <div class="software-install-header-left">
+        <div class="software-install-icon" id="software-install-icon" aria-hidden="true"></div>
+        <div class="software-install-info">
+          <h3 class="software-install-name" id="software-install-title">App Name</h3>
+          <div class="software-install-meta">
+            <span class="software-install-update" id="software-install-update-time">Select a version below to manage</span>
+          </div>
+        </div>
+      </div>
+      <div class="software-install-header-right">
+        <label class="software-install-select">
+          <select id="software-install-version-dropdown" aria-label="Select version"></select>
+          <span class="software-install-select-arrow" aria-hidden="true">
+            <svg viewBox="0 0 20 20"><path d="M6 8l4 4 4-4"></path></svg>
+          </span>
+        </label>
+        <button class="software-install-confirm" id="software-install-confirm" type="button">Install Now</button>
+        <button class="software-manager-btn is-uninstall" id="software-install-uninstall" type="button" hidden>Uninstall</button>
+      </div>
+    </div>
+    <div class="software-install-body">
+      <div id="software-manager-actions-row" class="software-manager-secondary-actions" style="margin-bottom: 0px; display: flex; justify-content: flex-end; gap: 8px;">
+        <!-- Contextual secondary buttons will appear here -->
+      </div>
+      <h4 class="software-install-desc-title">Plugin Description:</h4>
+      <div class="software-install-desc-content" id="software-install-description">
+        <p>New: Image transmission security baseline scan</p>
+        <ul>
+          <li>If this plugin already exists, the file will be replaced!</li>
+          <li>Please install the plugin extensions and dependencies manually, if they are not installed, the plugin will not work properly</li>
+          <li>The installation process may take a few minutes, so please be patient!</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>

@@ -1,0 +1,295 @@
+<section class="card website-project-bar" aria-label="Project navigation">
+  <div class="website-project-tabs" role="tablist" aria-label="Project type">
+    <button class="website-project-tab active" type="button" data-project-tab="PHP Project" aria-selected="true">PHP Project</button>
+    <button class="website-project-tab" type="button" data-project-tab="Node Project" aria-selected="false">Node Project</button>
+    <button class="website-project-tab" type="button" data-project-tab="Proxy Project" aria-selected="false">Proxy Project</button>
+    <button class="website-project-tab" type="button" data-project-tab="Python Project" aria-selected="false">Python Project</button>
+  </div>
+</section>
+
+<section class="card website-card" id="website">
+  <div class="website-shell">
+    <div class="website-toolbar">
+      <div class="website-toolbar-left">
+        <button class="website-primary-button" id="website-add-site-button" type="button">Add site</button>
+        <button class="website-toolbar-button" type="button">
+          <span>Advanced Setup</span>
+          <svg viewBox="0 0 20 20" aria-hidden="true">
+            <path d="M6 8l4 4 4-4"></path>
+          </svg>
+        </button>
+        <button class="website-toolbar-button" type="button">Statistics</button>
+        <button class="website-runtime-button" type="button">
+          <span class="website-runtime-icon" aria-hidden="true">
+            <svg viewBox="0 0 20 20">
+              <path d="M4.5 13.5c2-4 5-7.1 9-9.5"></path>
+              <path d="M6.2 15c3.3-1.4 6.3-2 9.3-2"></path>
+              <path d="M12.2 4.2c-.4 1.8 0 4.3 1.3 6.3"></path>
+            </svg>
+          </span>
+          <span>Web Server</span>
+        </button>
+      </div>
+
+      <div class="website-toolbar-right">
+        <label class="website-select">
+          <span class="sr-only">Category filter</span>
+          <select id="website-category-select" aria-label="Category filter">
+            <option value="all">All categories</option>
+            <option value="running">Running</option>
+            <option value="stopped">Stopped</option>
+            <option value="expired">Expired SSL</option>
+          </select>
+        </label>
+
+        <label class="website-search">
+          <span class="sr-only">Search websites</span>
+          <input id="website-search-input" type="search" placeholder="Domain or Remarks" aria-label="Search websites" />
+          <span class="website-search-icon" aria-hidden="true">
+            <svg viewBox="0 0 20 20">
+              <circle cx="9" cy="9" r="5.5"></circle>
+              <path d="M13 13l3.5 3.5"></path>
+            </svg>
+          </span>
+        </label>
+
+        <button class="website-icon-button" id="website-settings-button" type="button" aria-label="Website settings">
+          <svg viewBox="0 0 20 20" aria-hidden="true">
+            <path d="M10 3.2 11 3.6l.75 1.82c.5.12.97.32 1.4.58l1.84-.7.89.89-.7 1.84c.26.43.46.9.58 1.4l1.82.75v1.06l-1.82.75a5 5 0 0 1-.58 1.4l.7 1.84-.89.89-1.84-.7a5 5 0 0 1-1.4.58L11 16.8l-1 .4-1-.4-.75-1.82a5 5 0 0 1-1.4-.58l-1.84.7-.89-.89.7-1.84a5 5 0 0 1-.58-1.4l-1.82-.75V9.12l1.82-.75c.12-.5.32-.97.58-1.4l-.7-1.84.89-.89 1.84.7c.43-.26.9-.46 1.4-.58L9 3.6z"></path>
+            <circle cx="10" cy="10" r="2.25"></circle>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="website-table-shell">
+      <table class="website-table">
+        <thead>
+          <tr>
+            <th class="website-check-col">
+              <input id="website-check-all" type="checkbox" aria-label="Select all websites on page" />
+            </th>
+            <th class="website-site-col">Site name</th>
+            <th class="website-status-col">Status</th>
+            <th class="website-backup-col">Backup</th>
+            <th class="website-quick-col">Quick action</th>
+            <th class="website-expiration-col">Expiration</th>
+            <th class="website-ssl-col">SSL</th>
+            <th class="website-requests-col">Requests</th>
+            <th class="website-waf-col">WAF</th>
+            <th class="website-operate-col">Operate</th>
+          </tr>
+        </thead>
+        <tbody id="website-table-body"></tbody>
+      </table>
+    </div>
+    <div id="website-action-menu-host" class="website-action-menu-host" hidden></div>
+
+    <div class="website-footer">
+      <div class="website-batch-actions">
+        <div class="website-select website-select-batch website-batch-dropdown">
+          <span class="sr-only">Batch action</span>
+          <button
+            id="website-batch-trigger"
+            class="website-batch-trigger"
+            type="button"
+            aria-haspopup="listbox"
+            aria-expanded="false"
+          >
+            <span id="website-batch-label">Please choose</span>
+          </button>
+          <div id="website-batch-menu" class="website-batch-menu" role="listbox" hidden>
+            <button class="website-batch-option is-placeholder" type="button" data-website-batch-action="">Please choose</button>
+            <button class="website-batch-option" type="button" data-website-batch-action="backup">Create backup</button>
+            <button class="website-batch-option" type="button" data-website-batch-action="ssl">Check SSL</button>
+            <button class="website-batch-option" type="button" data-website-batch-action="waf">Enable WAF</button>
+            <button class="website-batch-option is-danger" type="button" data-website-batch-action="delete">Delete site</button>
+          </div>
+        </div>
+        <button class="website-execute-button" id="website-batch-execute" type="button" disabled>Execute</button>
+      </div>
+
+      <div class="website-pagination">
+        <button class="website-page-nav" id="website-prev-page" type="button" aria-label="Previous page">
+          <svg viewBox="0 0 20 20" aria-hidden="true">
+            <path d="m12 5-5 5 5 5"></path>
+          </svg>
+        </button>
+        <span class="website-page-current" id="website-page-current">1</span>
+        <button class="website-page-nav" id="website-next-page" type="button" aria-label="Next page">
+          <svg viewBox="0 0 20 20" aria-hidden="true">
+            <path d="m8 5 5 5-5 5"></path>
+          </svg>
+        </button>
+
+        <label class="website-select website-page-size">
+          <span class="sr-only">Rows per page</span>
+          <select id="website-page-size" aria-label="Rows per page">
+            <option value="10">10 / page</option>
+            <option value="20">20 / page</option>
+            <option value="50">50 / page</option>
+          </select>
+        </label>
+
+        <label class="website-goto">
+          <span>Goto</span>
+          <input id="website-page-input" type="number" min="1" value="1" inputmode="numeric" />
+        </label>
+
+        <span class="website-total" id="website-total-count">Total 0</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="website-create-modal" id="website-create-modal" hidden>
+  <div class="website-create-backdrop" data-website-create-close></div>
+  <div class="website-create-panel" role="dialog" aria-modal="true" aria-labelledby="website-create-title">
+    <div class="website-create-head">
+      <div>
+        <h3 id="website-create-title">Add site - Support batch site building</h3>
+      </div>
+      <button class="website-create-close" id="website-create-close" type="button" aria-label="Close add site form">×</button>
+    </div>
+
+    <div class="website-create-tabs" role="tablist" aria-label="Create mode">
+      <button class="website-create-tab active" type="button" aria-selected="true">Create site</button>
+      <button class="website-create-tab" type="button" aria-selected="false" disabled>Create for Git</button>
+      <button class="website-create-tab" type="button" aria-selected="false" disabled>Batch create</button>
+    </div>
+
+    <form class="website-create-form" id="website-create-form">
+      <div class="website-create-grid">
+        <div class="website-create-row website-create-resolve">
+          <span class="website-create-label">Resolve Domain</span>
+          <label class="website-create-radio active">
+            <input type="radio" name="website-resolve-mode" value="manual" checked />
+            <span>Manual Add Record</span>
+          </label>
+          <label class="website-create-radio is-disabled">
+            <input type="radio" name="website-resolve-mode" value="automatic" disabled />
+            <span>Automatic Add Record</span>
+          </label>
+          <label class="website-create-check">
+            <input id="website-create-ssl" type="checkbox" checked />
+            <span>Apply for SSL</span>
+          </label>
+        </div>
+
+        <label class="website-create-field website-create-field-wide">
+          <span class="website-create-label">Domain name</span>
+          <div class="website-create-domain-wrapper">
+                <textarea id="website-create-domain" rows="4" placeholder="Enter a local domain like demo.test&#10;If you type only demo, MinPanel will use demo.test"></textarea>
+            <div id="website-create-domain-ghost" class="website-create-domain-ghost" aria-hidden="true"></div>
+          </div>
+                <span class="website-create-hint">MinPanel will map local domains to 127.0.0.1 in the Windows hosts file, like MinPanel.</span>
+        </label>
+
+        <label class="website-create-field website-create-field-wide">
+          <span class="website-create-label">Description</span>
+          <input id="website-create-description" type="text" placeholder="Optional note for this site" />
+        </label>
+
+        <label class="website-create-field website-create-field-wide">
+          <span class="website-create-label">Website Path</span>
+          <span class="website-create-path">
+            <input id="website-create-path" type="text" placeholder="Website root path" />
+            <button class="website-create-path-button" id="website-create-path-reset" type="button" aria-label="Reset website path">
+              <svg viewBox="0 0 20 20" aria-hidden="true">
+                <path d="M2.8 6.5h4l1.4 1.7h8.9v5.8a1.5 1.5 0 0 1-1.5 1.5H4.3a1.5 1.5 0 0 1-1.5-1.5z"></path>
+                <path d="M2.8 6.5V5.6a1.3 1.3 0 0 1 1.3-1.3h2.3l1.2 1.4h2.2"></path>
+              </svg>
+            </button>
+          </span>
+        </label>
+
+        <label class="website-create-field">
+          <span class="website-create-label">FTP</span>
+          <select disabled>
+            <option>Not create</option>
+          </select>
+        </label>
+
+        <label class="website-create-field">
+          <span class="website-create-label">Database</span>
+          <select disabled>
+            <option>Not create</option>
+          </select>
+        </label>
+
+        <label class="website-create-field">
+          <span class="website-create-label">PHP version</span>
+          <select id="website-create-php-version"></select>
+        </label>
+
+        <label class="website-create-field">
+          <span class="website-create-label">Site category</span>
+          <select id="website-create-category" disabled>
+            <option>Default category</option>
+          </select>
+        </label>
+
+        <label class="website-create-switch">
+          <span class="website-create-label">Create index.php</span>
+          <span class="website-create-toggle">
+            <input id="website-create-html" type="checkbox" checked />
+            <span class="website-create-toggle-ui"></span>
+          </span>
+        </label>
+      </div>
+
+      <div class="website-create-actions">
+        <button class="website-create-cancel" id="website-create-cancel" type="button">Cancel</button>
+        <button class="website-create-confirm" id="website-create-confirm" type="submit">Confirm</button>
+      </div>
+    </form>
+  </div>
+</section>
+
+<section class="website-delete-modal" id="website-delete-modal" hidden>
+  <div class="website-delete-backdrop" data-website-delete-close></div>
+  <div class="website-delete-panel" role="dialog" aria-modal="true" aria-labelledby="website-delete-title">
+    <div class="website-delete-head">
+      <h3 id="website-delete-title">Delete site</h3>
+      <button class="website-delete-close" id="website-delete-close" type="button" aria-label="Close delete site form"></button>
+    </div>
+
+    <div class="website-delete-body">
+      <div class="website-delete-warning">
+        <span class="website-delete-warning-icon" aria-hidden="true">!</span>
+        <div class="website-delete-warning-copy">
+          <strong id="website-delete-warning-title">This will delete the selected website profile.</strong>
+          <p>The document root will always be deleted with this action.</p>
+        </div>
+      </div>
+
+      <div class="website-delete-options">
+        <label class="website-delete-option is-disabled">
+          <input id="website-delete-ftp" type="checkbox" disabled />
+          <span>FTP</span>
+        </label>
+        <label class="website-delete-option is-disabled">
+          <input id="website-delete-database" type="checkbox" disabled />
+          <span>Database</span>
+          <span class="website-delete-option-badge" aria-hidden="true">i</span>
+        </label>
+        <label class="website-delete-option is-disabled">
+          <input id="website-delete-document-root" type="checkbox" checked disabled />
+          <span>Document Root</span>
+        </label>
+      </div>
+
+      <div class="website-delete-verify">
+        <span class="website-delete-verify-label">Result:</span>
+        <span class="website-delete-verify-expression" id="website-delete-verify-expression">1 + 1 =</span>
+        <input class="website-delete-verify-input" id="website-delete-verify-input" type="text" inputmode="numeric" autocomplete="off" />
+      </div>
+      <p class="website-delete-error" id="website-delete-error" hidden></p>
+    </div>
+
+    <div class="website-delete-actions">
+      <button class="website-delete-cancel" id="website-delete-cancel" type="button">Cancel</button>
+      <button class="website-delete-confirm" id="website-delete-confirm" type="button" disabled>Confirm</button>
+    </div>
+  </div>
+</section>
