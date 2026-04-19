@@ -463,11 +463,14 @@ function formatSoftwarePrice(price) {
   return `$${Number(price).toFixed(0)}`;
 }
 
-function softwareStatusIcon(status) {
-  if (status === "running") {
-    return '<svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="6"></circle><path d="m8.4 7.2 4.7 2.8-4.7 2.8z"></path></svg>';
+function softwareStatusIndicator(status, pendingAction = "") {
+  if (pendingAction === "start" || pendingAction === "stop") {
+    return '<svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="6.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-dasharray="10 5" fill="none"></circle><path d="M10 6.4v3.6l2.4 1.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg>';
   }
-  return '<svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="6"></circle><path d="M8.2 7.1v5.8"></path><path d="M11.8 7.1v5.8"></path></svg>';
+  if (status === "running") {
+    return '<svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="7" fill="currentColor" fill-opacity="0.14" stroke="currentColor" stroke-width="1.3"></circle><path d="m7.4 10.2 1.7 1.8 3.5-3.9" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"></path></svg>';
+  }
+  return '<svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="7" fill="currentColor" fill-opacity="0.12" stroke="currentColor" stroke-width="1.3"></circle><path d="M7 10h6" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"></path></svg>';
 }
 
 function renderSoftwareCategories() {
@@ -544,10 +547,10 @@ function renderDashboardSoftwareSummary() {
 function getSoftwareVisibleColumnCount() {
   const width = window.innerWidth || document.documentElement.clientWidth || 0;
   if (width <= 540) return 2;
-  if (width <= 900) return 3;
-  if (width <= 1180) return 4;
+  if (width <= 900) return 4;
+  if (width <= 1180) return 5;
   if (width <= 1400) return 6;
-  return 8;
+  return 7;
 }
 
 function renderOverviewStats(data) {
@@ -577,8 +580,14 @@ function renderSoftwareList() {
       .map((item) => {
         const priceClass = item.price ? " is-paid" : " is-free";
         const statusClass = item.status === "running" ? " is-running" : " is-stopped";
-        const statusAction = item.status === "running" ? "stop" : "start";
         const actionBusy = Boolean(item.pendingAction);
+        const statusText = item.pendingAction === "start"
+          ? "Starting..."
+          : item.pendingAction === "stop"
+            ? "Stopping..."
+            : item.countInstalled > 0
+              ? (item.status === "running" ? "Running" : "Stopped")
+              : "--";
         const location = item.installed
           ? '<button class="software-location-button" type="button" aria-label="Open install path"><svg viewBox="0 0 20 20"><path d="M2.8 6.5h4l1.4 1.7h8.9v5.8a1.5 1.5 0 0 1-1.5 1.5H4.3a1.5 1.5 0 0 1-1.5-1.5z"></path><path d="M2.8 6.5V5.6a1.3 1.3 0 0 1 1.3-1.3h2.3l1.2 1.4h2.2"></path></svg></button>'
           : '<span class="software-location-empty">--</span>';
@@ -600,13 +609,12 @@ function renderSoftwareList() {
             <td class="software-developer software-developer-col">${escapeHtml(item.developer)}</td>
             <td class="software-description software-description-col">${escapeHtml(item.description)}</td>
             <td class="software-price-col"><span class="software-price${priceClass}">${escapeHtml(formatSoftwarePrice(item.price))}</span></td>
-            <td class="software-expire software-expire-col">${escapeHtml(item.expire)}</td>
             <td class="software-location-col">${location}</td>
             <td class="software-status-col">
               ${item.countInstalled > 0
-                ? `<button class="software-status-button software-status${statusClass}${actionBusy ? " is-busy" : ""}" type="button" data-software-open-install="${escapeHtml(item.title)}" aria-label="Manage versions">
-                    <span class="software-status-icon" aria-hidden="true">${softwareStatusIcon(item.status)}</span>
-                  </button>`
+                ? `<span class="software-status software-status-indicator${statusClass}${actionBusy ? " is-busy" : ""}" title="${escapeHtml(statusText)}" aria-label="${escapeHtml(statusText)}">
+                    <span class="software-status-icon" aria-hidden="true">${softwareStatusIndicator(item.status, item.pendingAction)}</span>
+                  </span>`
                 : '<span class="software-status software-status-empty">--</span>'}
             </td>
             <td class="software-operate-col">
@@ -725,15 +733,19 @@ function bindSoftwareControls() {
   if (installConfirm) {
     installConfirm.addEventListener("click", async () => {
       const id = softwareState.installModal.selectedVersionId;
-      if (!id || softwareState.pendingActions[id]) return;
-      closeSoftwareInstallModal();
-      runSoftwareAction(id, "install");
+      const action = installConfirm.dataset.softwareAction || "install";
+      if (!id || !action || softwareState.pendingActions[id]) return;
+      if (action === "install") {
+        closeSoftwareInstallModal();
+      }
+      runSoftwareAction(id, action);
     });
   }
 
   document.getElementById("software-table-body").addEventListener("click", async (event) => {
+    // Manage modal
     const openInstall = event.target.closest("[data-software-open-install]");
-    if (openInstall) {
+    if (openInstall && openInstall.dataset.softwareOpenInstall) {
       openSoftwareInstallModal(openInstall.dataset.softwareOpenInstall);
       return;
     }
@@ -840,14 +852,26 @@ function openSoftwareInstallModal(title) {
   const iconHost = document.getElementById("software-install-icon");
   const titleHost = document.getElementById("software-install-title");
   
+  // Smart version selection: Prioritize running, then installed, then newest
+  let selectedId = versions[0].id;
+  const running = versions.find(v => v.status === "running");
+  const installed = versions.find(v => v.installed);
+  
+  if (running) {
+    selectedId = running.id;
+  } else if (installed) {
+    selectedId = installed.id;
+  }
+
   softwareState.installModal = {
     open: true,
     title: title,
     versions: versions,
-    selectedVersionId: versions[0].id,
+    selectedVersionId: selectedId,
   };
 
-  if (iconHost) iconHost.innerHTML = softwareVisual(versions[0].visual, versions[0]);
+  const selectedItem = versions.find(v => v.id == selectedId) || versions[0];
+  if (iconHost) iconHost.innerHTML = softwareVisual(selectedItem.visual, selectedItem);
   if (titleHost) titleHost.textContent = title;
   
   refreshManagerModal();
@@ -858,7 +882,6 @@ function openSoftwareInstallModal(title) {
 function refreshManagerModal() {
   const dropdown = document.getElementById("software-install-version-dropdown");
   const confirmBtn = document.getElementById("software-install-confirm");
-  const secondaryActions = document.getElementById("software-manager-actions-row");
   if (!dropdown || !confirmBtn) return;
 
   const { versions, selectedVersionId } = softwareState.installModal;
@@ -891,29 +914,34 @@ function updateManagerUIForSelection() {
   
   if (isPending) {
     confirmBtn.disabled = true;
-    confirmBtn.textContent = (softwareState.pendingActions[item.id] || "Working") + "...";
+    confirmBtn.textContent = softwarePendingLabel(softwareState.pendingActions[item.id]);
+    confirmBtn.dataset.softwareAction = "";
     if (uninstallBtn) uninstallBtn.hidden = true;
     secondaryActions.innerHTML = "";
   } else if (!item.installed) {
     confirmBtn.disabled = false;
     confirmBtn.textContent = "Install Now";
     confirmBtn.className = "software-install-confirm is-install";
-    confirmBtn.onclick = () => runSoftwareAction(item.id, "install");
+    confirmBtn.dataset.softwareAction = "install";
     if (uninstallBtn) uninstallBtn.hidden = true;
     secondaryActions.innerHTML = "";
   } else {
-    // Already installed: Contextual actions
     const oppositeAction = item.status === "running" ? "stop" : "start";
     confirmBtn.disabled = false;
     confirmBtn.textContent = oppositeAction.charAt(0).toUpperCase() + oppositeAction.slice(1);
     confirmBtn.className = "software-install-confirm";
-    confirmBtn.onclick = () => runSoftwareAction(item.id, oppositeAction);
+    confirmBtn.dataset.softwareAction = oppositeAction;
 
     if (uninstallBtn) {
       uninstallBtn.hidden = false;
+      uninstallBtn.disabled = false;
       uninstallBtn.onclick = () => runSoftwareAction(item.id, "uninstall");
     }
     secondaryActions.innerHTML = "";
+  }
+
+  if (uninstallBtn && isPending) {
+    uninstallBtn.disabled = true;
   }
 
   updateManagerDescription(item.id);
@@ -2340,9 +2368,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   initTaskManager();
 
-  // Patching runSoftwareAction to open Messages Box on install
-  const originalRunSoftwareAction = window.runSoftwareAction;
+  // Shadow the original runSoftwareAction with a version that opens the Messages Box on install
+  const originalRunSoftwareAction = window.runSoftwareAction || runSoftwareAction;
+  
   window.runSoftwareAction = async (id, action) => {
+    // Only intercept the "install" action specifically
     if (action === "install") {
         try {
             const response = await fetch("/software/install", {
@@ -2350,17 +2380,23 @@ document.addEventListener("DOMContentLoaded", () => {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ id }),
             });
-            const result = await response.json();
+            const result = await response.json().catch(() => ({ status: false }));
             if (result.status && result.message) {
-                // message contains task_id
+                // message contains task_id for tracking
                 openMessagesModal(result.message);
                 renderSoftwareList();
                 return;
+            } else if (!result.status) {
+                throw new Error(result.message || "Failed to trigger installation");
             }
         } catch (e) {
             console.error("Install trigger failed:", e);
+            window.alert("Installation failed: " + e.message);
+            return;
         }
     }
+    
+    // For all other actions (start, stop, uninstall), use the original logic
     return originalRunSoftwareAction(id, action);
   };
 });
@@ -2371,6 +2407,7 @@ const taskState = {
   activeTaskId: null,
   pollingInterval: null,
   activeTab: "task-list",
+  logs: {}, // Cache for task logs
 };
 
 function initTaskManager() {
@@ -2461,7 +2498,13 @@ async function refreshTasks() {
     const running = tasks.filter(t => t.status === "running");
     if (running.length > 0) {
        tasks = [running[0]];
-       // Removed automatic viewTaskLog call to keep user on Task List
+       // Automatically show console for the running task in Task List
+       if (!taskState.activeTaskId || taskState.activeTaskId !== tasks[0].id) {
+           taskState.activeTaskId = tasks[0].id;
+           if (taskState.activeTab === "task-list" || taskState.activeTab === "execution-log") {
+             startTaskLogPolling(tasks[0].id);
+           }
+       }
     } else if (tasks.length > 0) {
        tasks = [tasks[0]];
     }
@@ -2477,6 +2520,13 @@ async function refreshTasks() {
 function updateTaskBadge(count) {
   const badge = document.getElementById("task-count-badge");
   if (badge) badge.textContent = `(${count})`;
+}
+
+function scrollToBottom(el) {
+  if (!el) return;
+  requestAnimationFrame(() => {
+    el.scrollTop = el.scrollHeight;
+  });
 }
 
 function renderTaskList() {
@@ -2521,10 +2571,15 @@ function renderTaskList() {
             <a class="task-delete-link" onclick="viewTaskLog('${task.id}')">View Log</a>
           </div>
         </div>
-        ${task.id === taskState.activeTaskId ? `<div id="task-log-${task.id}" class="messages-log-container">Loading log...</div>` : ""}
+        ${task.id === taskState.activeTaskId ? `<div id="task-log-${task.id}" class="messages-log-container">${ansiToHtml(taskState.logs[task.id] || "Loading log...")}</div>` : ""}
       </div>
     `)
     .join("");
+
+  if (taskState.activeTaskId) {
+    const el = document.getElementById(`task-log-${taskState.activeTaskId}`);
+    if (el) scrollToBottom(el);
+  }
 }
 
 function getTaskStatusColor(status) {
@@ -2560,19 +2615,21 @@ function startTaskLogPolling(taskId) {
       if (!response.ok) return;
       const data = await response.json();
       
+      // Cache the log
+      taskState.logs[taskId] = data.log;
+      
       // Update containers only if they are relevant to the current view
       const miniLog = document.getElementById(`task-log-${taskId}`);
       if (miniLog) {
           miniLog.innerHTML = ansiToHtml(data.log);
-          miniLog.scrollTop = miniLog.scrollHeight;
+          scrollToBottom(miniLog);
       }
-
+      
       if (taskState.activeTab === "execution-log") {
           const mainLog = document.getElementById("tab-execution-log");
           if (mainLog) {
             mainLog.innerHTML = `<div class="messages-log-container">${ansiToHtml(data.log)}</div>`;
-            const logBox = mainLog.firstChild;
-            if (logBox) logBox.scrollTop = logBox.scrollHeight;
+            scrollToBottom(mainLog.firstElementChild);
           }
       }
 

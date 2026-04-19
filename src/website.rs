@@ -668,12 +668,12 @@ fn runtime_label(index: usize, scan: &WebsiteScan) -> String {
     if scan.has_proxy {
         return "Proxy".to_string();
     }
-
-    match index % 3 {
-        0 => "8.1".to_string(),
-        1 => "8.2".to_string(),
-        _ => "8.3".to_string(),
+    if scan.has_php {
+        return "PHP".to_string();
     }
+
+    let _ = index;
+    "Static".to_string()
 }
 
 pub(crate) fn load_website_bindings() -> Result<WebsiteBindingStore, String> {

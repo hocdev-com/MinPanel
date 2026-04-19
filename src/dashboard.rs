@@ -829,15 +829,22 @@ pub async fn start_software_package(
 pub async fn stop_software_package(
     Json(request): Json<SoftwareDownloadRequest>,
 ) -> Json<OperationStatus> {
+    println!("[Software] STOP requested for id: {}", request.id);
     match stop_installed_runtime(&request.id) {
-        Ok(message) => Json(OperationStatus {
-            status: true,
-            message,
-        }),
-        Err(error) => Json(OperationStatus {
-            status: false,
-            message: error,
-        }),
+        Ok(message) => {
+            println!("[Software] STOP success: {}", message);
+            Json(OperationStatus {
+                status: true,
+                message,
+            })
+        }
+        Err(error) => {
+            println!("[Software] STOP failed: {}", error);
+            Json(OperationStatus {
+                status: false,
+                message: error,
+            })
+        }
     }
 }
 
@@ -1094,7 +1101,6 @@ fn map_plugin_store(
         .entries
         .iter()
         .filter(|entry| is_runtime_entry_ready(entry))
-        .filter(|entry| entry.id != slugify(&entry.name, '-'))
         .collect::<Vec<_>>();
 
     let mut software_plugins = Vec::new();
@@ -1273,10 +1279,7 @@ fn registry_php_options(registry: &RuntimeRegistry) -> Vec<PhpRuntimeOption> {
 }
 
 fn build_runtime_id(name: &str, version: &str, runtime_kind: &str) -> String {
-    if runtime_kind == "php" {
-        return format!("{}-{}", slugify(name, '-'), slugify(version, '-'));
-    }
-    slugify(name, '-')
+    format!("{}-{}-{}", slugify(name, '-'), slugify(version, '-'), slugify(runtime_kind, '-'))
 }
 
 pub(crate) fn runtime_binding_id(entry: &InstalledRuntime) -> String {
@@ -1287,13 +1290,28 @@ pub(crate) fn resolve_php_runtime_binding_id(
     binding_id: &str,
     php_registry: &HashMap<String, InstalledRuntime>,
 ) -> Option<String> {
+    let binding_id = binding_id.trim();
+    if binding_id.is_empty() {
+        return None;
+    }
+
     if php_registry.contains_key(binding_id) {
         return Some(binding_id.to_string());
     }
 
     let mut legacy_matches = php_registry
         .iter()
-        .filter(|(_, entry)| entry.id == binding_id || slugify(&entry.name, '-') == binding_id)
+        .filter(|(_, entry)| {
+            let legacy_version_binding =
+                format!("{}-{}", slugify(&entry.name, '-'), slugify(&entry.version, '-'));
+            let version_only_binding = slugify(&entry.version, '-');
+
+            entry.id == binding_id
+                || slugify(&entry.name, '-') == binding_id
+                || legacy_version_binding == binding_id
+                || version_only_binding == binding_id
+                || entry.version == binding_id
+        })
         .map(|(id, entry)| (id.clone(), entry.version.clone()))
         .collect::<Vec<_>>();
     legacy_matches.sort_by(|left, right| right.1.cmp(&left.1));
@@ -1335,22 +1353,16 @@ pub(crate) fn load_runtime_registry() -> Result<RuntimeRegistry, String> {
     Ok(RuntimeRegistry { entries })
 }
 
-pub(crate) fn save_runtime_registry(_registry: &RuntimeRegistry) -> Result<(), String> {
+pub(crate) fn save_runtime_registry(registry: &RuntimeRegistry) -> Result<(), String> {
     let path = runtime_registry_path()?;
-    if path.exists() {
-        fs::remove_file(&path)
-            .map_err(|error| format!("Failed to remove runtime registry: {error}"))?;
-    }
     if let Some(parent) = path.parent() {
-        if parent.exists()
-            && fs::read_dir(parent)
-                .map_err(|error| format!("Failed to inspect runtime registry directory: {error}"))?
-                .next()
-                .is_none()
-        {
-            let _ = fs::remove_dir(parent);
+        if let Err(error) = fs::create_dir_all(parent) {
+            return Err(format!("Failed to create registry directory: {error}"));
         }
     }
+    let contents = serde_json::to_string_pretty(registry)
+        .map_err(|error| format!("Failed to serialize registry: {error}"))?;
+    fs::write(&path, contents).map_err(|error| format!("Failed to write runtime registry: {error}"))?;
     Ok(())
 }
 
@@ -2631,28 +2643,32 @@ fn collect_listening_tcp_pids() -> HashMap<u16, Vec<u32>> {
     };
 
     let mut listening = HashMap::<u16, Vec<u32>>::new();
-    for line in String::from_utf8_lossy(&output.stdout).lines() {
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    for line in stdout.lines() {
         let trimmed = line.trim();
-        if !trimmed.contains("LISTENING") {
+        // Support both "LISTENING" and "Listening" (though netstat is usually uppercase)
+        if !trimmed.contains("LISTENING") && !trimmed.contains("Listening") {
             continue;
         }
 
         let columns = trimmed.split_whitespace().collect::<Vec<_>>();
-        let Some(local) = columns.get(1) else {
+        if columns.len() < 4 {
             continue;
-        };
-        let Some(pid) = columns.last().and_then(|value| value.parse::<u32>().ok()) else {
-            continue;
-        };
-        let Some(port) = local
-            .rsplit(':')
-            .next()
-            .and_then(|value| value.parse::<u16>().ok())
-        else {
-            continue;
-        };
+        }
 
-        listening.entry(port).or_default().push(pid);
+        // The Local Address is usually the 2nd column (index 1)
+        // The PID is usually the last column.
+        let local_addr = columns[1];
+        let pid_str = columns.last().unwrap_or(&"");
+
+        if let Ok(pid) = pid_str.parse::<u32>() {
+            // Extract port from Local Address (e.g., 0.0.0.0:80, [::]:80, 127.0.0.1:80)
+            if let Some(port_str) = local_addr.rsplit(':').next() {
+                if let Ok(port) = port_str.parse::<u16>() {
+                    listening.entry(port).or_default().push(pid);
+                }
+            }
+        }
     }
 
     for pids in listening.values_mut() {
@@ -3552,12 +3568,23 @@ fn detect_runtime_kind(name: &str, dependent: &str) -> String {
 }
 
 pub(crate) fn resolve_data_base_dir() -> Option<PathBuf> {
-    if let Ok(executable) = env::current_exe() {
+    let base = if let Ok(executable) = env::current_exe() {
         if let Some(parent) = executable.parent() {
-            return Some(parent.to_path_buf());
+            parent.to_path_buf()
+        } else {
+            env::current_dir().ok()?
         }
-    }
-    env::current_dir().ok()
+    } else {
+        env::current_dir().ok()?
+    };
+    
+    // Only log once to avoid flooding console during polling
+    static LOGGED: OnceLock<()> = OnceLock::new();
+    LOGGED.get_or_init(|| {
+        println!("[System] Data base directory resolved to: {}", base.display());
+    });
+    
+    Some(base)
 }
 
 pub(crate) fn resolve_env_path_override(var_name: &str) -> Option<PathBuf> {

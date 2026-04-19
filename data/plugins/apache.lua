@@ -576,16 +576,35 @@ function apache.on_start(ctx)
     panel.log("Validating Apache configuration...")
     local check = panel.execute(bin, {"-t", "-d", install_dir, "-f", conf})
     local combined = (check.stdout or "") .. "\n" .. (check.stderr or "")
+    
+    -- On Windows, httpd -t might return non-zero if port 80 is busy, 
+    -- but still print 'Syntax OK' or just some notices.
     local is_ok = (check.code == 0) or contains_ci(combined, "Syntax OK")
 
     if not is_ok then
         local detail = trim(check.stderr ~= "" and check.stderr or check.stdout)
         local hint = read_apache_error_hint(install_dir, runtime)
-        if hint ~= "" and not contains_ci(detail, hint) then
-            detail = detail ~= "" and (detail .. " | " .. hint) or hint
+        
+        -- Differentiate between a real syntax error and a port conflict
+        if contains_ci(detail, "AH00072") or contains_ci(hint, "AH00072") or contains_ci(detail, "make_sock: could not bind") then
+            error("Apache failed to start: Port 80 (or another configured port) is already in use by another process. Please stop any existing web servers (like IIS or another Apache) and try again.")
         end
-        panel.log("Config validation failed: " .. detail)
-        error("Apache config test failed: " .. detail)
+
+        if hint ~= "" and not contains_ci(detail, hint) then
+            -- AH00354 is a normal notice on Windows and shouldn't be treated as a fatal error 
+            -- if we think the config test failed for other reasons.
+            if not contains_ci(hint, "AH00354") or detail == "" then
+                detail = detail ~= "" and (detail .. " | " .. hint) or hint
+            end
+        end
+        
+        if detail ~= "" then
+            panel.log("Config validation failed: " .. detail)
+            error("Apache config test failed: " .. detail)
+        else
+            -- If we have no output but a non-zero code, it's likely a missing dependency or port conflict
+            error("Apache config test failed with exit code " .. tostring(check.code) .. ". This often happens if Port 80 is occupied or Visual C++ Redistributable is missing.")
+        end
     elseif check.code ~= 0 then
         panel.log("Apache config test returned non-zero code but reported Syntax OK. Proceeding...")
     end

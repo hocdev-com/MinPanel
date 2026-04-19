@@ -1979,6 +1979,14 @@ select {
   transform: translateY(0);
 }
 
+.software-install-confirm:disabled,
+.software-manager-btn:disabled {
+  opacity: 0.65;
+  cursor: default;
+  transform: none;
+  box-shadow: none;
+}
+
 .software-install-body {
   padding-top: 0;
 }
@@ -2792,10 +2800,6 @@ select {
   color: #fc6d26;
 }
 
-.software-expire {
-  color: #334155;
-}
-
 .software-location-button {
   width: 26px;
   height: 26px;
@@ -2820,27 +2824,34 @@ select {
   color: #94a3b8;
 }
 
-.software-status-button {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-}
-
-.software-status-button.is-busy {
-  opacity: 0.65;
-}
-
 .software-status-empty {
   color: #94a3b8;
 }
 
-.software-status.is-running {
-  color: var(--accent);
+.software-status-indicator {
+  width: 24px;
+  height: 24px;
 }
 
-.software-status.is-stopped {
+.software-status-indicator.is-busy .software-status-icon svg {
+  animation: software-status-spin 1s linear infinite;
+}
+
+.software-status-indicator.is-running {
+  color: #16a34a;
+}
+
+.software-status-indicator.is-stopped {
   color: #ef4444;
+}
+
+@keyframes software-status-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .software-operate-col {
@@ -2879,11 +2890,8 @@ select {
 
 @media (max-width: 1400px) {
   .software-description-col,
-  .software-expire-col,
   .software-table th.software-description-col,
-  .software-table td.software-description-col,
-  .software-table th.software-expire-col,
-  .software-table td.software-expire-col {
+  .software-table td.software-description-col {
     display: none;
   }
 
@@ -2950,7 +2958,6 @@ select {
   .software-developer-col,
   .software-description-col,
   .software-price-col,
-  .software-expire-col,
   .software-location-col,
   .software-status-col,
   .software-table th.software-developer-col,
@@ -2959,8 +2966,6 @@ select {
   .software-table td.software-description-col,
   .software-table th.software-price-col,
   .software-table td.software-price-col,
-  .software-table th.software-expire-col,
-  .software-table td.software-expire-col,
   .software-table th.software-location-col,
   .software-table td.software-location-col,
   .software-table th.software-status-col,
@@ -4135,11 +4140,18 @@ select {
   font-family: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   font-size: 13px;
   line-height: 1.7;
-  max-height: 400px;
+  max-height: 500px;
   overflow-y: auto;
   white-space: pre-wrap;
   word-break: break-all;
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.task-item-group .messages-log-container {
+  height: 220px;
+  padding: 12px 16px;
+  font-size: 12px;
+  line-height: 1.6;
 }
 
 .messages-empty-state {
