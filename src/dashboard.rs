@@ -2628,6 +2628,50 @@ fn find_listening_pids_by_port(port: u16) -> Vec<u32> {
 }
 
 #[cfg(windows)]
+fn parse_windows_netstat_listening_line(line: &str) -> Option<(u16, u32)> {
+    let trimmed = line.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let columns = trimmed.split_whitespace().collect::<Vec<_>>();
+    if columns.len() < 4 {
+        return None;
+    }
+
+    let state = columns
+        .get(columns.len().saturating_sub(2))
+        .copied()
+        .unwrap_or_default();
+    if !state.eq_ignore_ascii_case("LISTENING") {
+        return None;
+    }
+
+    let local_addr = columns.get(1).copied().unwrap_or_default();
+    let port = local_addr.rsplit(':').next()?.parse::<u16>().ok()?;
+    let pid = columns.last()?.parse::<u32>().ok()?;
+    Some((port, pid))
+}
+
+#[cfg(windows)]
+fn collect_listening_tcp_pids_from_output(output: &str) -> HashMap<u16, Vec<u32>> {
+    let mut listening = HashMap::<u16, Vec<u32>>::new();
+
+    for line in output.lines() {
+        if let Some((port, pid)) = parse_windows_netstat_listening_line(line) {
+            listening.entry(port).or_default().push(pid);
+        }
+    }
+
+    for pids in listening.values_mut() {
+        pids.sort_unstable();
+        pids.dedup();
+    }
+
+    listening
+}
+
+#[cfg(windows)]
 fn collect_listening_tcp_pids() -> HashMap<u16, Vec<u32>> {
     let mut command = Command::new("netstat");
     let output = match hide_windows_console_window(
@@ -2642,41 +2686,8 @@ fn collect_listening_tcp_pids() -> HashMap<u16, Vec<u32>> {
         Err(_) => return HashMap::new(),
     };
 
-    let mut listening = HashMap::<u16, Vec<u32>>::new();
     let stdout = String::from_utf8_lossy(&output.stdout);
-    for line in stdout.lines() {
-        let trimmed = line.trim();
-        // Support both "LISTENING" and "Listening" (though netstat is usually uppercase)
-        if !trimmed.contains("LISTENING") && !trimmed.contains("Listening") {
-            continue;
-        }
-
-        let columns = trimmed.split_whitespace().collect::<Vec<_>>();
-        if columns.len() < 4 {
-            continue;
-        }
-
-        // The Local Address is usually the 2nd column (index 1)
-        // The PID is usually the last column.
-        let local_addr = columns[1];
-        let pid_str = columns.last().unwrap_or(&"");
-
-        if let Ok(pid) = pid_str.parse::<u32>() {
-            // Extract port from Local Address (e.g., 0.0.0.0:80, [::]:80, 127.0.0.1:80)
-            if let Some(port_str) = local_addr.rsplit(':').next() {
-                if let Ok(port) = port_str.parse::<u16>() {
-                    listening.entry(port).or_default().push(pid);
-                }
-            }
-        }
-    }
-
-    for pids in listening.values_mut() {
-        pids.sort_unstable();
-        pids.dedup();
-    }
-
-    listening
+    collect_listening_tcp_pids_from_output(&stdout)
 }
 
 #[cfg(windows)]
@@ -3912,6 +3923,47 @@ mod tests {
         assert_eq!(parse_apache_listen_port("Listen [::]:8080"), Some(8080));
         assert_eq!(parse_apache_listen_port("# Listen 80"), None);
         assert_eq!(parse_apache_listen_port("ServerName localhost:80"), None);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn parse_windows_netstat_listening_line_supports_ipv4_and_ipv6() {
+        assert_eq!(
+            parse_windows_netstat_listening_line(
+                "  TCP    0.0.0.0:80             0.0.0.0:0              LISTENING       5356"
+            ),
+            Some((80, 5356))
+        );
+        assert_eq!(
+            parse_windows_netstat_listening_line(
+                "  TCP    [::]:443               [::]:0                 LISTENING       912"
+            ),
+            Some((443, 912))
+        );
+        assert_eq!(
+            parse_windows_netstat_listening_line(
+                "  TCP    127.0.0.1:17419        0.0.0.0:0              Established     5356"
+            ),
+            None
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn collect_listening_tcp_pids_from_output_groups_and_deduplicates() {
+        let output = "\
+Active Connections\r\n\
+\r\n\
+  Proto  Local Address          Foreign Address        State           PID\r\n\
+  TCP    0.0.0.0:80             0.0.0.0:0              LISTENING       5356\r\n\
+  TCP    127.0.0.1:80           0.0.0.0:0              LISTENING       5356\r\n\
+  TCP    [::]:80                [::]:0                 LISTENING       5356\r\n\
+  TCP    127.0.0.1:17419        0.0.0.0:0              LISTENING       8124\r\n";
+
+        let listening = collect_listening_tcp_pids_from_output(output);
+
+        assert_eq!(listening.get(&80), Some(&vec![5356]));
+        assert_eq!(listening.get(&17419), Some(&vec![8124]));
     }
 
     #[test]
