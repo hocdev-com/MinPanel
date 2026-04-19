@@ -67,10 +67,19 @@ When modifying the dashboard layout, follow these synchronized responsive patter
 - **Software Name Priority**: Let `App Name` take the flexible width on mobile and keep `Operate` as a tight trailing column.
 - **No Horizontal Scroll**: Do not rely on horizontal scrolling for the software table on tablet/mobile widths. Remove the large fixed table minimum and shed columns progressively instead.
 - **Software Column Shedding Order**: Hide `Instructions` and `Expire Time` first, then `Developer` and `Location`, then `Price`, and only at the smallest breakpoint hide `Status` so the table ends at `App Name + Operate`.
+- **Software Display Toggle**: Keep the `Display` toggle column visible together with `Status` on desktop/tablet widths so operators can control the dashboard summary directly from the table; hide both only at the smallest breakpoint where the table collapses to `App Name + Operate`.
 - **Software Secondary Actions**: Place `Update App List` inside the `Recently visited plugin` card, aligned to the right of that info strip instead of inside the filter rows.
 - **Recently Strip Layout**: Keep the `Recently plugin` content and its right-side action on the same row when shrinking; let the text side compress first instead of dropping the action to a new line.
+- **Software Settings Modal**: Keep `Setting` separate from the install/update version picker. It should open a dedicated two-pane modal with aaPanel-style left navigation and a service panel (`Stop`, `Restart`, `Reload`, alert toggle, daemon toggle); collapse the sidebar into wrapped chips on narrow screens instead of merging it back into the install modal.
 
-### 6. Runtime Lua Plugin Lifecycle
+### 6. Shared Close Button Pattern
+- **Universal `X` Button**: Any dashboard/modal/dialog close button must use the shared circular close-button pattern, not a plain text `×`.
+- **Base Look**: Render it as a gray circular button with a white `X` built from CSS lines, matching aaPanel-style floating closes.
+- **Hover Motion**: On hover or keyboard focus, rotate the button `180deg` and switch the background to red.
+- **Reuse First**: Prefer a shared utility class for new close buttons so future modals inherit the same size, transition, and icon treatment automatically.
+- **Placement**: Use the floating top-right variant for overlay dialogs when practical; if a dialog keeps the close button inline in the header, keep the same visual treatment and hover behavior.
+
+### 7. Runtime Lua Plugin Lifecycle
 - When a runtime uses `data/plugins/*.lua`, the Rust install flow must call the Lua `on_install` hook after extraction and before `on_start`.
 - The Lua bridge helper `panel.write_file(path, content)` must create the parent directory automatically so PID/config writes do not fail on fresh installs.
 - Treat `on_install` as the place to prepare writable folders and generated config files such as `logs/`, `tmp/`, `php.ini`, or `my.ini`.

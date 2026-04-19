@@ -34,8 +34,10 @@
                 <th class="software-developer-col">Developer</th>
                 <th class="software-description-col">Instructions</th>
                 <th class="software-price-col">Price</th>
+                <th class="software-expire-col">Expire date</th>
                 <th class="software-location-col">Location</th>
                 <th class="software-status-col">Status</th>
+                <th class="software-display-col">Display</th>
                 <th class="software-operate-col">Operate</th>
               </tr>
             </thead>
@@ -67,7 +69,7 @@
 <section class="software-install-modal" id="software-install-modal" hidden>
   <div class="software-install-backdrop" data-software-install-close></div>
   <div class="software-install-panel" role="dialog" aria-modal="true" aria-labelledby="software-install-title">
-    <button class="software-install-close" id="software-install-close" type="button" aria-label="Close installation window"></button>
+    <button class="panel-close-button panel-close-button--floating software-install-close" id="software-install-close" type="button" aria-label="Close installation window"></button>
     <div class="software-install-header">
       <div class="software-install-header-left">
         <div class="software-install-icon" id="software-install-icon" aria-hidden="true"></div>
@@ -101,6 +103,24 @@
           <li>Please install the plugin extensions and dependencies manually, if they are not installed, the plugin will not work properly</li>
           <li>The installation process may take a few minutes, so please be patient!</li>
         </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="software-settings-modal" id="software-settings-modal" hidden>
+  <div class="software-settings-backdrop" data-software-settings-close></div>
+  <div class="software-settings-panel" role="dialog" aria-modal="true" aria-labelledby="software-settings-title">
+    <button class="panel-close-button panel-close-button--floating software-settings-close" id="software-settings-close" type="button" aria-label="Close settings window"></button>
+    <div class="software-settings-head">
+      <h3 class="software-settings-title" id="software-settings-title">Settings</h3>
+    </div>
+    <div class="software-settings-shell">
+      <aside class="software-settings-sidebar">
+        <nav class="software-settings-menu" id="software-settings-menu"></nav>
+      </aside>
+      <div class="software-settings-main">
+        <div class="software-settings-content" id="software-settings-content"></div>
       </div>
     </div>
   </div>

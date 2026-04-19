@@ -848,10 +848,55 @@ pub async fn stop_software_package(
     }
 }
 
+pub async fn restart_software_package(
+    Json(request): Json<SoftwareDownloadRequest>,
+) -> Json<OperationStatus> {
+    match restart_installed_runtime(&request.id) {
+        Ok(message) => Json(OperationStatus {
+            status: true,
+            message,
+        }),
+        Err(error) => Json(OperationStatus {
+            status: false,
+            message: error,
+        }),
+    }
+}
+
+pub async fn reload_software_package(
+    Json(request): Json<SoftwareDownloadRequest>,
+) -> Json<OperationStatus> {
+    match reload_installed_runtime(&request.id) {
+        Ok(message) => Json(OperationStatus {
+            status: true,
+            message,
+        }),
+        Err(error) => Json(OperationStatus {
+            status: false,
+            message: error,
+        }),
+    }
+}
+
 pub async fn uninstall_software_package(
     Json(request): Json<SoftwareDownloadRequest>,
 ) -> Json<OperationStatus> {
     match uninstall_installed_runtime(&request.id) {
+        Ok(message) => Json(OperationStatus {
+            status: true,
+            message,
+        }),
+        Err(error) => Json(OperationStatus {
+            status: false,
+            message: error,
+        }),
+    }
+}
+
+pub async fn open_software_install_path(
+    Json(request): Json<SoftwareDownloadRequest>,
+) -> Json<OperationStatus> {
+    match open_installed_runtime_path(&request.id) {
         Ok(message) => Json(OperationStatus {
             status: true,
             message,
@@ -2917,6 +2962,71 @@ fn uninstall_installed_runtime(runtime_id: &str) -> Result<String, String> {
 
     save_runtime_registry(&registry)?;
     Ok("Runtime uninstalled".to_string())
+}
+
+fn restart_installed_runtime(runtime_id: &str) -> Result<String, String> {
+    stop_installed_runtime(runtime_id)?;
+    start_installed_runtime(runtime_id)?;
+    Ok("Runtime restarted".to_string())
+}
+
+fn reload_installed_runtime(runtime_id: &str) -> Result<String, String> {
+    stop_installed_runtime(runtime_id)?;
+    start_installed_runtime(runtime_id)?;
+    Ok("Runtime reloaded".to_string())
+}
+
+fn open_installed_runtime_path(runtime_id: &str) -> Result<String, String> {
+    let registry = load_runtime_registry()?;
+    let entry = registry
+        .entries
+        .iter()
+        .find(|entry| entry.id == runtime_id)
+        .ok_or_else(|| "Runtime is not installed".to_string())?;
+    let install_dir = PathBuf::from(&entry.install_dir);
+    if !install_dir.exists() {
+        return Err(format!("Install path does not exist: {}", install_dir.display()));
+    }
+    if !install_dir.is_dir() {
+        return Err(format!(
+            "Install path is not a directory: {}",
+            install_dir.display()
+        ));
+    }
+
+    open_path_in_file_manager(&install_dir)?;
+    Ok(format!("Opened {}", install_dir.display()))
+}
+
+fn open_path_in_file_manager(path: &Path) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        let mut command = Command::new("explorer");
+        command.arg(path);
+        command.creation_flags(CREATE_NO_WINDOW);
+        return command
+            .spawn()
+            .map(|_| ())
+            .map_err(|error| format!("Failed to open path in Explorer: {error}"));
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        return Command::new("open")
+            .arg(path)
+            .spawn()
+            .map(|_| ())
+            .map_err(|error| format!("Failed to open path in Finder: {error}"));
+    }
+
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        Command::new("xdg-open")
+            .arg(path)
+            .spawn()
+            .map(|_| ())
+            .map_err(|error| format!("Failed to open path in file manager: {error}"))
+    }
 }
 
 fn remove_runtime_download_artifacts(entry: &InstalledRuntime, install_dir: &Path) {

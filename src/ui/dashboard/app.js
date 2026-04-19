@@ -8,6 +8,16 @@ const WEBSITE_BATCH_OPTIONS = {
   waf: "Enable WAF",
   delete: "Delete site",
 };
+const SOFTWARE_DASHBOARD_DISPLAY_KEY = "minpanel.software.dashboardDisplay";
+const SOFTWARE_SETTINGS_PREFS_KEY = "minpanel.software.settingsPrefs";
+const SOFTWARE_SETTINGS_SECTIONS = [
+  { id: "service", label: "Service" },
+  { id: "config", label: "Config file" },
+  { id: "switch-version", label: "Switch version" },
+  { id: "load-status", label: "Load status" },
+  { id: "optimization", label: "Optimization" },
+  { id: "run-logs", label: "Run logs" },
+];
 
 function createWebsiteDeleteDialogState(overrides = {}) {
   return {
@@ -83,12 +93,97 @@ const softwareState = {
     versions: [],
     selectedVersionId: "",
   },
+  settingsModal: {
+    open: false,
+    title: "",
+    versions: [],
+    selectedVersionId: "",
+    section: "service",
+  },
 };
 
 let dashboardRefreshPromise = null;
 
 function hasPendingSoftwareActions() {
   return Object.keys(softwareState.pendingActions).length > 0;
+}
+
+function readSoftwareDashboardDisplayPrefs() {
+  try {
+    const raw = window.localStorage.getItem(SOFTWARE_DASHBOARD_DISPLAY_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeSoftwareDashboardDisplayPrefs(prefs) {
+  try {
+    window.localStorage.setItem(SOFTWARE_DASHBOARD_DISPLAY_KEY, JSON.stringify(prefs));
+  } catch {}
+}
+
+function getSoftwareDashboardDisplayGroupKey(item) {
+  return String(item?.title || item?.name || item?.id || "").trim().toLowerCase();
+}
+
+function isSoftwareDisplayedOnDashboard(item) {
+  if (!item) return false;
+  if (!item.installed && !item.countInstalled) return false;
+  const prefs = readSoftwareDashboardDisplayPrefs();
+  const key = getSoftwareDashboardDisplayGroupKey(item);
+  if (!key) return true;
+  return prefs[key] !== false;
+}
+
+function setSoftwareDisplayedOnDashboardByKey(key, enabled) {
+  const normalizedKey = String(key || "").trim().toLowerCase();
+  if (!normalizedKey) return;
+  const prefs = readSoftwareDashboardDisplayPrefs();
+  prefs[normalizedKey] = Boolean(enabled);
+  writeSoftwareDashboardDisplayPrefs(prefs);
+}
+
+function readSoftwareSettingsPrefs() {
+  try {
+    const raw = window.localStorage.getItem(SOFTWARE_SETTINGS_PREFS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeSoftwareSettingsPrefs(prefs) {
+  try {
+    window.localStorage.setItem(SOFTWARE_SETTINGS_PREFS_KEY, JSON.stringify(prefs));
+  } catch {}
+}
+
+function getSoftwareSettingsPrefKey(item) {
+  return String(item?.id || item?.name || item?.title || "").trim().toLowerCase();
+}
+
+function getSoftwareSettingsPref(item) {
+  const prefs = readSoftwareSettingsPrefs();
+  const key = getSoftwareSettingsPrefKey(item);
+  return prefs[key] || { alertOnStop: false, daemon: true };
+}
+
+function setSoftwareSettingsPref(item, nextPatch) {
+  const prefs = readSoftwareSettingsPrefs();
+  const key = getSoftwareSettingsPrefKey(item);
+  if (!key) return;
+  prefs[key] = {
+    alertOnStop: false,
+    daemon: true,
+    ...(prefs[key] || {}),
+    ...nextPatch,
+  };
+  writeSoftwareSettingsPrefs(prefs);
 }
 
 async function fetchJsonWithTimeout(url, options = {}, timeoutMs = 10000) {
@@ -468,9 +563,9 @@ function softwareStatusIndicator(status, pendingAction = "") {
     return '<svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="6.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-dasharray="10 5" fill="none"></circle><path d="M10 6.4v3.6l2.4 1.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg>';
   }
   if (status === "running") {
-    return '<svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="7" fill="currentColor" fill-opacity="0.14" stroke="currentColor" stroke-width="1.3"></circle><path d="m7.4 10.2 1.7 1.8 3.5-3.9" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"></path></svg>';
+    return '<span class="software-aa-icon software-status-glyph is-running" aria-hidden="true"></span>';
   }
-  return '<svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="7" fill="currentColor" fill-opacity="0.12" stroke="currentColor" stroke-width="1.3"></circle><path d="M7 10h6" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"></path></svg>';
+  return '<span class="software-aa-icon software-status-glyph is-stopped" aria-hidden="true"></span>';
 }
 
 function renderSoftwareCategories() {
@@ -505,10 +600,14 @@ function renderDashboardSoftwareSummary() {
 
   const displayItems = getSoftwareDisplayItems();
   const installedItems = displayItems.filter((item) => item.installed);
-  const summaryItems = (installedItems.length ? installedItems : displayItems).slice(0, 8);
+  const summaryItems = installedItems
+    .filter((item) => isSoftwareDisplayedOnDashboard(item))
+    .slice(0, 8);
 
   if (!summaryItems.length) {
-    list.innerHTML = '<div class="software-empty-state">No software detected yet.</div>';
+    list.innerHTML = `<div class="software-empty-state">${
+      installedItems.length ? "No software selected for dashboard." : "No software detected yet."
+    }</div>`;
     return;
   }
 
@@ -549,8 +648,8 @@ function getSoftwareVisibleColumnCount() {
   if (width <= 540) return 2;
   if (width <= 900) return 4;
   if (width <= 1180) return 5;
-  if (width <= 1400) return 6;
-  return 7;
+  if (width <= 1400) return 7;
+  return 9;
 }
 
 function renderOverviewStats(data) {
@@ -581,6 +680,9 @@ function renderSoftwareList() {
         const priceClass = item.price ? " is-paid" : " is-free";
         const statusClass = item.status === "running" ? " is-running" : " is-stopped";
         const actionBusy = Boolean(item.pendingAction);
+        const installedVersion = item.versions.find((version) => version.installed) || null;
+        const displayGroupKey = getSoftwareDashboardDisplayGroupKey(item);
+        const displayEnabled = item.countInstalled > 0 && isSoftwareDisplayedOnDashboard(item);
         const statusText = item.pendingAction === "start"
           ? "Starting..."
           : item.pendingAction === "stop"
@@ -588,15 +690,33 @@ function renderSoftwareList() {
             : item.countInstalled > 0
               ? (item.status === "running" ? "Running" : "Stopped")
               : "--";
-        const location = item.installed
-          ? '<button class="software-location-button" type="button" aria-label="Open install path"><svg viewBox="0 0 20 20"><path d="M2.8 6.5h4l1.4 1.7h8.9v5.8a1.5 1.5 0 0 1-1.5 1.5H4.3a1.5 1.5 0 0 1-1.5-1.5z"></path><path d="M2.8 6.5V5.6a1.3 1.3 0 0 1 1.3-1.3h2.3l1.2 1.4h2.2"></path></svg></button>'
+        const location = installedVersion
+          ? `<button class="software-location-button" type="button" data-software-open-path="${escapeHtml(installedVersion.id)}" aria-label="Open install path">
+              <span class="software-aa-icon software-location-glyph" aria-hidden="true"></span>
+            </button>`
           : '<span class="software-location-empty">--</span>';
+        const displayToggle = item.countInstalled > 0
+          ? `<label class="software-display-switch" aria-label="Display on dashboard">
+              <input type="checkbox" data-software-display-toggle="${escapeHtml(displayGroupKey)}" ${displayEnabled ? "checked" : ""}>
+              <span class="software-display-slider" aria-hidden="true"></span>
+            </label>`
+          : '<span class="software-display-empty">--</span>';
+        const hasInstalledItem = item.countInstalled > 0 && Boolean(installedVersion);
         
         const versionLabel = `${escapeHtml(item.title)} (` +
           item.versions.map(v => 
             `<span class="software-v-item ${v.installed ? 'is-installed' : 'is-available'}">${escapeHtml(v.version)}</span>`
           ).join(", ") +
           `)`;
+        const operateMarkup = actionBusy
+          ? `<button class="software-operate-link software-operate-button" type="button" disabled>${escapeHtml(item.pendingAction === "install" ? "Installing..." : "Working...")}</button>`
+          : hasInstalledItem
+            ? [
+                `<button class="software-operate-link software-operate-button" type="button" data-software-open-install="${escapeHtml(item.title)}">Update</button>`,
+                `<button class="software-operate-link software-operate-button" type="button" data-software-open-settings="${escapeHtml(item.title)}">Setting</button>`,
+                `<button class="software-operate-link software-operate-button" type="button" data-software-action="uninstall" data-software-id="${escapeHtml(installedVersion.id)}">Uninstall</button>`,
+              ].join("")
+            : `<button class="software-operate-link software-operate-button" type="button" data-software-open-install="${escapeHtml(item.title)}">Install</button>`;
 
         return `
           <tr>
@@ -609,6 +729,7 @@ function renderSoftwareList() {
             <td class="software-developer software-developer-col">${escapeHtml(item.developer)}</td>
             <td class="software-description software-description-col">${escapeHtml(item.description)}</td>
             <td class="software-price-col"><span class="software-price${priceClass}">${escapeHtml(formatSoftwarePrice(item.price))}</span></td>
+            <td class="software-expire-col">${escapeHtml(item.expire || "--")}</td>
             <td class="software-location-col">${location}</td>
             <td class="software-status-col">
               ${item.countInstalled > 0
@@ -617,13 +738,9 @@ function renderSoftwareList() {
                   </span>`
                 : '<span class="software-status software-status-empty">--</span>'}
             </td>
+            <td class="software-display-col">${displayToggle}</td>
             <td class="software-operate-col">
-              <span class="software-operate-links">
-                ${actionBusy 
-                  ? `<button class="software-operate-link software-operate-button" type="button" disabled>${escapeHtml(item.pendingAction === 'install' ? 'Installing...' : 'Working...')}</button>`
-                  : `<button class="software-operate-link software-operate-button" type="button" data-software-open-install="${escapeHtml(item.title)}">${item.countInstalled > 0 ? "Manage" : "Install"}</button>`
-                }
-              </span>
+              <span class="software-operate-links">${operateMarkup}</span>
             </td>
           </tr>
         `;
@@ -641,6 +758,14 @@ function renderSoftwareList() {
       .filter(item => item.title === softwareState.installModal.title)
       .sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true, sensitivity: "base" }));
     refreshManagerModal();
+  }
+
+  if (softwareState.settingsModal && softwareState.settingsModal.open) {
+    const freshAll = getSoftwareDisplayItems();
+    softwareState.settingsModal.versions = freshAll
+      .filter(item => item.title === softwareState.settingsModal.title)
+      .sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true, sensitivity: "base" }));
+    refreshSoftwareSettingsModal();
   }
 
   const start = filtered.length ? (softwareState.page - 1) * softwareState.pageSize + 1 : 0;
@@ -689,6 +814,8 @@ function bindSoftwareControls() {
   const installConfirm = document.getElementById("software-install-confirm");
   const installVersion = document.getElementById("software-install-version-dropdown");
   const installClose = document.getElementById("software-install-close");
+  const settingsModal = document.getElementById("software-settings-modal");
+  const settingsClose = document.getElementById("software-settings-close");
 
   if (installModal) {
     installModal.addEventListener("click", (event) => {
@@ -698,8 +825,20 @@ function bindSoftwareControls() {
     });
   }
 
+  if (settingsModal) {
+    settingsModal.addEventListener("click", (event) => {
+      if (event.target.hasAttribute("data-software-settings-close")) {
+        closeSoftwareSettingsModal();
+      }
+    });
+  }
+
   if (installClose) {
     installClose.addEventListener("click", closeSoftwareInstallModal);
+  }
+
+  if (settingsClose) {
+    settingsClose.addEventListener("click", closeSoftwareSettingsModal);
   }
 
   if (installVersion) {
@@ -742,11 +881,30 @@ function bindSoftwareControls() {
     });
   }
 
-  document.getElementById("software-table-body").addEventListener("click", async (event) => {
+  const softwareTableBody = document.getElementById("software-table-body");
+  if (!softwareTableBody) return;
+
+  softwareTableBody.addEventListener("click", async (event) => {
+    const openPathButton = event.target.closest("[data-software-open-path]");
+    if (openPathButton?.dataset.softwareOpenPath) {
+      try {
+        await openSoftwareInstallPath(openPathButton.dataset.softwareOpenPath);
+      } catch (error) {
+        window.alert(error?.message || "Unable to open the install path.");
+      }
+      return;
+    }
+
     // Manage modal
     const openInstall = event.target.closest("[data-software-open-install]");
     if (openInstall && openInstall.dataset.softwareOpenInstall) {
       openSoftwareInstallModal(openInstall.dataset.softwareOpenInstall);
+      return;
+    }
+
+    const openSettings = event.target.closest("[data-software-open-settings]");
+    if (openSettings && openSettings.dataset.softwareOpenSettings) {
+      openSoftwareSettingsModal(openSettings.dataset.softwareOpenSettings);
       return;
     }
 
@@ -759,6 +917,73 @@ function bindSoftwareControls() {
 
     runSoftwareAction(id, action);
   });
+
+  softwareTableBody.addEventListener("change", (event) => {
+    const toggle = event.target.closest("[data-software-display-toggle]");
+    if (toggle) {
+      setSoftwareDisplayedOnDashboardByKey(toggle.dataset.softwareDisplayToggle, toggle.checked);
+      renderDashboardSoftwareSummary();
+      renderSoftwareList();
+      return;
+    }
+
+    const settingsToggle = event.target.closest("[data-software-settings-toggle]");
+    if (!settingsToggle) return;
+    const settingsItem = getSelectedSoftwareSettingsItem();
+    if (!settingsItem) return;
+    setSoftwareSettingsPref(settingsItem, {
+      [settingsToggle.dataset.softwareSettingsToggle]: settingsToggle.checked,
+    });
+    refreshSoftwareSettingsModal();
+  });
+
+  const settingsMenu = document.getElementById("software-settings-menu");
+  if (settingsMenu) {
+    settingsMenu.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-software-settings-section]");
+      if (!button) return;
+      softwareState.settingsModal.section = button.dataset.softwareSettingsSection;
+      refreshSoftwareSettingsModal();
+    });
+  }
+
+  const settingsContent = document.getElementById("software-settings-content");
+  if (settingsContent) {
+    settingsContent.addEventListener("click", async (event) => {
+      const actionButton = event.target.closest("[data-software-settings-action]");
+      if (actionButton) {
+        const id = actionButton.dataset.softwareId;
+        const action = actionButton.dataset.softwareSettingsAction;
+        if (!id || !action || softwareState.pendingActions[id]) return;
+        await runSoftwareAction(id, action);
+        refreshSoftwareSettingsModal();
+        return;
+      }
+
+      const openInstallButton = event.target.closest("[data-software-open-install-from-settings]");
+      if (openInstallButton?.dataset.softwareOpenInstallFromSettings) {
+        closeSoftwareSettingsModal();
+        openSoftwareInstallModal(openInstallButton.dataset.softwareOpenInstallFromSettings);
+        return;
+      }
+
+      const openPathButton = event.target.closest("[data-software-open-path-from-settings]");
+      if (openPathButton?.dataset.softwareOpenPathFromSettings) {
+        try {
+          await openSoftwareInstallPath(openPathButton.dataset.softwareOpenPathFromSettings);
+        } catch (error) {
+          window.alert(error?.message || "Unable to open the install path.");
+        }
+        return;
+      }
+
+      const versionButton = event.target.closest("[data-software-settings-select-version]");
+      if (versionButton?.dataset.softwareSettingsSelectVersion) {
+        softwareState.settingsModal.selectedVersionId = versionButton.dataset.softwareSettingsSelectVersion;
+        refreshSoftwareSettingsModal();
+      }
+    });
+  }
 
   softwareSection.addEventListener("click", async (event) => {
     const refreshButton = event.target.closest("#software-refresh-button");
@@ -838,6 +1063,262 @@ async function runSoftwareAction(id, action) {
       renderSoftwareList();
     }
   }
+}
+
+async function openSoftwareInstallPath(id) {
+  if (!id) return;
+  const { response, body } = await fetchJsonWithTimeout(
+    "/software/open-path",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    },
+    10000,
+  );
+  if (!response.ok || !body.status) {
+    throw new Error(body.message || `HTTP ${response.status}`);
+  }
+}
+
+function getSelectedSoftwareSettingsItem() {
+  const { versions, selectedVersionId } = softwareState.settingsModal;
+  return versions.find((item) => item.id == selectedVersionId) || versions[0] || null;
+}
+
+function getSoftwareStateCopy(status) {
+  return status === "running" ? "Start" : "Stop";
+}
+
+function getSoftwarePendingActionLabel(action) {
+  switch (action) {
+    case "start":
+      return "Starting...";
+    case "stop":
+      return "Stopping...";
+    case "restart":
+      return "Restarting...";
+    case "reload":
+      return "Reloading...";
+    default:
+      return "Working...";
+  }
+}
+
+function renderSoftwareSettingsMenu() {
+  const menu = document.getElementById("software-settings-menu");
+  if (!menu) return;
+  menu.innerHTML = SOFTWARE_SETTINGS_SECTIONS
+    .map((section) => {
+      const active = section.id === softwareState.settingsModal.section ? " active" : "";
+      return `<button class="software-settings-menu-item${active}" type="button" data-software-settings-section="${section.id}">${section.label}</button>`;
+    })
+    .join("");
+}
+
+function renderSoftwareServicePanel(item) {
+  const prefs = getSoftwareSettingsPref(item);
+  const pendingAction = softwareState.pendingActions[item.id] || "";
+  const primaryAction = item.status === "running" ? "stop" : "start";
+  const disableSecondary = Boolean(pendingAction) || item.status !== "running";
+
+  return `
+    <section class="software-settings-section">
+      <div class="software-settings-section-head">
+        <div class="software-settings-section-title">Service</div>
+        <div class="software-settings-current">Current state: <strong>${escapeHtml(getSoftwareStateCopy(item.status))}</strong></div>
+      </div>
+      <div class="software-settings-action-row">
+        <button class="software-settings-action-btn" type="button" data-software-settings-action="${primaryAction}" data-software-id="${escapeHtml(item.id)}" ${pendingAction ? "disabled" : ""}>
+          ${escapeHtml(pendingAction === primaryAction ? getSoftwarePendingActionLabel(primaryAction) : (primaryAction === "stop" ? "Stop" : "Start"))}
+        </button>
+        <button class="software-settings-action-btn" type="button" data-software-settings-action="restart" data-software-id="${escapeHtml(item.id)}" ${disableSecondary ? "disabled" : ""}>
+          ${escapeHtml(pendingAction === "restart" ? "Restarting..." : "Restart")}
+        </button>
+        <button class="software-settings-action-btn" type="button" data-software-settings-action="reload" data-software-id="${escapeHtml(item.id)}" ${disableSecondary ? "disabled" : ""}>
+          ${escapeHtml(pendingAction === "reload" ? "Reloading..." : "Reload")}
+        </button>
+      </div>
+      <div class="software-settings-divider"></div>
+      <div class="software-settings-toggle-row">
+        <span class="software-settings-toggle-label">Alert me when status stops</span>
+        <label class="software-display-switch">
+          <input type="checkbox" data-software-settings-toggle="alertOnStop" ${prefs.alertOnStop ? "checked" : ""}>
+          <span class="software-display-slider" aria-hidden="true"></span>
+        </label>
+        <button class="software-settings-link" type="button">Alarm Setting</button>
+      </div>
+      <div class="software-settings-divider"></div>
+      <div class="software-settings-daemon-row">
+        <div class="software-settings-daemon-head">
+          <span class="software-settings-toggle-label">Daemon</span>
+          <label class="software-display-switch">
+            <input type="checkbox" data-software-settings-toggle="daemon" ${prefs.daemon ? "checked" : ""}>
+            <span class="software-display-slider" aria-hidden="true"></span>
+          </label>
+        </div>
+        <ul class="software-settings-notes">
+          <li>Default check every 1 minute, can be changed in Cron.</li>
+          <li>The daemon can be started automatically after the service stops to help keep ${escapeHtml(item.title)} available.</li>
+        </ul>
+      </div>
+    </section>
+  `;
+}
+
+function renderSoftwareConfigPanel(item) {
+  return `
+    <section class="software-settings-section">
+      <div class="software-settings-section-head">
+        <div class="software-settings-section-title">Config file</div>
+        <div class="software-settings-current">Install path</div>
+      </div>
+      <div class="software-settings-card">
+        <div class="software-settings-path">${escapeHtml(item.path || item.id)}</div>
+        <div class="software-settings-inline-actions">
+          <button class="software-settings-link" type="button" data-software-open-path-from-settings="${escapeHtml(item.id)}">Open install path</button>
+          <button class="software-settings-link" type="button" data-software-open-install-from-settings="${escapeHtml(item.title)}">Open updater</button>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function renderSoftwareSwitchVersionPanel(item) {
+  return `
+    <section class="software-settings-section">
+      <div class="software-settings-section-head">
+        <div class="software-settings-section-title">Switch version</div>
+        <div class="software-settings-current">Installed and available versions</div>
+      </div>
+      <div class="software-settings-version-list">
+        ${softwareState.settingsModal.versions.map((version) => `
+          <button
+            class="software-settings-version-item${version.id === item.id ? " active" : ""}"
+            type="button"
+            data-software-settings-select-version="${escapeHtml(version.id)}"
+          >
+            <span>${escapeHtml(version.version)}</span>
+            <span>${escapeHtml(version.installed ? (version.status === "running" ? "Running" : "Installed") : "Available")}</span>
+          </button>
+        `).join("")}
+      </div>
+      <div class="software-settings-inline-actions">
+        <button class="software-settings-link" type="button" data-software-open-install-from-settings="${escapeHtml(item.title)}">Update or install another version</button>
+      </div>
+    </section>
+  `;
+}
+
+function renderSoftwareLoadStatusPanel(item) {
+  return `
+    <section class="software-settings-section">
+      <div class="software-settings-section-head">
+        <div class="software-settings-section-title">Load status</div>
+        <div class="software-settings-current">Runtime summary</div>
+      </div>
+      <div class="software-settings-stats">
+        <div class="software-settings-stat"><span>Status</span><strong>${escapeHtml(item.status === "running" ? "Running" : "Stopped")}</strong></div>
+        <div class="software-settings-stat"><span>Version</span><strong>${escapeHtml(item.version || "--")}</strong></div>
+        <div class="software-settings-stat"><span>Developer</span><strong>${escapeHtml(item.developer || "--")}</strong></div>
+        <div class="software-settings-stat"><span>Expires</span><strong>${escapeHtml(item.expire || "--")}</strong></div>
+      </div>
+    </section>
+  `;
+}
+
+function renderSoftwareOptimizationPanel(item) {
+  return `
+    <section class="software-settings-section">
+      <div class="software-settings-section-head">
+        <div class="software-settings-section-title">Optimization</div>
+        <div class="software-settings-current">Suggested defaults</div>
+      </div>
+      <ul class="software-settings-notes">
+        <li>Keep only the versions you actively use to reduce service clutter.</li>
+        <li>Enable daemon only for runtimes that should recover automatically.</li>
+        <li>Use Reload for lightweight config refreshes and Restart for full process recycling.</li>
+      </ul>
+    </section>
+  `;
+}
+
+function renderSoftwareRunLogsPanel(item) {
+  return `
+    <section class="software-settings-section">
+      <div class="software-settings-section-head">
+        <div class="software-settings-section-title">Run logs</div>
+        <div class="software-settings-current">Quick access</div>
+      </div>
+      <div class="software-settings-card">
+        <p class="software-settings-copy">Runtime-specific log readers are not exposed in this panel yet.</p>
+        <div class="software-settings-inline-actions">
+          <button class="software-settings-link" type="button" data-software-open-path-from-settings="${escapeHtml(item.id)}">Open install path</button>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function renderSoftwareSettingsContent(item) {
+  switch (softwareState.settingsModal.section) {
+    case "config":
+      return renderSoftwareConfigPanel(item);
+    case "switch-version":
+      return renderSoftwareSwitchVersionPanel(item);
+    case "load-status":
+      return renderSoftwareLoadStatusPanel(item);
+    case "optimization":
+      return renderSoftwareOptimizationPanel(item);
+    case "run-logs":
+      return renderSoftwareRunLogsPanel(item);
+    case "service":
+    default:
+      return renderSoftwareServicePanel(item);
+  }
+}
+
+function refreshSoftwareSettingsModal() {
+  const content = document.getElementById("software-settings-content");
+  const title = document.getElementById("software-settings-title");
+  if (!content || !title) return;
+
+  renderSoftwareSettingsMenu();
+  const item = getSelectedSoftwareSettingsItem();
+  if (!item) {
+    closeSoftwareSettingsModal();
+    return;
+  }
+
+  title.textContent = item.title;
+  content.innerHTML = renderSoftwareSettingsContent(item);
+}
+
+function openSoftwareSettingsModal(title) {
+  const allItems = getSoftwareDisplayItems();
+  const versions = allItems
+    .filter((item) => item.title === title && item.installed)
+    .sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true, sensitivity: "base" }));
+  if (!versions.length) return;
+
+  const selected = versions.find((item) => item.status === "running") || versions[0];
+  softwareState.settingsModal = {
+    open: true,
+    title,
+    versions,
+    selectedVersionId: selected.id,
+    section: "service",
+  };
+  refreshSoftwareSettingsModal();
+
+  const modal = document.getElementById("software-settings-modal");
+  if (modal) modal.hidden = false;
+}
+
+function closeSoftwareSettingsModal() {
+  const modal = document.getElementById("software-settings-modal");
+  if (modal) modal.hidden = true;
+  softwareState.settingsModal.open = false;
 }
 
 function openSoftwareInstallModal(title) {
@@ -2360,6 +2841,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
+      closeSoftwareInstallModal();
+      closeSoftwareSettingsModal();
       closeLogModal();
       closeWebsiteCreateModal();
       closeMessagesModal();
