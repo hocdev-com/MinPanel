@@ -10,16 +10,9 @@ MinPanel là một công cụ quản trị hosting (control panel) siêu nhẹ, 
 - **Giao diện Windows Native**: Tray icon nhỏ gọn giúp khởi động/tắt server nhanh chóng và truy cập link quản trị chỉ với một cú click.
 - **Siêu nhẹ & Di động**: Chạy mượt mà dưới dạng ứng dụng standalone, không cần cài đặt phức tạp.
 
-## 📸 Ảnh chụp màn hình
+## 📸 Preview
 
-### Dashboard
-![Dashboard](./assets/screenshots/dashboard.png)
-
-### Quản lý Website
-![Website](./assets/screenshots/website.png)
-
-### Cửa hàng ứng dụng
-![Software](./assets/screenshots/software.png)
+![MinPanel Dashboard](./assets/screenshots/dashboard.png)
 
 ## 🛠️ Công nghệ sử dụng
 
