@@ -60,6 +60,7 @@ When modifying the dashboard layout, follow these synchronized responsive patter
 - **Narrowest Website Table**: On the smallest website breakpoint, keep a real table header instead of switching to card rows. Show only `Site name` and `Operate` so even an empty list still exposes the surviving columns.
 - **Column Shedding Order**: On medium desktop widths, drop `WAF` first, then `Requests`, to protect `Site name` width. After that, when width gets tighter, drop `Quick action`, `SSL`, `Expiration`, then `Backup`, and finally `Status` only at the smallest table breakpoint. Preserve `Site name` as the main flexible column and keep `Operate` visible at the end.
 - **HTTPS Marker**: In Website `Site name`, show HTTPS state as a compact lock icon instead of protocol text. Use green for HTTPS-enabled sites and red for HTTP/no HTTPS sites.
+- **Web Server Runtime Button**: The Website toolbar web-server button must server-render the active `Apache`/`Nginx` label, version, and matching App Store runtime icon before JavaScript loads, so refreshes do not flash the generic `Web Server` state. Clicking the button should open the same two-pane Software Settings modal for the active runtime.
 - **Modal Stacking**: Website create/delete dialogs should switch label-value rows to a single-column stack on narrow screens and make footer actions full width.
 
 ### 5. Software Page Responsive Pattern

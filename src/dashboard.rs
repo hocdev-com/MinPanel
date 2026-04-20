@@ -616,7 +616,7 @@ pub async fn software_page() -> Html<String> {
 pub async fn data(Query(query): Query<DashboardDataQuery>) -> Json<DashboardData> {
     let view = query.view.as_deref().unwrap_or("dashboard");
     let include_websites = matches!(view, "dashboard" | "website");
-    let include_software = matches!(view, "dashboard" | "software");
+    let include_software = matches!(view, "dashboard" | "website" | "software");
     let include_process_snapshot = matches!(view, "dashboard" | "processes");
 
     let mut system = if include_process_snapshot {

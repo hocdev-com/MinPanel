@@ -19,7 +19,7 @@
           </svg>
         </button>
         <button class="website-toolbar-button" type="button">Statistics</button>
-        <button class="website-runtime-button" id="website-web-server-button" data-web-server="{{WEB_SERVER_KIND}}" type="button">
+        <button class="website-runtime-button" id="website-web-server-button" data-web-server="{{WEB_SERVER_KIND}}" data-web-server-title="{{WEB_SERVER_TITLE}}" type="button">
           <span class="website-runtime-icon" id="website-web-server-icon" aria-hidden="true">
             {{WEB_SERVER_ICON}}
           </span>
@@ -133,6 +133,24 @@
         </label>
 
         <span class="website-total" id="website-total-count">Total 0</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="software-settings-modal" id="software-settings-modal" hidden>
+  <div class="software-settings-backdrop" data-software-settings-close></div>
+  <div class="software-settings-panel" role="dialog" aria-modal="true" aria-labelledby="software-settings-title">
+    <button class="panel-close-button panel-close-button--floating software-settings-close" id="software-settings-close" type="button" aria-label="Close settings window"></button>
+    <div class="software-settings-head">
+      <h3 class="software-settings-title" id="software-settings-title">Settings</h3>
+    </div>
+    <div class="software-settings-shell">
+      <aside class="software-settings-sidebar">
+        <nav class="software-settings-menu" id="software-settings-menu"></nav>
+      </aside>
+      <div class="software-settings-main">
+        <div class="software-settings-content" id="software-settings-content"></div>
       </div>
     </div>
   </div>

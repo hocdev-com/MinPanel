@@ -104,6 +104,7 @@ const softwareState = {
 };
 
 let dashboardRefreshPromise = null;
+let softwareSettingsModalControlsBound = false;
 
 function hasPendingSoftwareActions() {
   return Object.keys(softwareState.pendingActions).length > 0;
@@ -1321,6 +1322,79 @@ function closeSoftwareSettingsModal() {
   softwareState.settingsModal.open = false;
 }
 
+function bindSoftwareSettingsModalControls() {
+  if (softwareSettingsModalControlsBound) return;
+  const settingsModal = document.getElementById("software-settings-modal");
+  const settingsClose = document.getElementById("software-settings-close");
+  const settingsMenu = document.getElementById("software-settings-menu");
+  const settingsContent = document.getElementById("software-settings-content");
+  if (!settingsModal || !settingsMenu || !settingsContent) return;
+  softwareSettingsModalControlsBound = true;
+
+  settingsModal.addEventListener("click", (event) => {
+    if (event.target.hasAttribute("data-software-settings-close")) {
+      closeSoftwareSettingsModal();
+    }
+  });
+
+  if (settingsClose) {
+    settingsClose.addEventListener("click", closeSoftwareSettingsModal);
+  }
+
+  settingsMenu.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-software-settings-section]");
+    if (!button) return;
+    softwareState.settingsModal.section = button.dataset.softwareSettingsSection;
+    refreshSoftwareSettingsModal();
+  });
+
+  settingsContent.addEventListener("change", (event) => {
+    const settingsToggle = event.target.closest("[data-software-settings-toggle]");
+    if (!settingsToggle) return;
+    const settingsItem = getSelectedSoftwareSettingsItem();
+    if (!settingsItem) return;
+    setSoftwareSettingsPref(settingsItem, {
+      [settingsToggle.dataset.softwareSettingsToggle]: settingsToggle.checked,
+    });
+    refreshSoftwareSettingsModal();
+  });
+
+  settingsContent.addEventListener("click", async (event) => {
+    const actionButton = event.target.closest("[data-software-settings-action]");
+    if (actionButton) {
+      const id = actionButton.dataset.softwareId;
+      const action = actionButton.dataset.softwareSettingsAction;
+      if (!id || !action || softwareState.pendingActions[id]) return;
+      await runSoftwareAction(id, action);
+      refreshSoftwareSettingsModal();
+      return;
+    }
+
+    const openInstallButton = event.target.closest("[data-software-open-install-from-settings]");
+    if (openInstallButton?.dataset.softwareOpenInstallFromSettings) {
+      closeSoftwareSettingsModal();
+      openSoftwareInstallModal(openInstallButton.dataset.softwareOpenInstallFromSettings);
+      return;
+    }
+
+    const openPathButton = event.target.closest("[data-software-open-path-from-settings]");
+    if (openPathButton?.dataset.softwareOpenPathFromSettings) {
+      try {
+        await openSoftwareInstallPath(openPathButton.dataset.softwareOpenPathFromSettings);
+      } catch (error) {
+        window.alert(error?.message || "Unable to open the install path.");
+      }
+      return;
+    }
+
+    const versionButton = event.target.closest("[data-software-settings-select-version]");
+    if (versionButton?.dataset.softwareSettingsSelectVersion) {
+      softwareState.settingsModal.selectedVersionId = versionButton.dataset.softwareSettingsSelectVersion;
+      refreshSoftwareSettingsModal();
+    }
+  });
+}
+
 function openSoftwareInstallModal(title) {
   const allItems = getSoftwareDisplayItems();
   const versions = allItems
@@ -1538,6 +1612,12 @@ function websiteWebServerIcon(kind) {
   }
 }
 
+function websiteWebServerButtonLabel(webServer) {
+  const label = String(webServer?.label || "Web Server").trim();
+  const version = String(webServer?.version || "").trim();
+  return version ? `${label} ${version}` : label;
+}
+
 function updateWebsiteWebServer(webServer) {
   const button = document.getElementById("website-web-server-button");
   const icon = document.getElementById("website-web-server-icon");
@@ -1547,8 +1627,35 @@ function updateWebsiteWebServer(webServer) {
   const kind = String(webServer?.kind || "").toLowerCase();
   const active = kind === "apache" || kind === "nginx";
   button.dataset.webServer = active ? kind : "generic";
+  button.dataset.webServerTitle = active ? webServer.label : "";
   icon.innerHTML = websiteWebServerIcon(kind);
-  label.textContent = active ? webServer.label : "Web Server";
+  label.textContent = active ? websiteWebServerButtonLabel(webServer) : "Web Server";
+}
+
+function findWebsiteWebServerSoftwareItem() {
+  const button = document.getElementById("website-web-server-button");
+  const kind = String(websiteState.webServer?.kind || button?.dataset.webServer || "").toLowerCase();
+  const title = String(websiteState.webServer?.label || button?.dataset.webServerTitle || "").trim().toLowerCase();
+  if (kind !== "apache" && kind !== "nginx") return null;
+
+  return getSoftwareDisplayItems().find((item) => {
+    if (!item.installed) return false;
+    const itemTitle = String(item.title || "").trim().toLowerCase();
+    const itemName = String(item.name || "").trim().toLowerCase();
+    const itemVisual = String(item.visual || "").trim().toLowerCase();
+    return itemTitle === title || itemName === kind || itemVisual === kind || itemTitle === kind;
+  }) || null;
+}
+
+async function openWebsiteWebServerSettings() {
+  if (!document.getElementById("software-settings-modal")) return;
+  let item = findWebsiteWebServerSoftwareItem();
+  if (!item) {
+    await refreshDashboard();
+    item = findWebsiteWebServerSoftwareItem();
+  }
+  if (!item) return;
+  openSoftwareSettingsModal(item.title);
 }
 
 function websiteActionMenuIcon(kind) {
@@ -2152,6 +2259,12 @@ function closeWebsiteCreateModal() {
 
 function bindWebsiteControls() {
   if (!document.getElementById("website-table-body")) return;
+  bindSoftwareSettingsModalControls();
+  const webServerButton = document.getElementById("website-web-server-button");
+  if (webServerButton) {
+    webServerButton.addEventListener("click", openWebsiteWebServerSettings);
+  }
+
   document.querySelectorAll("[data-project-tab]").forEach((button) => {
     button.addEventListener("click", () => {
       websiteState.project = button.dataset.projectTab;

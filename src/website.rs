@@ -153,7 +153,8 @@ pub async fn website_page() -> Html<String> {
     let content = include_str!("ui/dashboard/website.html")
         .replace("{{WEB_SERVER_KIND}}", &web_server.kind)
         .replace("{{WEB_SERVER_ICON}}", &web_server.icon)
-        .replace("{{WEB_SERVER_LABEL}}", &web_server.label);
+        .replace("{{WEB_SERVER_LABEL}}", &web_server.label)
+        .replace("{{WEB_SERVER_TITLE}}", &web_server.title);
     let page = include_str!("ui/dashboard/layout.html")
         .replace("{{TITLE}}", "MinPanel Website")
         .replace("{{TOPBAR}}", "")
@@ -164,6 +165,7 @@ pub async fn website_page() -> Html<String> {
 struct InitialWebsiteWebServer {
     kind: String,
     label: String,
+    title: String,
     icon: String,
 }
 
@@ -173,14 +175,25 @@ fn initial_website_web_server() -> InitialWebsiteWebServer {
         .and_then(|registry| dashboard::active_web_server_runtime(&registry))
         .map(|web_server| InitialWebsiteWebServer {
             icon: website_web_server_icon(&web_server.kind),
+            label: website_web_server_label(&web_server.label, &web_server.version),
+            title: web_server.label,
             kind: web_server.kind,
-            label: web_server.label,
         })
         .unwrap_or_else(|| InitialWebsiteWebServer {
             kind: "generic".to_string(),
             label: "Web Server".to_string(),
+            title: String::new(),
             icon: default_website_web_server_icon().to_string(),
         })
+}
+
+fn website_web_server_label(label: &str, version: &str) -> String {
+    let version = version.trim();
+    if version.is_empty() {
+        label.to_string()
+    } else {
+        format!("{label} {version}")
+    }
 }
 
 fn website_web_server_icon(kind: &str) -> String {
