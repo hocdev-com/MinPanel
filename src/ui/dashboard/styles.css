@@ -196,7 +196,8 @@ select {
 }
 
 .main {
-  padding: 24px;
+  --main-inline-gap: 24px;
+  padding: 24px var(--main-inline-gap) 0;
   min-width: 0;
 }
 
@@ -3682,11 +3683,14 @@ select {
 }
 
 .edge-span {
-  width: calc(100% + 42px);
+  align-self: stretch;
+  width: auto;
   margin-top: auto;
-  margin-right: -22px;
-  margin-bottom: -28px;
-  margin-left: -20px;
+  margin-right: calc(var(--main-inline-gap) * -1);
+  margin-bottom: 0;
+  margin-left: calc(var(--main-inline-gap) * -1);
+  border-right: 0;
+  border-left: 0;
   border-radius: 0;
   box-shadow: none;
 }
@@ -3830,7 +3834,8 @@ select {
   }
 
   .main {
-    padding: 20px;
+    --main-inline-gap: 20px;
+    padding: var(--main-inline-gap) var(--main-inline-gap) 0;
   }
 
   .website-project-tabs {
@@ -3971,7 +3976,8 @@ select {
   }
 
   .main {
-    padding: 16px;
+    --main-inline-gap: 16px;
+    padding: var(--main-inline-gap) var(--main-inline-gap) 0;
   }
 
   .website-project-tabs {

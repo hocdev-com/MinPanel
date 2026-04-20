@@ -2575,7 +2575,6 @@ function updateAlerts(data) {
   if (!list) return;
   list.innerHTML = `
         <span class="footer-copy">MinPanel Linux panel ©2014-2026 MinPanel</span>
-    <span class="footer-link">(${data.hostname})</span>
     <span class="footer-link">Forum</span>
     <span class="footer-link">Documentation</span>
     <span class="footer-support">Support:</span>

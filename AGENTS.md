@@ -94,3 +94,9 @@ When modifying the dashboard layout, follow these synchronized responsive patter
 - Apache should only enable `Listen 443` and SSL modules when at least one managed site actually has SSL configured, to avoid startup failures from unrelated port `443` conflicts.
 - The default managed website root is `www` under the app base directory unless `MINPANEL_WEBSITE_ROOT` overrides it. Create that directory automatically during runtime resolution so Apache `DocumentRoot` never points to a missing folder.
 - Windows listener parsing belongs in Rust with unit tests in `src/dashboard.rs`; do not rely on one-off verification scripts under `scratch/` for runtime port detection behavior.
+
+### 8. Footer Edge Layout
+- Dashboard footer/alert bars that need to sit at the bottom of the main content should use flex flow with `margin-top: auto`, not fixed positioning.
+- The `.main` container should keep side/top padding but no bottom padding when a bottom edge footer is present, so the footer can touch the viewport bottom without creating extra scroll height.
+- Edge footers should stretch across the `.main` content width and use negative inline margins based on the shared main padding variable; avoid hard-coded pixel offsets such as `-20px`/`-22px` because they leave 1px seams when padding or borders change.
+- Remove left/right borders on full-width edge footers when they must visually touch the dark sidebar and right viewport edge.
