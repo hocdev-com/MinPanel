@@ -2852,6 +2852,10 @@ select {
   align-items: flex-start;
 }
 
+.software-filter-row-stack .software-filter-title {
+  padding-top: 8px;
+}
+
 .software-filter-title {
   min-width: 76px;
   color: #475569;
@@ -2942,24 +2946,24 @@ select {
 .software-category-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 12px;
 }
 
 .software-category-chip {
   height: 30px;
-  padding: 0 12px;
-  border: 1px solid #d6deea;
-  border-radius: 999px;
-  background: #fff;
-  color: #64748b;
-  font-size: 11px;
+  min-width: 54px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 4px;
+  background: #e6e6e6;
+  color: #243244;
+  font-size: 12px;
   cursor: pointer;
 }
 
 .software-category-chip.active {
-  border-color: rgba(32, 165, 58, 0.22);
-  background: rgba(32, 165, 58, 0.08);
-  color: var(--accent);
+  background: var(--accent);
+  color: #fff;
 }
 
 .software-refresh-button {
