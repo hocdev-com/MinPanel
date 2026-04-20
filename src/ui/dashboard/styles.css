@@ -805,17 +805,24 @@ select {
 }
 
 .website-site-protocol {
-  min-width: 48px;
-  height: 22px;
-  padding: 0 8px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  line-height: 1;
+}
+
+.website-site-protocol svg {
+  width: 15px;
+  height: 15px;
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .website-site-protocol.is-http {

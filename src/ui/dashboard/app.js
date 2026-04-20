@@ -1484,7 +1484,16 @@ function getWebsiteView() {
 }
 
 function websiteSiteIcon(sslEnabled) {
-  return `<span class="website-site-protocol ${sslEnabled ? "is-https" : "is-http"}">${sslEnabled ? "HTTPS" : "HTTP"}</span>`;
+  const label = sslEnabled ? "HTTPS enabled" : "HTTPS disabled";
+  return `
+    <span class="website-site-protocol ${sslEnabled ? "is-https" : "is-http"}" role="img" aria-label="${label}" title="${label}">
+      <svg viewBox="0 0 20 20" aria-hidden="true">
+        <rect x="4.5" y="8.3" width="11" height="8.2" rx="1.8"></rect>
+        <path d="M7.2 8.3V6.4a2.8 2.8 0 0 1 5.6 0v1.9"></path>
+        <path d="M10 11.3v2.2"></path>
+      </svg>
+    </span>
+  `;
 }
 
 function websiteStatusIcon(status) {
@@ -1916,7 +1925,7 @@ function renderWebsiteTable() {
             </td>
             <td class="website-site-col" data-label="Site name">
               <div class="website-site-cell">
-                <span class="website-site-icon" aria-hidden="true">${websiteSiteIcon(item.ssl_enabled)}</span>
+                <span class="website-site-icon">${websiteSiteIcon(item.ssl_enabled)}</span>
                 <div class="website-site-meta">
                   <a href="${item.ssl_enabled ? 'https' : 'http'}://${escapeHtml(item.name)}" target="_blank" class="website-site-name ${item.ssl_enabled ? "is-https" : "is-http"}">
                     ${escapeHtml(item.name)}
