@@ -149,11 +149,53 @@ struct SiteTrafficState {
 }
 
 pub async fn website_page() -> Html<String> {
+    let web_server = initial_website_web_server();
+    let content = include_str!("ui/dashboard/website.html")
+        .replace("{{WEB_SERVER_KIND}}", &web_server.kind)
+        .replace("{{WEB_SERVER_ICON}}", &web_server.icon)
+        .replace("{{WEB_SERVER_LABEL}}", &web_server.label);
     let page = include_str!("ui/dashboard/layout.html")
         .replace("{{TITLE}}", "MinPanel Website")
         .replace("{{TOPBAR}}", "")
-        .replace("{{CONTENT}}", include_str!("ui/dashboard/website.html"));
+        .replace("{{CONTENT}}", &content);
     Html(page)
+}
+
+struct InitialWebsiteWebServer {
+    kind: String,
+    label: String,
+    icon: String,
+}
+
+fn initial_website_web_server() -> InitialWebsiteWebServer {
+    dashboard::load_runtime_registry()
+        .ok()
+        .and_then(|registry| dashboard::active_web_server_runtime(&registry))
+        .map(|web_server| InitialWebsiteWebServer {
+            icon: website_web_server_icon(&web_server.kind),
+            kind: web_server.kind,
+            label: web_server.label,
+        })
+        .unwrap_or_else(|| InitialWebsiteWebServer {
+            kind: "generic".to_string(),
+            label: "Web Server".to_string(),
+            icon: default_website_web_server_icon().to_string(),
+        })
+}
+
+fn website_web_server_icon(kind: &str) -> String {
+    match kind {
+        "apache" | "nginx" => format!(r#"<span class="soft-icon-{kind}"></span>"#),
+        _ => default_website_web_server_icon().to_string(),
+    }
+}
+
+fn default_website_web_server_icon() -> &'static str {
+    r#"<svg viewBox="0 0 20 20">
+              <path d="M4.5 13.5c2-4 5-7.1 9-9.5"></path>
+              <path d="M6.2 15c3.3-1.4 6.3-2 9.3-2"></path>
+              <path d="M12.2 4.2c-.4 1.8 0 4.3 1.3 6.3"></path>
+            </svg>"#
 }
 
 pub async fn create_website_site(

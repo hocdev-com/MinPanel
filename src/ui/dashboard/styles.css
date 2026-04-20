@@ -611,10 +611,27 @@ select {
   color: #d14f4f;
 }
 
+.website-runtime-button[data-web-server="nginx"] {
+  color: #20a53a;
+}
+
+.website-runtime-button[data-web-server="generic"] {
+  color: #64748b;
+}
+
 .website-runtime-icon {
+  width: 18px;
+  height: 18px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: 0 0 18px;
+}
+
+.website-runtime-icon .soft-icon-apache,
+.website-runtime-icon .soft-icon-nginx {
+  width: 18px;
+  height: 18px;
 }
 
 .website-select,

@@ -36,9 +36,15 @@ pub fn routes() -> Router {
         )
         .route("/software/start", post(dashboard::start_software_package))
         .route("/software/stop", post(dashboard::stop_software_package))
-        .route("/software/restart", post(dashboard::restart_software_package))
+        .route(
+            "/software/restart",
+            post(dashboard::restart_software_package),
+        )
         .route("/software/reload", post(dashboard::reload_software_package))
-        .route("/software/open-path", post(dashboard::open_software_install_path))
+        .route(
+            "/software/open-path",
+            post(dashboard::open_software_install_path),
+        )
         .route(
             "/software/uninstall",
             post(dashboard::uninstall_software_package),

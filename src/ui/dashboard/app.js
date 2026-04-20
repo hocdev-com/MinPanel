@@ -70,6 +70,7 @@ const websiteState = {
   batchMenuOpen: false,
   batchPending: false,
   phpRuntimes: [],
+  webServer: null,
   websiteRoot: "",
   openMenuId: null,
   menuPosition: null,
@@ -1527,6 +1528,29 @@ function websiteQuickIcon(kind) {
   }
 }
 
+function websiteWebServerIcon(kind) {
+  switch (kind) {
+    case "apache":
+    case "nginx":
+      return softwareVisual(kind, { name: kind, title: kind });
+    default:
+      return '<svg viewBox="0 0 20 20"><path d="M4 5.5h12v9H4z"></path><path d="M7 8.5h6"></path><path d="M7 11.5h6"></path></svg>';
+  }
+}
+
+function updateWebsiteWebServer(webServer) {
+  const button = document.getElementById("website-web-server-button");
+  const icon = document.getElementById("website-web-server-icon");
+  const label = document.getElementById("website-web-server-label");
+  if (!button || !icon || !label) return;
+
+  const kind = String(webServer?.kind || "").toLowerCase();
+  const active = kind === "apache" || kind === "nginx";
+  button.dataset.webServer = active ? kind : "generic";
+  icon.innerHTML = websiteWebServerIcon(kind);
+  label.textContent = active ? webServer.label : "Web Server";
+}
+
 function websiteActionMenuIcon(kind) {
   switch (kind) {
     case "security":
@@ -2490,6 +2514,8 @@ function updateOverview(data) {
   softwareState.items = Array.isArray(data.software_plugins) ? data.software_plugins : [];
   clearSoftwareOptimisticStateIfConfirmed(softwareState.items);
   websiteState.phpRuntimes = Array.isArray(data.php_runtimes) ? data.php_runtimes : [];
+  websiteState.webServer = data.web_server || null;
+  updateWebsiteWebServer(websiteState.webServer);
   if (softwareState.category !== "All" && softwareState.category !== "Installed") {
     const hasCategory = softwareState.categories.some((entry) => entry.title === softwareState.category)
       || softwareState.items.some((entry) => entry.category === softwareState.category);

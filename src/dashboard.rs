@@ -93,6 +93,7 @@ pub struct DashboardData {
     warning_count: usize,
     websites: Vec<website::WebsiteEntry>,
     php_runtimes: Vec<PhpRuntimeOption>,
+    web_server: Option<WebServerRuntime>,
     software_types: Vec<SoftwareTypeEntry>,
     software_plugins: Vec<SoftwarePluginEntry>,
     workspace_root: String,
@@ -483,6 +484,14 @@ pub struct PhpRuntimeOption {
     version: String,
 }
 
+#[derive(Serialize, Clone)]
+pub struct WebServerRuntime {
+    pub(crate) kind: String,
+    pub(crate) label: String,
+    pub(crate) version: String,
+    pub(crate) status: String,
+}
+
 #[derive(Deserialize)]
 struct PluginStoreFile {
     #[serde(default)]
@@ -639,6 +648,11 @@ pub async fn data(Query(query): Query<DashboardDataQuery>) -> Json<DashboardData
     } else {
         Vec::new()
     };
+    let web_server = if include_websites {
+        active_web_server_runtime(&registry)
+    } else {
+        None
+    };
     let websites = if include_websites {
         website::collect_websites(&registry)
     } else {
@@ -710,6 +724,7 @@ pub async fn data(Query(query): Query<DashboardDataQuery>) -> Json<DashboardData
         warning_count: alerts.len(),
         websites,
         php_runtimes,
+        web_server,
         software_types,
         software_plugins,
         workspace_root,
@@ -754,7 +769,7 @@ pub async fn install_software_package(
 ) -> Json<OperationStatus> {
     let task_id = uuid::Uuid::new_v4().to_string();
     let plugin_id = request.id.clone();
-    
+
     // Create task entry
     {
         if let Ok(mut tasks) = get_task_manager().lock() {
@@ -1323,6 +1338,32 @@ fn registry_php_options(registry: &RuntimeRegistry) -> Vec<PhpRuntimeOption> {
     options
 }
 
+pub(crate) fn active_web_server_runtime(registry: &RuntimeRegistry) -> Option<WebServerRuntime> {
+    ["apache", "nginx"].iter().find_map(|kind| {
+        registry
+            .entries
+            .iter()
+            .filter(|entry| entry.runtime_kind == *kind && is_runtime_entry_ready(entry))
+            .max_by_key(|entry| (entry.state == "running", entry.version.clone()))
+            .filter(|entry| entry.state == "running")
+            .map(|entry| WebServerRuntime {
+                kind: (*kind).to_string(),
+                label: web_server_runtime_label(kind),
+                version: entry.version.clone(),
+                status: entry.state.clone(),
+            })
+    })
+}
+
+fn web_server_runtime_label(kind: &str) -> String {
+    match kind {
+        "apache" => "Apache",
+        "nginx" => "Nginx",
+        _ => "Web Server",
+    }
+    .to_string()
+}
+
 fn build_runtime_id(name: &str, version: &str, runtime_kind: &str) -> String {
     format!("{}-{}-{}", slugify(name, '-'), slugify(version, '-'), slugify(runtime_kind, '-'))
 }
@@ -1654,10 +1695,10 @@ async fn download_plugin_package(plugin_id: &str) -> Result<PathBuf, String> {
 async fn install_plugin_package(plugin_id: &str, task_id: &str) -> Result<String, String> {
     let data_base_dir = resolve_data_base_dir()
         .ok_or_else(|| "Unable to resolve application directory".to_string())?;
-    
+
     let (_plugin, _version_entry, version, runtime_kind) =
         resolve_plugin_definition(plugin_id).await?;
-    
+
     let php_port = if runtime_kind == "php" {
         Some(php_fastcgi_port(&version))
     } else {
@@ -1709,7 +1750,7 @@ async fn install_plugin_package(plugin_id: &str, task_id: &str) -> Result<String
     }
     fs::create_dir_all(&install_root)
         .map_err(|error| format!("Failed to create install directory: {error}"))?;
-    
+
     update_task_log(task_id, "0% giải nén tệp .zip");
     if let Err(error) =
         extract_plugin_package_archive(&bundle.package_file, &install_root, &bundle.runtime_kind)
@@ -1748,7 +1789,7 @@ async fn install_plugin_package(plugin_id: &str, task_id: &str) -> Result<String
         let mut contents = Vec::new();
         if let Ok(entries) = fs::read_dir(&install_root) {
             for entry in entries.flatten() {
-                 contents.push(entry.file_name().to_string_lossy().to_string());
+                contents.push(entry.file_name().to_string_lossy().to_string());
             }
         }
         let dir_info = if contents.is_empty() { " (directory is empty)".to_string() } else { format!(": [{}]", contents.join(", ")) };
@@ -1912,13 +1953,13 @@ async fn download_url_to_path_with_task(
     let mut last_percent = 0;
 
     let mut file = File::create(target_path).await.map_err(|e| format!("Failed to create file: {e}"))?;
-    
+
     update_task_log(task_id, "0% tải xuống tệp .zip");
 
     while let Some(chunk) = response.chunk().await.map_err(|e| format!("Error downloading: {e}"))? {
         downloaded += chunk.len() as u64;
         file.write_all(&chunk).await.map_err(|e| format!("Error writing: {e}"))?;
-        
+
         if total_size > 0 {
             let percent = (downloaded * 100 / total_size) as u32;
             if percent >= last_percent + 5 || percent == 100 {
@@ -3698,13 +3739,13 @@ pub(crate) fn resolve_data_base_dir() -> Option<PathBuf> {
     } else {
         env::current_dir().ok()?
     };
-    
+
     // Only log once to avoid flooding console during polling
     static LOGGED: OnceLock<()> = OnceLock::new();
     LOGGED.get_or_init(|| {
         println!("[System] Data base directory resolved to: {}", base.display());
     });
-    
+
     Some(base)
 }
 

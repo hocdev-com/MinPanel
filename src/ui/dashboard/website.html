@@ -19,15 +19,11 @@
           </svg>
         </button>
         <button class="website-toolbar-button" type="button">Statistics</button>
-        <button class="website-runtime-button" type="button">
-          <span class="website-runtime-icon" aria-hidden="true">
-            <svg viewBox="0 0 20 20">
-              <path d="M4.5 13.5c2-4 5-7.1 9-9.5"></path>
-              <path d="M6.2 15c3.3-1.4 6.3-2 9.3-2"></path>
-              <path d="M12.2 4.2c-.4 1.8 0 4.3 1.3 6.3"></path>
-            </svg>
+        <button class="website-runtime-button" id="website-web-server-button" data-web-server="{{WEB_SERVER_KIND}}" type="button">
+          <span class="website-runtime-icon" id="website-web-server-icon" aria-hidden="true">
+            {{WEB_SERVER_ICON}}
           </span>
-          <span>Web Server</span>
+          <span id="website-web-server-label">{{WEB_SERVER_LABEL}}</span>
         </button>
       </div>
 

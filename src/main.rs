@@ -59,7 +59,10 @@ pub(crate) fn app_router() -> Router {
             axum::routing::get(dashboard_script),
         )
         .route("/favicon.ico", axum::routing::get(dashboard_favicon_ico))
-        .route("/assets/dashboard/favicon.png", axum::routing::get(dashboard_favicon))
+        .route(
+            "/assets/dashboard/favicon.png",
+            axum::routing::get(dashboard_favicon),
+        )
         .layer(CorsLayer::permissive())
 }
 
@@ -133,10 +136,7 @@ async fn dashboard_script() -> impl IntoResponse {
 
 async fn dashboard_favicon() -> impl IntoResponse {
     (
-        [(
-            header::CONTENT_TYPE,
-            HeaderValue::from_static("image/png"),
-        )],
+        [(header::CONTENT_TYPE, HeaderValue::from_static("image/png"))],
         include_bytes!("ui/dashboard/favicon.png").as_slice(),
     )
 }
