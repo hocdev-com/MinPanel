@@ -66,4 +66,6 @@ pub fn routes() -> Router {
         .route("/process/kill", post(process::kill))
         .route("/files/read", post(file::read))
         .route("/files/write", post(file::write))
+        .route("/files/directories", post(file::list_directories))
+        .route("/files/directories/create", post(file::create_directory))
 }

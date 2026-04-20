@@ -72,6 +72,17 @@ const websiteState = {
   phpRuntimes: [],
   webServer: null,
   websiteRoot: "",
+  directoryPicker: {
+    open: false,
+    root: "",
+    current: "",
+    parent: "",
+    selected: "",
+    entries: [],
+    search: "",
+    loading: false,
+    error: "",
+  },
   openMenuId: null,
   menuPosition: null,
   pendingActions: {},
@@ -2325,6 +2336,196 @@ function syncWebsiteCreatePathFromDomain(force = false) {
   }
 }
 
+function getDirectoryPathName(path) {
+  const parts = String(path || "").split(/[\\/]+/).filter(Boolean);
+  return parts[parts.length - 1] || "Root dir";
+}
+
+function getDirectoryPathSeparator(path) {
+  return String(path || "").includes("\\") ? "\\" : "/";
+}
+
+function joinDirectoryPath(base, segment) {
+  const separator = getDirectoryPathSeparator(base);
+  return `${String(base || "").replace(/[\\/]+$/, "")}${separator}${segment}`;
+}
+
+function formatDirectoryModifiedTime(modifiedMs) {
+  const date = new Date(Number(modifiedMs) || 0);
+  if (!Number.isFinite(date.getTime()) || date.getTime() <= 0) return "--";
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
+function buildDirectoryBreadcrumbs(root, current) {
+  if (!root || !current) return [];
+  const normalizedRoot = String(root).replace(/[\\/]+$/, "");
+  const normalizedCurrent = String(current).replace(/[\\/]+$/, "");
+  let relative = "";
+  if (normalizedCurrent.toLowerCase().startsWith(normalizedRoot.toLowerCase())) {
+    relative = normalizedCurrent.slice(normalizedRoot.length).replace(/^[\\/]+/, "");
+  }
+  const crumbs = [{ label: "Root dir", path: root }];
+  let cursor = root;
+  relative.split(/[\\/]+/).filter(Boolean).forEach((segment) => {
+    cursor = joinDirectoryPath(cursor, segment);
+    crumbs.push({ label: segment, path: cursor });
+  });
+  return crumbs;
+}
+
+function renderWebsiteDirectoryPicker() {
+  const picker = websiteState.directoryPicker;
+  const modal = document.getElementById("website-directory-modal");
+  const backButton = document.getElementById("website-directory-back");
+  const breadcrumbs = document.getElementById("website-directory-breadcrumbs");
+  const rootLabel = document.getElementById("website-directory-root-label");
+  const search = document.getElementById("website-directory-search");
+  const selection = document.getElementById("website-directory-selection");
+  const tbody = document.getElementById("website-directory-table-body");
+  if (!modal || !backButton || !breadcrumbs || !search || !selection || !tbody) return;
+
+  modal.hidden = !picker.open;
+  if (rootLabel) rootLabel.textContent = "/ 40G";
+  backButton.disabled = !picker.parent || picker.loading;
+  search.value = picker.search;
+  selection.value = picker.selected || picker.current || picker.root || "";
+
+  breadcrumbs.innerHTML = buildDirectoryBreadcrumbs(picker.root, picker.current)
+    .map((crumb) => `
+      <button class="website-directory-breadcrumb" type="button" data-website-directory-path="${escapeHtml(crumb.path)}">
+        <span>${escapeHtml(crumb.label)}</span>
+      </button>
+    `)
+    .join("");
+
+  if (picker.loading) {
+    tbody.innerHTML = '<tr><td class="website-directory-empty" colspan="3">Loading...</td></tr>';
+    return;
+  }
+  if (picker.error) {
+    tbody.innerHTML = `<tr><td class="website-directory-empty" colspan="3">${escapeHtml(picker.error)}</td></tr>`;
+    return;
+  }
+
+  const query = picker.search.trim().toLowerCase();
+  const entries = picker.entries.filter((entry) => !query || String(entry.name).toLowerCase().includes(query));
+  if (!entries.length) {
+    tbody.innerHTML = '<tr><td class="website-directory-empty" colspan="3">No directory</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = entries
+    .map((entry) => {
+      const active = entry.path === picker.selected ? " active" : "";
+      return `
+        <tr class="website-directory-row${active}" data-website-directory-path="${escapeHtml(entry.path)}">
+          <td>
+            <span class="website-directory-name">
+              <span class="website-directory-folder" aria-hidden="true"></span>
+              <span>${escapeHtml(entry.name)}</span>
+            </span>
+          </td>
+          <td>${escapeHtml(formatDirectoryModifiedTime(entry.modified_ms))}</td>
+          <td>${escapeHtml(entry.permissions || "755 / www")}</td>
+        </tr>
+      `;
+    })
+    .join("");
+}
+
+async function loadWebsiteDirectory(path, allowFallback = true) {
+  const picker = websiteState.directoryPicker;
+  picker.loading = true;
+  picker.error = "";
+  renderWebsiteDirectoryPicker();
+
+  try {
+    const { response, body } = await fetchJsonWithTimeout(
+      "/files/directories",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: path || "" }),
+      },
+      10000,
+    );
+    if (!response.ok || !body.status) {
+      throw new Error(body.message || `HTTP ${response.status}`);
+    }
+    picker.root = body.root || picker.root || getWebsiteDefaultRoot();
+    picker.current = body.current || picker.root;
+    picker.parent = body.parent || "";
+    picker.entries = Array.isArray(body.entries) ? body.entries : [];
+    picker.selected = picker.selected || picker.current;
+    picker.loading = false;
+    picker.error = "";
+    renderWebsiteDirectoryPicker();
+  } catch (error) {
+    const fallback = getWebsiteDefaultRoot();
+    if (allowFallback && fallback && path && path !== fallback) {
+      picker.selected = fallback;
+      await loadWebsiteDirectory(fallback, false);
+      return;
+    }
+    picker.loading = false;
+    picker.error = error?.message || "Unable to load directories";
+    renderWebsiteDirectoryPicker();
+  }
+}
+
+function openWebsiteDirectoryPicker() {
+  const modal = document.getElementById("website-directory-modal");
+  const pathInput = document.getElementById("website-create-path");
+  if (!modal || !pathInput) return;
+  const initialPath = pathInput.value.trim() || getWebsiteDefaultRoot();
+  websiteState.directoryPicker = {
+    open: true,
+    root: getWebsiteDefaultRoot(),
+    current: initialPath,
+    parent: "",
+    selected: initialPath,
+    entries: [],
+    search: "",
+    loading: false,
+    error: "",
+  };
+  renderWebsiteDirectoryPicker();
+  loadWebsiteDirectory(initialPath);
+}
+
+function closeWebsiteDirectoryPicker() {
+  websiteState.directoryPicker.open = false;
+  renderWebsiteDirectoryPicker();
+}
+
+async function createWebsiteDirectoryFromPicker() {
+  const picker = websiteState.directoryPicker;
+  if (!picker.current || picker.loading) return;
+  const name = window.prompt("Directory name");
+  if (name === null) return;
+  const trimmed = name.trim();
+  if (!trimmed) return;
+  try {
+    const { response, body } = await fetchJsonWithTimeout(
+      "/files/directories/create",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ parent_path: picker.current, name: trimmed }),
+      },
+      10000,
+    );
+    if (!response.ok || !body.status) {
+      throw new Error(body.message || `HTTP ${response.status}`);
+    }
+    picker.selected = body.path || joinDirectoryPath(picker.current, trimmed);
+    await loadWebsiteDirectory(picker.current, false);
+  } catch (error) {
+    window.alert(error?.message || "Unable to create directory");
+  }
+}
+
 function openWebsiteCreateModal() {
   const modal = document.getElementById("website-create-modal");
   const domainInput = document.getElementById("website-create-domain");
@@ -2522,6 +2723,10 @@ function bindWebsiteControls() {
   }, true);
 
   document.addEventListener("keydown", (event) => {
+    if (websiteState.directoryPicker.open && event.key === "Escape") {
+      closeWebsiteDirectoryPicker();
+      return;
+    }
     if (!websiteState.deleteDialog.open) return;
     if (event.key === "Escape") {
       closeWebsiteDeleteModal();
@@ -2568,6 +2773,17 @@ function bindWebsiteControls() {
   const createDomain = document.getElementById("website-create-domain");
   const createPath = document.getElementById("website-create-path");
   const createPathReset = document.getElementById("website-create-path-reset");
+  const directoryModal = document.getElementById("website-directory-modal");
+  const directoryClose = document.getElementById("website-directory-close");
+  const directoryCancel = document.getElementById("website-directory-cancel");
+  const directoryConfirm = document.getElementById("website-directory-confirm");
+  const directoryBack = document.getElementById("website-directory-back");
+  const directoryRefresh = document.getElementById("website-directory-refresh");
+  const directoryRoot = document.getElementById("website-directory-root");
+  const directorySearch = document.getElementById("website-directory-search");
+  const directoryNewFolder = document.getElementById("website-directory-new-folder");
+  const directoryBreadcrumbs = document.getElementById("website-directory-breadcrumbs");
+  const directoryTableBody = document.getElementById("website-directory-table-body");
   const deleteModal = document.getElementById("website-delete-modal");
   const deleteClose = document.getElementById("website-delete-close");
   const deleteCancel = document.getElementById("website-delete-cancel");
@@ -2654,7 +2870,79 @@ function bindWebsiteControls() {
     });
   }
   if (createPathReset) {
-    createPathReset.addEventListener("click", () => syncWebsiteCreatePathFromDomain(true));
+    createPathReset.addEventListener("click", openWebsiteDirectoryPicker);
+  }
+  if (directoryClose) directoryClose.addEventListener("click", closeWebsiteDirectoryPicker);
+  if (directoryCancel) directoryCancel.addEventListener("click", closeWebsiteDirectoryPicker);
+  if (directoryConfirm) {
+    directoryConfirm.addEventListener("click", () => {
+      const pathInput = document.getElementById("website-create-path");
+      const selected = websiteState.directoryPicker.selected || websiteState.directoryPicker.current;
+      if (pathInput && selected) {
+        pathInput.value = selected;
+        pathInput.dataset.autoPath = "false";
+      }
+      closeWebsiteDirectoryPicker();
+    });
+  }
+  if (directoryBack) {
+    directoryBack.addEventListener("click", () => {
+      const parent = websiteState.directoryPicker.parent;
+      if (parent) {
+        websiteState.directoryPicker.selected = parent;
+        loadWebsiteDirectory(parent, false);
+      }
+    });
+  }
+  if (directoryRefresh) {
+    directoryRefresh.addEventListener("click", () => loadWebsiteDirectory(websiteState.directoryPicker.current, false));
+  }
+  if (directoryRoot) {
+    directoryRoot.addEventListener("click", () => {
+      const root = websiteState.directoryPicker.root || getWebsiteDefaultRoot();
+      websiteState.directoryPicker.selected = root;
+      loadWebsiteDirectory(root, false);
+    });
+  }
+  if (directorySearch) {
+    directorySearch.addEventListener("input", (event) => {
+      websiteState.directoryPicker.search = event.target.value;
+      renderWebsiteDirectoryPicker();
+    });
+  }
+  if (directoryNewFolder) {
+    directoryNewFolder.addEventListener("click", createWebsiteDirectoryFromPicker);
+  }
+  if (directoryBreadcrumbs) {
+    directoryBreadcrumbs.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-website-directory-path]");
+      if (!button) return;
+      const path = button.dataset.websiteDirectoryPath;
+      websiteState.directoryPicker.selected = path;
+      loadWebsiteDirectory(path, false);
+    });
+  }
+  if (directoryTableBody) {
+    directoryTableBody.addEventListener("click", (event) => {
+      const row = event.target.closest("[data-website-directory-path]");
+      if (!row) return;
+      websiteState.directoryPicker.selected = row.dataset.websiteDirectoryPath;
+      renderWebsiteDirectoryPicker();
+    });
+    directoryTableBody.addEventListener("dblclick", (event) => {
+      const row = event.target.closest("[data-website-directory-path]");
+      if (!row) return;
+      const path = row.dataset.websiteDirectoryPath;
+      websiteState.directoryPicker.selected = path;
+      loadWebsiteDirectory(path, false);
+    });
+  }
+  if (directoryModal) {
+    directoryModal.addEventListener("click", (event) => {
+      if (event.target.hasAttribute("data-website-directory-close")) {
+        closeWebsiteDirectoryPicker();
+      }
+    });
   }
   if (createForm) {
     createForm.addEventListener("submit", async (event) => {

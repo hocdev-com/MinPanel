@@ -261,6 +261,72 @@
   </div>
 </section>
 
+<section class="website-directory-modal" id="website-directory-modal" hidden>
+  <div class="website-directory-backdrop" data-website-directory-close></div>
+  <div class="website-directory-panel" role="dialog" aria-modal="true" aria-labelledby="website-directory-title">
+    <button class="panel-close-button panel-close-button--floating website-directory-close" id="website-directory-close" type="button" aria-label="Close directory selector"></button>
+    <div class="website-directory-head">
+      <h3 id="website-directory-title">Select directory</h3>
+    </div>
+    <div class="website-directory-toolbar">
+      <button class="website-directory-nav" id="website-directory-back" type="button" aria-label="Back to parent directory">
+        <svg viewBox="0 0 20 20" aria-hidden="true">
+          <path d="M12.5 5.5 8 10l4.5 4.5"></path>
+        </svg>
+      </button>
+      <div class="website-directory-breadcrumbs" id="website-directory-breadcrumbs"></div>
+      <button class="website-directory-refresh" id="website-directory-refresh" type="button" aria-label="Refresh directory">
+        <svg viewBox="0 0 20 20" aria-hidden="true">
+          <path d="M15.5 9.2a5.5 5.5 0 1 0-1.4 4.1"></path>
+          <path d="M15.5 5.5v3.7h-3.7"></path>
+        </svg>
+      </button>
+      <label class="website-directory-search">
+        <span class="sr-only">Search file or directory</span>
+        <input id="website-directory-search" type="search" placeholder="Search file/directory" />
+        <svg viewBox="0 0 20 20" aria-hidden="true">
+          <circle cx="9" cy="9" r="5.5"></circle>
+          <path d="M13 13l3.5 3.5"></path>
+        </svg>
+      </label>
+    </div>
+    <div class="website-directory-actions">
+      <button class="website-directory-secondary" type="button" disabled>New File</button>
+      <button class="website-directory-secondary" id="website-directory-new-folder" type="button">New Directory</button>
+    </div>
+    <div class="website-directory-body">
+      <aside class="website-directory-side">
+        <button class="website-directory-root" id="website-directory-root" type="button">
+          <span class="website-directory-drive" aria-hidden="true"></span>
+          <span id="website-directory-root-label">/ 40G</span>
+        </button>
+      </aside>
+      <div class="website-directory-main">
+        <table class="website-directory-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Modification time</th>
+              <th>Permissions/Owner</th>
+            </tr>
+          </thead>
+          <tbody id="website-directory-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="website-directory-foot">
+      <label class="website-directory-current">
+        <span>Current selection:</span>
+        <input id="website-directory-selection" type="text" readonly />
+      </label>
+      <div class="website-directory-foot-actions">
+        <button class="website-directory-cancel" id="website-directory-cancel" type="button">Cancel</button>
+        <button class="website-directory-confirm" id="website-directory-confirm" type="button">Confirm</button>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section class="website-delete-modal" id="website-delete-modal" hidden>
   <div class="website-delete-backdrop" data-website-delete-close></div>
   <div class="website-delete-panel" role="dialog" aria-modal="true" aria-labelledby="website-delete-title">
