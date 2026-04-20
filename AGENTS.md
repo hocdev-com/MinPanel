@@ -66,7 +66,7 @@ When modifying the dashboard layout, follow these synchronized responsive patter
 - **Software Empty State**: The software empty row must use a dynamic `colspan` that matches the currently visible columns, so the message stays centered after responsive column shedding.
 - **Software Name Priority**: Let `App Name` take the flexible width on mobile and keep `Operate` as a tight trailing column.
 - **No Horizontal Scroll**: Do not rely on horizontal scrolling for the software table on tablet/mobile widths. Remove the large fixed table minimum and shed columns progressively instead.
-- **Software Column Shedding Order**: Hide `Instructions` and `Expire Time` first, then `Developer` and `Location`, then `Price`, and only at the smallest breakpoint hide `Status` so the table ends at `App Name + Operate`.
+- **Software Column Shedding Order**: Do not show an `Expire date` column in App Store. Hide `Instructions` first, then `Developer` and `Location`, then `Price`, and only at the smallest breakpoint hide `Status` so the table ends at `App Name + Operate`.
 - **Software Display Toggle**: Keep the `Display` toggle column visible together with `Status` on desktop/tablet widths so operators can control the dashboard summary directly from the table; hide both only at the smallest breakpoint where the table collapses to `App Name + Operate`.
 - **Software Secondary Actions**: Place `Update App List` inside the `Recently visited plugin` card, aligned to the right of that info strip instead of inside the filter rows.
 - **Recently Strip Layout**: Keep the `Recently plugin` content and its right-side action on the same row when shrinking; let the text side compress first instead of dropping the action to a new line.

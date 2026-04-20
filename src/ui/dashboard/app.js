@@ -649,7 +649,7 @@ function getSoftwareVisibleColumnCount() {
   if (width <= 900) return 4;
   if (width <= 1180) return 5;
   if (width <= 1400) return 7;
-  return 9;
+  return 8;
 }
 
 function renderOverviewStats(data) {
@@ -729,7 +729,6 @@ function renderSoftwareList() {
             <td class="software-developer software-developer-col">${escapeHtml(item.developer)}</td>
             <td class="software-description software-description-col">${escapeHtml(item.description)}</td>
             <td class="software-price-col"><span class="software-price${priceClass}">${escapeHtml(formatSoftwarePrice(item.price))}</span></td>
-            <td class="software-expire-col">${escapeHtml(item.expire || "--")}</td>
             <td class="software-location-col">${location}</td>
             <td class="software-status-col">
               ${item.countInstalled > 0

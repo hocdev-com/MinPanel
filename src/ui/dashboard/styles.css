@@ -3346,11 +3346,8 @@ select {
 
 @media (max-width: 1400px) {
   .software-description-col,
-  .software-expire-col,
   .software-table th.software-description-col,
-  .software-table td.software-description-col,
-  .software-table th.software-expire-col,
-  .software-table td.software-expire-col {
+  .software-table td.software-description-col {
     display: none;
   }
 
@@ -3426,7 +3423,6 @@ select {
   .software-developer-col,
   .software-description-col,
   .software-price-col,
-  .software-expire-col,
   .software-location-col,
   .software-status-col,
   .software-display-col,
@@ -3436,8 +3432,6 @@ select {
   .software-table td.software-description-col,
   .software-table th.software-price-col,
   .software-table td.software-price-col,
-  .software-table th.software-expire-col,
-  .software-table td.software-expire-col,
   .software-table th.software-location-col,
   .software-table td.software-location-col,
   .software-table th.software-status-col,
