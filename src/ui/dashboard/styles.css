@@ -2053,7 +2053,7 @@ select {
 
 .software-settings-modal {
   position: fixed;
-  inset: 0;
+  inset: 0 0 0 204px;
   z-index: 82;
   display: flex;
   align-items: center;
@@ -2070,11 +2070,12 @@ select {
 
 .software-settings-panel {
   position: relative;
-  width: min(1080px, 100%);
-  min-height: min(680px, calc(100vh - 32px));
+  width: min(800px, 100%);
+  height: min(650px, calc(100vh - 32px));
+  min-height: 0;
   max-height: calc(100vh - 32px);
   background: #ffffff;
-  border-radius: 14px;
+  border-radius: 8px;
   box-shadow: 0 26px 60px rgba(15, 23, 42, 0.22);
   overflow: visible;
   animation: software-modal-in 0.28s ease-out;
@@ -2090,7 +2091,7 @@ select {
 .software-settings-head {
   padding: 18px 24px 16px;
   border-bottom: 1px solid #edf2f7;
-  border-radius: 14px 14px 0 0;
+  border-radius: 8px 8px 0 0;
 }
 
 .software-settings-title {
@@ -2110,8 +2111,8 @@ select {
 .software-settings-sidebar {
   border-right: 1px solid #eef2f6;
   background: #f6f7f9;
-  border-radius: 0 0 0 14px;
-  padding: 10px 0;
+  border-radius: 0 0 0 8px;
+  padding: 0 0 10px;
 }
 
 .software-settings-menu {
@@ -2141,8 +2142,8 @@ select {
 
 .software-settings-main {
   min-width: 0;
-  padding: 14px 16px 18px;
-  border-radius: 0 0 14px 0;
+  padding: 8px 16px 18px;
+  border-radius: 0 0 8px 0;
   overflow: auto;
 }
 
@@ -2345,7 +2346,8 @@ select {
 
 @media (max-width: 900px) {
   .software-settings-panel {
-    min-height: min(760px, calc(100vh - 24px));
+    height: min(650px, calc(100vh - 24px));
+    min-height: 0;
     max-height: calc(100vh - 24px);
   }
 
@@ -2382,6 +2384,12 @@ select {
 
   .software-settings-main {
     padding: 14px 14px 18px;
+  }
+}
+
+@media (max-width: 768px) {
+  .software-settings-modal {
+    inset: 0 0 0 74px;
   }
 }
 

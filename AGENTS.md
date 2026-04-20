@@ -71,6 +71,7 @@ When modifying the dashboard layout, follow these synchronized responsive patter
 - **Software Secondary Actions**: Place `Update App List` inside the `Recently visited plugin` card, aligned to the right of that info strip instead of inside the filter rows.
 - **Recently Strip Layout**: Keep the `Recently plugin` content and its right-side action on the same row when shrinking; let the text side compress first instead of dropping the action to a new line.
 - **Software Settings Modal**: Keep `Setting` separate from the install/update version picker. It should open a dedicated two-pane modal with aaPanel-style left navigation and a service panel (`Stop`, `Restart`, `Reload`, alert toggle, daemon toggle); collapse the sidebar into wrapped chips on narrow screens instead of merging it back into the install modal.
+- **Software Settings Frame**: Match aaPanel's compact manager sizing for the settings dialog (`800px` wide by `650px` tall on desktop) and keep the overlay centered inside the main content area. The settings overlay must start after the left sidebar (`204px` desktop, `74px` compact sidebar) so responsive states never cover the dark menu.
 
 ### 6. Shared Close Button Pattern
 - **Universal `X` Button**: Any dashboard/modal/dialog close button must use the shared circular close-button pattern, not a plain text `×`.
