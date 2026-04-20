@@ -19,12 +19,13 @@
           </svg>
         </button>
         <button class="website-toolbar-button" type="button">Statistics</button>
-        <button class="website-runtime-button" id="website-web-server-button" data-web-server="{{WEB_SERVER_KIND}}" data-web-server-title="{{WEB_SERVER_TITLE}}" type="button">
+        <button class="website-runtime-button" id="website-web-server-button" data-web-server="{{WEB_SERVER_KIND}}" data-web-server-status="{{WEB_SERVER_STATUS}}" data-web-server-title="{{WEB_SERVER_TITLE}}" type="button">
           <span class="website-runtime-icon" id="website-web-server-icon" aria-hidden="true">
             {{WEB_SERVER_ICON}}
           </span>
-          <span id="website-web-server-label">{{WEB_SERVER_LABEL}}</span>
+          <span class="website-runtime-label" id="website-web-server-label">{{WEB_SERVER_LABEL}}</span>
         </button>
+        <div class="website-runtime-popover" id="website-runtime-popover" role="menu" aria-label="Web server quick actions" hidden></div>
       </div>
 
       <div class="website-toolbar-right">

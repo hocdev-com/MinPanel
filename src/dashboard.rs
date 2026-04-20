@@ -1339,20 +1339,34 @@ fn registry_php_options(registry: &RuntimeRegistry) -> Vec<PhpRuntimeOption> {
 }
 
 pub(crate) fn active_web_server_runtime(registry: &RuntimeRegistry) -> Option<WebServerRuntime> {
-    ["apache", "nginx"].iter().find_map(|kind| {
-        registry
-            .entries
-            .iter()
-            .filter(|entry| entry.runtime_kind == *kind && is_runtime_entry_ready(entry))
-            .max_by_key(|entry| (entry.state == "running", entry.version.clone()))
-            .filter(|entry| entry.state == "running")
-            .map(|entry| WebServerRuntime {
-                kind: (*kind).to_string(),
-                label: web_server_runtime_label(kind),
-                version: entry.version.clone(),
-                status: entry.state.clone(),
-            })
-    })
+    registry
+        .entries
+        .iter()
+        .filter(|entry| {
+            matches!(entry.runtime_kind.as_str(), "apache" | "nginx")
+                && is_runtime_entry_ready(entry)
+        })
+        .max_by_key(|entry| {
+            (
+                entry.state == "running",
+                web_server_runtime_priority(&entry.runtime_kind),
+                entry.version.clone(),
+            )
+        })
+        .map(|entry| WebServerRuntime {
+            kind: entry.runtime_kind.clone(),
+            label: web_server_runtime_label(&entry.runtime_kind),
+            version: entry.version.clone(),
+            status: entry.state.clone(),
+        })
+}
+
+fn web_server_runtime_priority(kind: &str) -> u8 {
+    match kind {
+        "apache" => 2,
+        "nginx" => 1,
+        _ => 0,
+    }
 }
 
 fn web_server_runtime_label(kind: &str) -> String {
@@ -3954,6 +3968,27 @@ mod tests {
         }
     }
 
+    fn test_web_runtime(root: &Path, kind: &str, version: &str, state: &str) -> InstalledRuntime {
+        let install_dir = root.join(kind).join(version);
+        fs::create_dir_all(&install_dir).expect("failed to create runtime install dir");
+        let executable_path = install_dir.join(format!("{kind}.exe"));
+        fs::write(&executable_path, "").expect("failed to write runtime executable");
+
+        InstalledRuntime {
+            id: format!("{kind}-{version}"),
+            name: kind.to_string(),
+            title: web_server_runtime_label(kind),
+            version: version.to_string(),
+            runtime_kind: kind.to_string(),
+            install_dir: install_dir.display().to_string(),
+            package_file: String::new(),
+            executable_path: Some(executable_path.display().to_string()),
+            state: state.to_string(),
+            pid: None,
+            php_port: None,
+        }
+    }
+
     #[test]
     fn flatten_extracted_runtime_root_promotes_nested_apache_layout() {
         let temp = TestDir::new();
@@ -3993,6 +4028,35 @@ mod tests {
         };
 
         assert_eq!(runtime_binding_id(&entry), "php-8-3-28");
+    }
+
+    #[test]
+    fn active_web_server_runtime_keeps_installed_stopped_runtime() {
+        let temp = TestDir::new();
+        let registry = RuntimeRegistry {
+            entries: vec![test_web_runtime(&temp.path, "apache", "2.4.57", "stopped")],
+        };
+
+        let web_server = active_web_server_runtime(&registry).unwrap();
+
+        assert_eq!(web_server.kind, "apache");
+        assert_eq!(web_server.status, "stopped");
+    }
+
+    #[test]
+    fn active_web_server_runtime_prefers_running_runtime() {
+        let temp = TestDir::new();
+        let registry = RuntimeRegistry {
+            entries: vec![
+                test_web_runtime(&temp.path, "apache", "2.4.57", "stopped"),
+                test_web_runtime(&temp.path, "nginx", "1.26.0", "running"),
+            ],
+        };
+
+        let web_server = active_web_server_runtime(&registry).unwrap();
+
+        assert_eq!(web_server.kind, "nginx");
+        assert_eq!(web_server.status, "running");
     }
 
     #[test]

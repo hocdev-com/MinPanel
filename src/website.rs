@@ -152,6 +152,7 @@ pub async fn website_page() -> Html<String> {
     let web_server = initial_website_web_server();
     let content = include_str!("ui/dashboard/website.html")
         .replace("{{WEB_SERVER_KIND}}", &web_server.kind)
+        .replace("{{WEB_SERVER_STATUS}}", &web_server.status)
         .replace("{{WEB_SERVER_ICON}}", &web_server.icon)
         .replace("{{WEB_SERVER_LABEL}}", &web_server.label)
         .replace("{{WEB_SERVER_TITLE}}", &web_server.title);
@@ -167,6 +168,7 @@ struct InitialWebsiteWebServer {
     label: String,
     title: String,
     icon: String,
+    status: String,
 }
 
 fn initial_website_web_server() -> InitialWebsiteWebServer {
@@ -178,21 +180,44 @@ fn initial_website_web_server() -> InitialWebsiteWebServer {
             label: website_web_server_label(&web_server.label, &web_server.version),
             title: web_server.label,
             kind: web_server.kind,
+            status: web_server.status,
         })
         .unwrap_or_else(|| InitialWebsiteWebServer {
             kind: "generic".to_string(),
             label: "Web Server".to_string(),
             title: String::new(),
             icon: default_website_web_server_icon().to_string(),
+            status: "stopped".to_string(),
         })
 }
 
 fn website_web_server_label(label: &str, version: &str) -> String {
-    let version = version.trim();
+    let version = website_web_server_display_version(version);
     if version.is_empty() {
         label.to_string()
     } else {
         format!("{label} {version}")
+    }
+}
+
+fn website_web_server_display_version(version: &str) -> String {
+    let version = version.trim();
+    if version.is_empty() {
+        return String::new();
+    }
+
+    let mut parts = version
+        .split(|character: char| !(character.is_ascii_digit() || character == '.'))
+        .filter(|part| !part.is_empty());
+    let Some(numeric) = parts.next() else {
+        return version.to_string();
+    };
+
+    let mut version_parts = numeric.split('.').filter(|part| !part.is_empty());
+    match (version_parts.next(), version_parts.next()) {
+        (Some(major), Some(minor)) => format!("{major}.{minor}"),
+        (Some(major), None) => major.to_string(),
+        _ => version.to_string(),
     }
 }
 
@@ -2271,7 +2296,7 @@ fn apply_ssl_for_domain(_domain: &str) -> Result<(), String> {
 mod tests {
     use super::{
         default_create_index_php, ensure_site_index_php, hosts_content_with_domain,
-        normalize_requested_website_domain,
+        normalize_requested_website_domain, website_web_server_display_version,
     };
     use std::{env, fs, process, time::SystemTime};
 
@@ -2300,6 +2325,14 @@ mod tests {
     #[test]
     fn website_create_defaults_to_index_php() {
         assert!(default_create_index_php());
+    }
+
+    #[test]
+    fn website_web_server_display_version_matches_aapanel_button_label() {
+        assert_eq!(website_web_server_display_version("2.4.57"), "2.4");
+        assert_eq!(website_web_server_display_version("Apache/2.4.57"), "2.4");
+        assert_eq!(website_web_server_display_version("1"), "1");
+        assert_eq!(website_web_server_display_version("custom"), "custom");
     }
 
     #[test]

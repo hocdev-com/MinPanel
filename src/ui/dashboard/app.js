@@ -105,6 +105,7 @@ const softwareState = {
 
 let dashboardRefreshPromise = null;
 let softwareSettingsModalControlsBound = false;
+let websiteRuntimePopoverHideTimer = null;
 
 function hasPendingSoftwareActions() {
   return Object.keys(softwareState.pendingActions).length > 0;
@@ -1614,8 +1615,14 @@ function websiteWebServerIcon(kind) {
 
 function websiteWebServerButtonLabel(webServer) {
   const label = String(webServer?.label || "Web Server").trim();
-  const version = String(webServer?.version || "").trim();
+  const version = websiteWebServerDisplayVersion(webServer?.version);
   return version ? `${label} ${version}` : label;
+}
+
+function websiteWebServerDisplayVersion(version) {
+  const value = String(version || "").trim();
+  const match = value.match(/\d+(?:\.\d+)?/);
+  return match ? match[0] : value;
 }
 
 function updateWebsiteWebServer(webServer) {
@@ -1626,7 +1633,9 @@ function updateWebsiteWebServer(webServer) {
 
   const kind = String(webServer?.kind || "").toLowerCase();
   const active = kind === "apache" || kind === "nginx";
+  const status = active ? String(webServer?.status || "stopped").toLowerCase() : "stopped";
   button.dataset.webServer = active ? kind : "generic";
+  button.dataset.webServerStatus = status === "running" ? "running" : "stopped";
   button.dataset.webServerTitle = active ? webServer.label : "";
   icon.innerHTML = websiteWebServerIcon(kind);
   label.textContent = active ? websiteWebServerButtonLabel(webServer) : "Web Server";
@@ -1656,6 +1665,91 @@ async function openWebsiteWebServerSettings() {
   }
   if (!item) return;
   openSoftwareSettingsModal(item.title);
+}
+
+function getWebsiteRuntimePopoverItem() {
+  const kind = String(websiteState.webServer?.kind || "").toLowerCase();
+  if (kind !== "apache" && kind !== "nginx") return null;
+  return findWebsiteWebServerSoftwareItem();
+}
+
+function renderWebsiteRuntimePopover() {
+  const popover = document.getElementById("website-runtime-popover");
+  const item = getWebsiteRuntimePopoverItem();
+  if (!popover || !item) return false;
+
+  const pendingAction = softwareState.pendingActions[item.id] || "";
+  const running = item.status === "running";
+  const primaryAction = running ? "stop" : "start";
+  const disabled = Boolean(pendingAction);
+  popover.innerHTML = `
+    <button class="website-runtime-popover-action" type="button" role="menuitem" data-website-runtime-action="${primaryAction}" ${disabled ? "disabled" : ""}>
+      ${escapeHtml(pendingAction === primaryAction ? getSoftwarePendingActionLabel(primaryAction) : (running ? "Stop" : "Start"))}
+    </button>
+    <button class="website-runtime-popover-action" type="button" role="menuitem" data-website-runtime-action="restart" ${disabled ? "disabled" : ""}>
+      ${escapeHtml(pendingAction === "restart" ? "Restarting..." : "Restart")}
+    </button>
+    <button class="website-runtime-popover-action" type="button" role="menuitem" data-website-runtime-action="reload" ${disabled ? "disabled" : ""}>
+      ${escapeHtml(pendingAction === "reload" ? "Reloading..." : "Reload")}
+    </button>
+    <button class="website-runtime-popover-action" type="button" role="menuitem" data-website-runtime-action="settings">Alarm Setting</button>
+  `;
+  return true;
+}
+
+function positionWebsiteRuntimePopover() {
+  const button = document.getElementById("website-web-server-button");
+  const popover = document.getElementById("website-runtime-popover");
+  if (!button || !popover || popover.hidden) return;
+
+  const buttonRect = button.getBoundingClientRect();
+  const popoverRect = popover.getBoundingClientRect();
+  const margin = 10;
+  const centeredLeft = buttonRect.left + (buttonRect.width / 2) - (popoverRect.width / 2);
+  const left = Math.min(
+    Math.max(margin, centeredLeft),
+    Math.max(margin, window.innerWidth - popoverRect.width - margin),
+  );
+  const top = Math.max(margin, buttonRect.top - popoverRect.height - 8);
+  const arrowLeft = buttonRect.left + (buttonRect.width / 2) - left;
+
+  popover.style.left = `${left}px`;
+  popover.style.top = `${top}px`;
+  popover.style.setProperty("--runtime-popover-arrow-left", `${arrowLeft}px`);
+}
+
+function showWebsiteRuntimePopover() {
+  clearTimeout(websiteRuntimePopoverHideTimer);
+  const popover = document.getElementById("website-runtime-popover");
+  if (!popover) return;
+  if (!renderWebsiteRuntimePopover()) {
+    popover.hidden = true;
+    return;
+  }
+  popover.hidden = false;
+  positionWebsiteRuntimePopover();
+}
+
+function scheduleHideWebsiteRuntimePopover(delay = 120) {
+  clearTimeout(websiteRuntimePopoverHideTimer);
+  websiteRuntimePopoverHideTimer = setTimeout(() => {
+    const popover = document.getElementById("website-runtime-popover");
+    if (popover) popover.hidden = true;
+  }, delay);
+}
+
+async function runWebsiteRuntimePopoverAction(action) {
+  const item = getWebsiteRuntimePopoverItem();
+  if (!item) return;
+  if (action === "settings") {
+    scheduleHideWebsiteRuntimePopover(0);
+    openSoftwareSettingsModal(item.title);
+    return;
+  }
+  if (softwareState.pendingActions[item.id]) return;
+  await runSoftwareAction(item.id, action);
+  renderWebsiteRuntimePopover();
+  positionWebsiteRuntimePopover();
 }
 
 function websiteActionMenuIcon(kind) {
@@ -2261,8 +2355,26 @@ function bindWebsiteControls() {
   if (!document.getElementById("website-table-body")) return;
   bindSoftwareSettingsModalControls();
   const webServerButton = document.getElementById("website-web-server-button");
+  const webServerPopover = document.getElementById("website-runtime-popover");
   if (webServerButton) {
     webServerButton.addEventListener("click", openWebsiteWebServerSettings);
+    webServerButton.addEventListener("mouseenter", showWebsiteRuntimePopover);
+    webServerButton.addEventListener("focus", showWebsiteRuntimePopover);
+    webServerButton.addEventListener("mouseleave", () => scheduleHideWebsiteRuntimePopover());
+    webServerButton.addEventListener("blur", () => scheduleHideWebsiteRuntimePopover(180));
+  }
+  if (webServerPopover) {
+    webServerPopover.addEventListener("mouseenter", () => clearTimeout(websiteRuntimePopoverHideTimer));
+    webServerPopover.addEventListener("mouseleave", () => scheduleHideWebsiteRuntimePopover());
+    webServerPopover.addEventListener("focusin", () => clearTimeout(websiteRuntimePopoverHideTimer));
+    webServerPopover.addEventListener("focusout", () => scheduleHideWebsiteRuntimePopover(180));
+    webServerPopover.addEventListener("click", async (event) => {
+      const button = event.target.closest("[data-website-runtime-action]");
+      if (!button || button.disabled) return;
+      event.preventDefault();
+      event.stopPropagation();
+      await runWebsiteRuntimePopoverAction(button.dataset.websiteRuntimeAction);
+    });
   }
 
   document.querySelectorAll("[data-project-tab]").forEach((button) => {
@@ -2393,6 +2505,7 @@ function bindWebsiteControls() {
 
   window.addEventListener("resize", () => {
     closeWebsiteBatchMenu();
+    scheduleHideWebsiteRuntimePopover(0);
     if (!websiteState.openMenuId) return;
     websiteState.openMenuId = null;
     websiteState.menuPosition = null;
@@ -2401,6 +2514,7 @@ function bindWebsiteControls() {
 
   window.addEventListener("scroll", () => {
     closeWebsiteBatchMenu();
+    scheduleHideWebsiteRuntimePopover(0);
     if (!websiteState.openMenuId) return;
     websiteState.openMenuId = null;
     websiteState.menuPosition = null;
