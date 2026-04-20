@@ -31,8 +31,8 @@ MinPanel là một công cụ quản trị hosting (control panel) siêu nhẹ, 
 ### Cách build và chạy
 1. Clone repository về máy:
    ```bash
-   git clone https://github.com/your-repo/MinPanel_lua.git
-   cd MinPanel_lua
+   git clone https://github.com/hocdev-com/MinPanel.git
+   cd MinPanel
    ```
 2. Build ứng dụng:
    ```bash
