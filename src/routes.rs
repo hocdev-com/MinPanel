@@ -32,6 +32,7 @@ pub fn routes() -> Router {
         .route("/dashboard/data", get(dashboard::data))
         .route("/database/create", post(dashboard::create_database))
         .route("/phpmyadmin", any(dashboard::phpmyadmin_proxy))
+        .route("/phpmyadmin/", any(dashboard::phpmyadmin_proxy))
         .route("/phpmyadmin/*path", any(dashboard::phpmyadmin_proxy))
         .route("/software/refresh", post(dashboard::refresh_software_store))
         .route(

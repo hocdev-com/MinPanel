@@ -99,6 +99,7 @@ When modifying the dashboard layout, follow these synchronized responsive patter
 - When a runtime uses `data/plugins/*.lua`, the Rust install flow must call the Lua `on_install` hook after extraction and before `on_start`.
 - The Lua bridge helper `panel.write_file(path, content)` must create the parent directory automatically so PID/config writes do not fail on fresh installs.
 - Treat `on_install` as the place to prepare writable folders and generated config files such as `logs/`, `tmp/`, `php.ini`, or `my.ini`.
+- PHP runtime setup must enable phpMyAdmin-required extensions in `php.ini`, including `extension_dir`, `mysqli`, `mbstring`, and `openssl`. The panel-side `/phpmyadmin/*` runner should also self-heal these settings for already-installed PHP runtimes before invoking `php-cgi`.
 - Apache-specific routing/config generation belongs in `data/plugins/apache.lua`; Rust should pass structured website/runtime data into Lua instead of hardcoding `httpd.conf`, `vhost`, or Apache path rewrites in `src/dashboard.rs`.
 - Path roots must support env overrides. Use `MINPANEL_WEBSITE_ROOT` for site files and `MINPANEL_RUNTIME_ROOT` for installed runtimes; if the env value is relative, resolve it against the app base directory first, then current working directory.
 - Lua runtime hooks must raise real failures with `error(...)` instead of returning `"Error: ..."` strings, so Rust can treat startup/setup failures as errors immediately.

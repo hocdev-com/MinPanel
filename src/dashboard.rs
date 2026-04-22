@@ -1449,88 +1449,361 @@ async fn proxy_phpmyadmin_request(
     let registry = load_runtime_registry()?;
     let phpmyadmin = select_primary_runtime(&registry, "phpmyadmin")
         .ok_or_else(|| "phpMyAdmin is not installed. Install it from App Store first.".to_string())?;
-    if !Path::new(&phpmyadmin.install_dir).join("index.php").exists() {
+    let phpmyadmin_root = PathBuf::from(&phpmyadmin.install_dir);
+    if !phpmyadmin_root.join("index.php").exists() {
         return Err("phpMyAdmin index.php was not found in the install directory.".to_string());
     }
-    let apache = select_primary_runtime(&registry, "apache")
-        .ok_or_else(|| "Apache is not installed. Install and start Apache before opening phpMyAdmin.".to_string())?;
-    if !is_runtime_available_after_start_with_inspection(apache, &RuntimeInspection::collect()) {
-        return Err("Apache is not running. Start Apache before opening phpMyAdmin.".to_string());
+    let php = select_primary_runtime(&registry, "php")
+        .ok_or_else(|| "PHP is not installed. Install PHP before opening phpMyAdmin.".to_string())?;
+    let php_cgi = php_cgi_path(php)
+        .ok_or_else(|| "php-cgi.exe was not found in the PHP install directory.".to_string())?;
+    ensure_phpmyadmin_php_extensions(php)?;
+    let request_target = path_and_query.unwrap_or("/phpmyadmin/");
+    let (request_path, query_string) = split_request_target(request_target);
+    let script_path = resolve_phpmyadmin_request_path(&phpmyadmin_root, request_path)?;
+
+    if !script_path.exists() {
+        return Ok((
+            StatusCode::NOT_FOUND,
+            [(header::CONTENT_TYPE, "text/plain; charset=utf-8")],
+            "phpMyAdmin resource not found",
+        )
+            .into_response());
     }
 
-    let target_path = match path_and_query.unwrap_or("/phpmyadmin/") {
-        "/phpmyadmin" => "/phpmyadmin/",
-        value => value,
-    };
-    let target = format!("http://127.0.0.1{target_path}");
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(30))
-        .redirect(reqwest::redirect::Policy::none())
-        .build()
-        .map_err(|error| format!("Failed to prepare phpMyAdmin proxy: {error}"))?;
-    let reqwest_method = reqwest::Method::from_bytes(method.as_str().as_bytes())
-        .map_err(|error| format!("Unsupported request method: {error}"))?;
-    let mut request = client.request(reqwest_method, target);
-
-    for name in [
-        header::ACCEPT,
-        header::ACCEPT_LANGUAGE,
-        header::CONTENT_TYPE,
-        header::COOKIE,
-        header::REFERER,
-        header::USER_AGENT,
-    ] {
-        if let Some(value) = headers.get(&name) {
-            request = request.header(name.as_str(), value.as_bytes());
-        }
+    if script_path.is_file() && !is_php_file(&script_path) {
+        return serve_phpmyadmin_static_file(&script_path);
     }
 
-    if !body.is_empty() {
-        request = request.body(body.to_vec());
-    }
-
-    let upstream = request
-        .send()
-        .await
-        .map_err(|error| format!("phpMyAdmin proxy request failed: {error}"))?;
-    let status = StatusCode::from_u16(upstream.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
-    let mut builder = Response::builder().status(status);
-    for (name, value) in upstream.headers() {
-        if should_forward_phpmyadmin_response_header(name.as_str()) {
-            let value_text = if name == reqwest::header::LOCATION {
-                rewrite_phpmyadmin_location(value.to_str().unwrap_or_default())
-            } else {
-                value.to_str().unwrap_or_default().to_string()
-            };
-            if !value_text.is_empty() {
-                builder = builder.header(name.as_str(), value_text);
-            }
-        }
-    }
-    let bytes = upstream
-        .bytes()
-        .await
-        .map_err(|error| format!("Failed to read phpMyAdmin response: {error}"))?;
-    builder
-        .body(axum::body::Body::from(bytes))
-        .map_err(|error| format!("Failed to build phpMyAdmin response: {error}"))
-}
-
-fn should_forward_phpmyadmin_response_header(name: &str) -> bool {
-    matches!(
-        name.to_ascii_lowercase().as_str(),
-        "content-type" | "cache-control" | "expires" | "pragma" | "set-cookie" | "location"
+    execute_phpmyadmin_script(
+        &php_cgi,
+        &phpmyadmin_root,
+        &script_path,
+        method,
+        request_target,
+        query_string,
+        headers,
+        body,
+        php,
     )
 }
 
-fn rewrite_phpmyadmin_location(location: &str) -> String {
-    if let Some(path) = location.strip_prefix("http://127.0.0.1") {
-        return path.to_string();
+fn split_request_target(request_target: &str) -> (&str, &str) {
+    let mut parts = request_target.splitn(2, '?');
+    let path = parts.next().unwrap_or("/phpmyadmin/");
+    let query = parts.next().unwrap_or("");
+    (path, query)
+}
+
+fn resolve_phpmyadmin_request_path(root: &Path, request_path: &str) -> Result<PathBuf, String> {
+    let relative = request_path
+        .strip_prefix("/phpmyadmin")
+        .unwrap_or(request_path)
+        .trim_start_matches('/');
+    let relative = if relative.is_empty() {
+        "index.php".to_string()
+    } else {
+        percent_decode_path(relative)?
+    };
+
+    let mut target = root.to_path_buf();
+    for component in Path::new(&relative).components() {
+        match component {
+            std::path::Component::Normal(part) => target.push(part),
+            std::path::Component::CurDir => {}
+            _ => return Err("Invalid phpMyAdmin path".to_string()),
+        }
     }
-    if let Some(path) = location.strip_prefix("http://localhost") {
-        return path.to_string();
+
+    if target.is_dir() {
+        target.push("index.php");
     }
-    location.to_string()
+    Ok(target)
+}
+
+fn percent_decode_path(value: &str) -> Result<String, String> {
+    let bytes = value.as_bytes();
+    let mut output = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] == b'%' {
+            if index + 2 >= bytes.len() {
+                return Err("Invalid encoded phpMyAdmin path".to_string());
+            }
+            let hex = std::str::from_utf8(&bytes[index + 1..index + 3])
+                .map_err(|_| "Invalid encoded phpMyAdmin path".to_string())?;
+            let byte = u8::from_str_radix(hex, 16)
+                .map_err(|_| "Invalid encoded phpMyAdmin path".to_string())?;
+            output.push(byte);
+            index += 3;
+        } else {
+            output.push(bytes[index]);
+            index += 1;
+        }
+    }
+    String::from_utf8(output).map_err(|_| "Invalid UTF-8 phpMyAdmin path".to_string())
+}
+
+fn is_php_file(path: &Path) -> bool {
+    path.extension()
+        .and_then(|value| value.to_str())
+        .map(|value| value.eq_ignore_ascii_case("php"))
+        .unwrap_or(false)
+}
+
+fn php_cgi_path(entry: &InstalledRuntime) -> Option<PathBuf> {
+    let install_dir = Path::new(&entry.install_dir);
+    [
+        install_dir.join(if cfg!(windows) { "php-cgi.exe" } else { "php-cgi" }),
+        install_dir.join("bin").join(if cfg!(windows) { "php-cgi.exe" } else { "php-cgi" }),
+    ]
+    .into_iter()
+    .find(|path| path.exists())
+}
+
+fn ensure_phpmyadmin_php_extensions(entry: &InstalledRuntime) -> Result<(), String> {
+    let install_dir = Path::new(&entry.install_dir);
+    let php_ini = install_dir.join("php.ini");
+    if !php_ini.exists() {
+        let template = install_dir.join("php.ini-production");
+        if template.exists() {
+            fs::copy(&template, &php_ini)
+                .map_err(|error| format!("Failed to initialize php.ini: {error}"))?;
+        } else {
+            fs::write(&php_ini, "")
+                .map_err(|error| format!("Failed to create php.ini: {error}"))?;
+        }
+    }
+
+    let contents = fs::read_to_string(&php_ini)
+        .map_err(|error| format!("Failed to read php.ini: {error}"))?;
+    let normalized = normalize_php_ini_for_phpmyadmin(&contents, install_dir);
+    if normalized != contents {
+        fs::write(&php_ini, normalized)
+            .map_err(|error| format!("Failed to update php.ini for phpMyAdmin: {error}"))?;
+    }
+    Ok(())
+}
+
+fn normalize_php_ini_for_phpmyadmin(contents: &str, install_dir: &Path) -> String {
+    let extension_dir = install_dir.join("ext").display().to_string().replace('\\', "/");
+    let wanted = [
+        ("extension_dir", format!("extension_dir = \"{extension_dir}\"")),
+        ("mysqli", "extension=mysqli".to_string()),
+        ("mbstring", "extension=mbstring".to_string()),
+        ("openssl", "extension=openssl".to_string()),
+    ];
+    let mut seen = HashSet::new();
+    let mut lines = Vec::new();
+
+    for line in contents.replace("\r\n", "\n").replace('\r', "\n").lines() {
+        let trimmed = line.trim();
+        let uncommented = trimmed.trim_start_matches(';').trim();
+        let lower = uncommented.to_ascii_lowercase();
+        let key = if lower.starts_with("extension_dir") && lower.contains('=') {
+            Some("extension_dir")
+        } else if lower == "extension=mysqli" || lower == "extension=php_mysqli.dll" {
+            Some("mysqli")
+        } else if lower == "extension=mbstring" || lower == "extension=php_mbstring.dll" {
+            Some("mbstring")
+        } else if lower == "extension=openssl" || lower == "extension=php_openssl.dll" {
+            Some("openssl")
+        } else {
+            None
+        };
+
+        if let Some(key) = key {
+            if seen.insert(key.to_string()) {
+                if let Some((_, value)) = wanted.iter().find(|(wanted_key, _)| *wanted_key == key) {
+                    lines.push(value.clone());
+                }
+            }
+        } else {
+            lines.push(line.to_string());
+        }
+    }
+
+    for (key, value) in wanted {
+        if !seen.contains(key) {
+            lines.push(value);
+        }
+    }
+
+    let mut output = lines.join("\r\n");
+    output.push_str("\r\n");
+    output
+}
+
+fn serve_phpmyadmin_static_file(path: &Path) -> Result<Response, String> {
+    let body = fs::read(path).map_err(|error| format!("Failed to read phpMyAdmin file: {error}"))?;
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, phpmyadmin_mime_type(path))
+        .body(axum::body::Body::from(body))
+        .map_err(|error| format!("Failed to build phpMyAdmin file response: {error}"))
+}
+
+fn phpmyadmin_mime_type(path: &Path) -> &'static str {
+    match path
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "css" => "text/css; charset=utf-8",
+        "js" => "application/javascript; charset=utf-8",
+        "json" => "application/json; charset=utf-8",
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "gif" => "image/gif",
+        "svg" => "image/svg+xml",
+        "ico" => "image/x-icon",
+        "woff" => "font/woff",
+        "woff2" => "font/woff2",
+        "ttf" => "font/ttf",
+        "html" | "htm" => "text/html; charset=utf-8",
+        "txt" => "text/plain; charset=utf-8",
+        _ => "application/octet-stream",
+    }
+}
+
+fn execute_phpmyadmin_script(
+    php_cgi: &Path,
+    document_root: &Path,
+    script_path: &Path,
+    method: Method,
+    request_uri: &str,
+    query_string: &str,
+    headers: HeaderMap,
+    body: Bytes,
+    php_entry: &InstalledRuntime,
+) -> Result<Response, String> {
+    let script_name = format!(
+        "/phpmyadmin/{}",
+        script_path
+            .strip_prefix(document_root)
+            .unwrap_or(script_path)
+            .to_string_lossy()
+            .replace('\\', "/")
+            .trim_start_matches('/')
+    );
+    let mut command = Command::new(php_cgi);
+    command
+        .current_dir(document_root)
+        .env("GATEWAY_INTERFACE", "CGI/1.1")
+        .env("REDIRECT_STATUS", "200")
+        .env("REQUEST_METHOD", method.as_str())
+        .env("REQUEST_URI", request_uri)
+        .env("QUERY_STRING", query_string)
+        .env("SCRIPT_FILENAME", script_path)
+        .env("SCRIPT_NAME", &script_name)
+        .env("PHP_SELF", &script_name)
+        .env("DOCUMENT_ROOT", document_root)
+        .env("SERVER_SOFTWARE", "MinPanel")
+        .env("SERVER_PROTOCOL", "HTTP/1.1")
+        .env("SERVER_NAME", "localhost")
+        .env("SERVER_PORT", preferred_panel_port_string())
+        .env("CONTENT_LENGTH", body.len().to_string())
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+
+    if let Some(content_type) = headers.get(header::CONTENT_TYPE).and_then(|value| value.to_str().ok()) {
+        command.env("CONTENT_TYPE", content_type);
+    }
+    if let Some(cookie) = headers.get(header::COOKIE).and_then(|value| value.to_str().ok()) {
+        command.env("HTTP_COOKIE", cookie);
+    }
+    if let Some(user_agent) = headers.get(header::USER_AGENT).and_then(|value| value.to_str().ok()) {
+        command.env("HTTP_USER_AGENT", user_agent);
+    }
+    if let Some(accept) = headers.get(header::ACCEPT).and_then(|value| value.to_str().ok()) {
+        command.env("HTTP_ACCEPT", accept);
+    }
+    if let Some(language) = headers.get(header::ACCEPT_LANGUAGE).and_then(|value| value.to_str().ok()) {
+        command.env("HTTP_ACCEPT_LANGUAGE", language);
+    }
+    if let Some(referer) = headers.get(header::REFERER).and_then(|value| value.to_str().ok()) {
+        command.env("HTTP_REFERER", referer);
+    }
+    let php_ini_dir = Path::new(&php_entry.install_dir);
+    if php_ini_dir.join("php.ini").exists() {
+        command.env("PHPRC", php_ini_dir);
+    }
+
+    let mut child = hide_windows_console_window(&mut command)
+        .spawn()
+        .map_err(|error| format!("Failed to start php-cgi: {error}"))?;
+    if let Some(mut stdin) = child.stdin.take() {
+        stdin
+            .write_all(&body)
+            .map_err(|error| format!("Failed to write phpMyAdmin request body: {error}"))?;
+    }
+    let output = child
+        .wait_with_output()
+        .map_err(|error| format!("Failed to read php-cgi output: {error}"))?;
+    if !output.status.success() {
+        let detail = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        return Err(if detail.is_empty() {
+            format!("php-cgi exited with status {}", output.status)
+        } else {
+            detail
+        });
+    }
+    build_cgi_response(&output.stdout)
+}
+
+fn preferred_panel_port_string() -> String {
+    env::var("MINI_PANEL_PORT").unwrap_or_else(|_| "8080".to_string())
+}
+
+fn build_cgi_response(output: &[u8]) -> Result<Response, String> {
+    let (raw_headers, body) = split_cgi_output(output);
+    let header_text = String::from_utf8_lossy(raw_headers);
+    let mut status = StatusCode::OK;
+    let mut builder = Response::builder();
+    let mut has_content_type = false;
+    for line in header_text.lines() {
+        let line = line.trim_end_matches('\r').trim();
+        if line.is_empty() {
+            continue;
+        }
+        let Some((name, value)) = line.split_once(':') else {
+            continue;
+        };
+        let name = name.trim();
+        let value = value.trim();
+        if name.eq_ignore_ascii_case("Status") {
+            if let Some(code) = value.split_whitespace().next().and_then(|code| code.parse::<u16>().ok()) {
+                status = StatusCode::from_u16(code).unwrap_or(StatusCode::OK);
+            }
+            continue;
+        }
+        if name.eq_ignore_ascii_case("Content-Type") {
+            has_content_type = true;
+        }
+        if !name.eq_ignore_ascii_case("X-Powered-By") {
+            builder = builder.header(name, value);
+        }
+    }
+    if !has_content_type {
+        builder = builder.header(header::CONTENT_TYPE, "text/html; charset=utf-8");
+    }
+    builder
+        .status(status)
+        .body(axum::body::Body::from(body.to_vec()))
+        .map_err(|error| format!("Failed to build phpMyAdmin CGI response: {error}"))
+}
+
+fn split_cgi_output(output: &[u8]) -> (&[u8], &[u8]) {
+    if let Some(index) = output.windows(4).position(|window| window == b"\r\n\r\n") {
+        return (&output[..index], &output[index + 4..]);
+    }
+    if let Some(index) = output.windows(2).position(|window| window == b"\n\n") {
+        return (&output[..index], &output[index + 2..]);
+    }
+    (&[], output)
 }
 
 async fn collect_software_store(
