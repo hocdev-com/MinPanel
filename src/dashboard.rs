@@ -1458,6 +1458,7 @@ async fn proxy_phpmyadmin_request(
     let php_cgi = php_cgi_path(php)
         .ok_or_else(|| "php-cgi.exe was not found in the PHP install directory.".to_string())?;
     ensure_phpmyadmin_php_extensions(php)?;
+    ensure_phpmyadmin_config(&phpmyadmin_root)?;
     let request_target = path_and_query.unwrap_or("/phpmyadmin/");
     let (request_path, query_string) = split_request_target(request_target);
     let script_path = resolve_phpmyadmin_request_path(&phpmyadmin_root, request_path)?;
@@ -1632,6 +1633,53 @@ fn normalize_php_ini_for_phpmyadmin(contents: &str, install_dir: &Path) -> Strin
     let mut output = lines.join("\r\n");
     output.push_str("\r\n");
     output
+}
+
+fn ensure_phpmyadmin_config(root: &Path) -> Result<(), String> {
+    for name in ["tmp", "upload", "save"] {
+        fs::create_dir_all(root.join(name))
+            .map_err(|error| format!("Failed to create phpMyAdmin {name} directory: {error}"))?;
+    }
+
+    let config_path = root.join("config.inc.php");
+    let desired = phpmyadmin_config_body(root);
+    let current = fs::read_to_string(&config_path).unwrap_or_default();
+    if current != desired || current.contains("/www/server/") {
+        fs::write(&config_path, desired)
+            .map_err(|error| format!("Failed to write phpMyAdmin config.inc.php: {error}"))?;
+    }
+    Ok(())
+}
+
+fn phpmyadmin_config_body(root: &Path) -> String {
+    let seed = root.display().to_string();
+    let hash = fast_hash(&seed);
+    let secret = format!("MinPanel{hash:016x}phpMyAdminSecureKey");
+    format!(
+        "<?php\r\n\
+/**\r\n\
+ * MinPanel managed phpMyAdmin configuration.\r\n\
+ */\r\n\
+$cfg['blowfish_secret'] = '{}';\r\n\
+$cfg['TempDir'] = __DIR__ . '/tmp';\r\n\
+$cfg['UploadDir'] = __DIR__ . '/upload';\r\n\
+$cfg['SaveDir'] = __DIR__ . '/save';\r\n\
+\r\n\
+$i = 0;\r\n\
+$i++;\r\n\
+$cfg['Servers'][$i]['auth_type'] = 'cookie';\r\n\
+$cfg['Servers'][$i]['host'] = '127.0.0.1';\r\n\
+$cfg['Servers'][$i]['port'] = '3306';\r\n\
+$cfg['Servers'][$i]['compress'] = false;\r\n\
+$cfg['Servers'][$i]['AllowNoPassword'] = true;\r\n\
+\r\n\
+$cfg['PmaNoRelation_DisableWarning'] = true;\r\n",
+        php_single_quote_escape(&secret)
+    )
+}
+
+fn php_single_quote_escape(value: &str) -> String {
+    value.replace('\\', "\\\\").replace('\'', "\\'")
 }
 
 fn serve_phpmyadmin_static_file(path: &Path) -> Result<Response, String> {

@@ -15,10 +15,6 @@ local function path_join(base, ...)
     return result
 end
 
-local function web_path(path)
-    return tostring(path or ""):gsub("\\", "/")
-end
-
 local function ensure_blowfish_secret(seed)
     local source = tostring(seed or "MinPanel phpMyAdmin")
     local alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -33,9 +29,6 @@ end
 
 local function config_body(ctx)
     local install_dir = ctx.install_dir
-    local tmp_dir = web_path(path_join(install_dir, "tmp"))
-    local upload_dir = web_path(path_join(install_dir, "upload"))
-    local save_dir = web_path(path_join(install_dir, "save"))
     local blowfish_secret = ensure_blowfish_secret(install_dir)
 
     return string.format([[<?php
@@ -43,9 +36,9 @@ local function config_body(ctx)
  * MinPanel managed phpMyAdmin configuration.
  */
 $cfg['blowfish_secret'] = '%s';
-$cfg['TempDir'] = '%s';
-$cfg['UploadDir'] = '%s';
-$cfg['SaveDir'] = '%s';
+$cfg['TempDir'] = __DIR__ . '/tmp';
+$cfg['UploadDir'] = __DIR__ . '/upload';
+$cfg['SaveDir'] = __DIR__ . '/save';
 
 $i = 0;
 $i++;
@@ -56,7 +49,7 @@ $cfg['Servers'][$i]['compress'] = false;
 $cfg['Servers'][$i]['AllowNoPassword'] = true;
 
 $cfg['PmaNoRelation_DisableWarning'] = true;
-]], blowfish_secret, tmp_dir, upload_dir, save_dir):gsub("\n", "\r\n")
+]], blowfish_secret):gsub("\n", "\r\n")
 end
 
 function phpmyadmin.on_install(ctx)
