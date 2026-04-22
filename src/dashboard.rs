@@ -1,4 +1,10 @@
-use axum::{extract::Query, response::Html, Json};
+use axum::{
+    body::Bytes,
+    extract::{OriginalUri, Query},
+    http::{header, HeaderMap, Method, StatusCode},
+    response::{Html, IntoResponse, Response},
+    Json,
+};
 use mlua::Lua;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
@@ -98,6 +104,7 @@ pub struct DashboardData {
     software_plugins: Vec<SoftwarePluginEntry>,
     workspace_root: String,
     website_root: String,
+    databases: Vec<DatabaseEntry>,
     disks: Vec<DiskData>,
     networks: Vec<NetworkData>,
     top_processes: Vec<ProcessData>,
@@ -137,6 +144,21 @@ pub struct ProcessData {
     cpu_usage: f32,
     memory: u64,
     status: String,
+}
+
+#[derive(Serialize, Clone)]
+pub struct DatabaseEntry {
+    id: String,
+    name: String,
+    engine: String,
+    username: String,
+    password: String,
+    permission: String,
+    backup_count: usize,
+    size: u64,
+    modified_ms: u128,
+    path: String,
+    source: String,
 }
 
 pub struct LuaPluginEngine;
@@ -559,6 +581,13 @@ pub struct SoftwareDownloadRequest {
     id: String,
 }
 
+#[derive(Deserialize)]
+pub struct DatabaseCreateRequest {
+    name: String,
+    username: String,
+    password: String,
+}
+
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub(crate) struct RuntimeRegistry {
     #[serde(default)]
@@ -613,10 +642,19 @@ pub async fn software_page() -> Html<String> {
     )
 }
 
+pub async fn database_page() -> Html<String> {
+    render_page(
+        "MinPanel Database",
+        include_str!("ui/dashboard/topbar.html"),
+        include_str!("ui/dashboard/database.html"),
+    )
+}
+
 pub async fn data(Query(query): Query<DashboardDataQuery>) -> Json<DashboardData> {
     let view = query.view.as_deref().unwrap_or("dashboard");
     let include_websites = matches!(view, "dashboard" | "website");
-    let include_software = matches!(view, "dashboard" | "website" | "software");
+    let include_databases = matches!(view, "database");
+    let include_software = matches!(view, "dashboard" | "website" | "software" | "database");
     let include_process_snapshot = matches!(view, "dashboard" | "processes");
 
     let mut system = if include_process_snapshot {
@@ -643,7 +681,8 @@ pub async fn data(Query(query): Query<DashboardDataQuery>) -> Json<DashboardData
     let website_root = website::resolve_website_root().display().to_string();
     let (workspace_site_count, ftp_count, database_count) = summarize_workspace();
     let registry = load_runtime_registry().unwrap_or_default();
-    let php_runtimes = if include_websites {
+    let include_php_runtimes = matches!(view, "dashboard" | "website" | "database");
+    let php_runtimes = if include_php_runtimes {
         registry_php_options(&registry)
     } else {
         Vec::new()
@@ -663,7 +702,13 @@ pub async fn data(Query(query): Query<DashboardDataQuery>) -> Json<DashboardData
     } else {
         default_software_store()
     };
+    let databases = if include_databases {
+        collect_database_entries()
+    } else {
+        Vec::new()
+    };
     let site_count = websites.len().max(workspace_site_count);
+    let database_count = database_count.max(databases.len());
     let disks = collect_disks();
     let app_disk = find_app_disk(&disks, &workspace_root);
     let networks = collect_networks();
@@ -729,6 +774,7 @@ pub async fn data(Query(query): Query<DashboardDataQuery>) -> Json<DashboardData
         software_plugins,
         workspace_root,
         website_root,
+        databases,
         disks,
         networks,
         top_processes,
@@ -923,6 +969,36 @@ pub async fn open_software_install_path(
     }
 }
 
+pub async fn create_database(Json(request): Json<DatabaseCreateRequest>) -> Json<OperationStatus> {
+    match create_mysql_database(&request) {
+        Ok(message) => Json(OperationStatus {
+            status: true,
+            message,
+        }),
+        Err(error) => Json(OperationStatus {
+            status: false,
+            message: error,
+        }),
+    }
+}
+
+pub async fn phpmyadmin_proxy(
+    method: Method,
+    OriginalUri(uri): OriginalUri,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Response {
+    match proxy_phpmyadmin_request(method, uri.path_and_query().map(|value| value.as_str()), headers, body).await {
+        Ok(response) => response,
+        Err(error) => (
+            StatusCode::BAD_GATEWAY,
+            [(header::CONTENT_TYPE, "text/plain; charset=utf-8")],
+            error,
+        )
+            .into_response(),
+    }
+}
+
 struct AaPanelMemoryInfo {
     total: u64,
     free: u64,
@@ -1041,6 +1117,419 @@ fn is_database_file(name: &str) -> bool {
         || lower.ends_with(".sqlite")
         || lower.ends_with(".sqlite3")
         || lower.ends_with(".sql")
+}
+
+fn collect_database_entries() -> Vec<DatabaseEntry> {
+    let mut entries = Vec::new();
+    let mut seen = HashSet::new();
+
+    collect_mysql_database_entries(&mut entries, &mut seen);
+
+    if let Ok(current_dir) = env::current_dir() {
+        collect_database_entries_from_dir(&current_dir, "Workspace", 0, &mut seen, &mut entries);
+    }
+
+    let website_root = website::resolve_website_root();
+    collect_database_entries_from_dir(&website_root, "Website root", 0, &mut seen, &mut entries);
+
+    entries.sort_by(|left, right| {
+        left.name
+            .to_ascii_lowercase()
+            .cmp(&right.name.to_ascii_lowercase())
+            .then_with(|| left.path.cmp(&right.path))
+    });
+    entries.truncate(200);
+    entries
+}
+
+fn collect_database_entries_from_dir(
+    root: &Path,
+    source: &str,
+    depth: usize,
+    seen: &mut HashSet<String>,
+    entries: &mut Vec<DatabaseEntry>,
+) {
+    if depth > 4 || entries.len() >= 200 {
+        return;
+    }
+
+    let read_dir = match fs::read_dir(root) {
+        Ok(read_dir) => read_dir,
+        Err(_) => return,
+    };
+
+    for entry in read_dir.flatten() {
+        if entries.len() >= 200 {
+            return;
+        }
+        let path = entry.path();
+        let name = entry.file_name().to_string_lossy().to_string();
+        if should_skip_database_scan_entry(&name) {
+            continue;
+        }
+
+        let file_type = match entry.file_type() {
+            Ok(file_type) => file_type,
+            Err(_) => continue,
+        };
+
+        if file_type.is_dir() {
+            collect_database_entries_from_dir(&path, source, depth + 1, seen, entries);
+            continue;
+        }
+
+        if !file_type.is_file() || !is_database_file(&name) {
+            continue;
+        }
+
+        let canonical_key = path
+            .canonicalize()
+            .unwrap_or_else(|_| path.clone())
+            .display()
+            .to_string()
+            .to_ascii_lowercase();
+        if !seen.insert(canonical_key) {
+            continue;
+        }
+
+        let metadata = match entry.metadata() {
+            Ok(metadata) => metadata,
+            Err(_) => continue,
+        };
+
+        let modified_ms = metadata
+            .modified()
+            .ok()
+            .and_then(|modified| modified.duration_since(SystemTime::UNIX_EPOCH).ok())
+            .map(|duration| duration.as_millis())
+            .unwrap_or_default();
+        let display_path = path.display().to_string();
+        let stem = path
+            .file_stem()
+            .map(|stem| stem.to_string_lossy().to_string())
+            .filter(|stem| !stem.trim().is_empty())
+            .unwrap_or_else(|| name.clone());
+
+        entries.push(DatabaseEntry {
+            id: slugify(&display_path, '-'),
+            name: stem,
+            engine: database_engine_from_file_name(&name),
+            username: "local file".to_string(),
+            password: "--".to_string(),
+            permission: "Local".to_string(),
+            backup_count: 0,
+            size: metadata.len(),
+            modified_ms,
+            path: display_path,
+            source: source.to_string(),
+        });
+    }
+}
+
+fn should_skip_database_scan_entry(name: &str) -> bool {
+    let lower = name.to_ascii_lowercase();
+    matches!(
+        lower.as_str(),
+        ".git" | "target" | "aapanel" | "node_modules" | ".gocache"
+    )
+}
+
+fn database_engine_from_file_name(name: &str) -> String {
+    let lower = name.to_ascii_lowercase();
+    if lower.ends_with(".sql") {
+        "SQL".to_string()
+    } else {
+        "SQLite".to_string()
+    }
+}
+
+fn create_mysql_database(request: &DatabaseCreateRequest) -> Result<String, String> {
+    let database_name = validate_mysql_identifier(&request.name, "Database name")?;
+    let username = validate_mysql_identifier(&request.username, "Username")?;
+    let password = request.password.trim();
+    if password.is_empty() {
+        return Err("Password is required".to_string());
+    }
+    if password.chars().count() > 128 {
+        return Err("Password must be 128 characters or less".to_string());
+    }
+
+    let registry = load_runtime_registry()?;
+    let mysql = select_primary_runtime(&registry, "mysql")
+        .ok_or_else(|| "MySQL is not installed. Install MySQL from App Store first.".to_string())?;
+    let client_path = mysql_client_path(mysql)
+        .ok_or_else(|| "mysql.exe was not found in the MySQL install directory.".to_string())?;
+    if !mysql_runtime_is_available(mysql) {
+        return Err("MySQL is not running. Start MySQL before adding a database.".to_string());
+    }
+
+    let escaped_password = escape_mysql_string(password);
+    let sql = format!(
+        "CREATE DATABASE IF NOT EXISTS `{database_name}` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;\
+         CREATE USER IF NOT EXISTS '{username}'@'localhost' IDENTIFIED BY '{escaped_password}';\
+         CREATE USER IF NOT EXISTS '{username}'@'127.0.0.1' IDENTIFIED BY '{escaped_password}';\
+         GRANT ALL PRIVILEGES ON `{database_name}`.* TO '{username}'@'localhost';\
+         GRANT ALL PRIVILEGES ON `{database_name}`.* TO '{username}'@'127.0.0.1';\
+         FLUSH PRIVILEGES;"
+    );
+
+    run_mysql_command(&client_path, &sql)?;
+    Ok(format!("Database {database_name} created"))
+}
+
+fn validate_mysql_identifier(value: &str, label: &str) -> Result<String, String> {
+    let value = value.trim();
+    if value.is_empty() {
+        return Err(format!("{label} is required"));
+    }
+    if value.len() > 64 {
+        return Err(format!("{label} must be 64 characters or less"));
+    }
+    if !value
+        .chars()
+        .all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
+    {
+        return Err(format!("{label} can only contain letters, numbers, and underscores"));
+    }
+    Ok(value.to_string())
+}
+
+fn escape_mysql_string(value: &str) -> String {
+    value
+        .replace('\\', "\\\\")
+        .replace('\'', "\\'")
+        .replace('\n', "\\n")
+        .replace('\r', "\\r")
+}
+
+fn mysql_client_path(entry: &InstalledRuntime) -> Option<PathBuf> {
+    let install_dir = Path::new(&entry.install_dir);
+    let candidates = [
+        install_dir.join("bin").join(if cfg!(windows) { "mysql.exe" } else { "mysql" }),
+        install_dir.join(if cfg!(windows) { "mysql.exe" } else { "mysql" }),
+    ];
+    candidates.into_iter().find(|path| path.exists())
+}
+
+fn mysql_runtime_is_available(entry: &InstalledRuntime) -> bool {
+    let inspection = RuntimeInspection::collect();
+    is_runtime_available_after_start_with_inspection(entry, &inspection)
+}
+
+fn run_mysql_command(client_path: &Path, sql: &str) -> Result<String, String> {
+    let mut command = Command::new(client_path);
+    let output = hide_windows_console_window(
+        command
+            .args([
+                "--protocol=TCP",
+                "-h",
+                "127.0.0.1",
+                "-P",
+                "3306",
+                "-uroot",
+                "--default-character-set=utf8mb4",
+                "-e",
+                sql,
+            ])
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped()),
+    )
+    .output()
+    .map_err(|error| format!("Failed to run mysql client: {error}"))?;
+
+    if output.status.success() {
+        return Ok(String::from_utf8_lossy(&output.stdout).trim().to_string());
+    }
+
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let detail = if stderr.is_empty() { stdout } else { stderr };
+    Err(if detail.is_empty() {
+        "MySQL command failed".to_string()
+    } else {
+        detail
+    })
+}
+
+fn collect_mysql_database_entries(entries: &mut Vec<DatabaseEntry>, seen: &mut HashSet<String>) {
+    let Ok(registry) = load_runtime_registry() else {
+        return;
+    };
+    let Some(mysql) = select_primary_runtime(&registry, "mysql") else {
+        return;
+    };
+    if !mysql_runtime_is_available(mysql) {
+        return;
+    }
+    let Some(client_path) = mysql_client_path(mysql) else {
+        return;
+    };
+
+    let sql = "SELECT table_schema, COALESCE(SUM(data_length + index_length), 0) \
+               FROM information_schema.tables \
+               WHERE table_schema NOT IN ('information_schema','mysql','performance_schema','sys') \
+               GROUP BY table_schema \
+               ORDER BY table_schema;";
+    let output = match run_mysql_command_with_args(&client_path, &["-N", "-B", "-e", sql]) {
+        Ok(output) => output,
+        Err(_) => return,
+    };
+
+    for line in output.lines() {
+        if entries.len() >= 200 {
+            return;
+        }
+        let mut parts = line.split('\t');
+        let Some(name) = parts.next().map(str::trim).filter(|name| !name.is_empty()) else {
+            continue;
+        };
+        let size = parts
+            .next()
+            .and_then(|value| value.trim().parse::<u64>().ok())
+            .unwrap_or_default();
+        let key = format!("mysql:{name}").to_ascii_lowercase();
+        if !seen.insert(key.clone()) {
+            continue;
+        }
+        entries.push(DatabaseEntry {
+            id: slugify(&key, '-'),
+            name: name.to_string(),
+            engine: "MySQL".to_string(),
+            username: name.to_string(),
+            password: "********".to_string(),
+            permission: "Local".to_string(),
+            backup_count: 0,
+            size,
+            modified_ms: 0,
+            path: format!("127.0.0.1:3306/{name}"),
+            source: "MySQL".to_string(),
+        });
+    }
+}
+
+fn run_mysql_command_with_args(client_path: &Path, args: &[&str]) -> Result<String, String> {
+    let mut command = Command::new(client_path);
+    let output = hide_windows_console_window(
+        command
+            .args([
+                "--protocol=TCP",
+                "-h",
+                "127.0.0.1",
+                "-P",
+                "3306",
+                "-uroot",
+                "--default-character-set=utf8mb4",
+            ])
+            .args(args)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped()),
+    )
+    .output()
+    .map_err(|error| format!("Failed to run mysql client: {error}"))?;
+
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    } else {
+        let detail = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        Err(if detail.is_empty() {
+            "MySQL command failed".to_string()
+        } else {
+            detail
+        })
+    }
+}
+
+async fn proxy_phpmyadmin_request(
+    method: Method,
+    path_and_query: Option<&str>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Result<Response, String> {
+    let registry = load_runtime_registry()?;
+    let phpmyadmin = select_primary_runtime(&registry, "phpmyadmin")
+        .ok_or_else(|| "phpMyAdmin is not installed. Install it from App Store first.".to_string())?;
+    if !Path::new(&phpmyadmin.install_dir).join("index.php").exists() {
+        return Err("phpMyAdmin index.php was not found in the install directory.".to_string());
+    }
+    let apache = select_primary_runtime(&registry, "apache")
+        .ok_or_else(|| "Apache is not installed. Install and start Apache before opening phpMyAdmin.".to_string())?;
+    if !is_runtime_available_after_start_with_inspection(apache, &RuntimeInspection::collect()) {
+        return Err("Apache is not running. Start Apache before opening phpMyAdmin.".to_string());
+    }
+
+    let target_path = match path_and_query.unwrap_or("/phpmyadmin/") {
+        "/phpmyadmin" => "/phpmyadmin/",
+        value => value,
+    };
+    let target = format!("http://127.0.0.1{target_path}");
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(30))
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .map_err(|error| format!("Failed to prepare phpMyAdmin proxy: {error}"))?;
+    let reqwest_method = reqwest::Method::from_bytes(method.as_str().as_bytes())
+        .map_err(|error| format!("Unsupported request method: {error}"))?;
+    let mut request = client.request(reqwest_method, target);
+
+    for name in [
+        header::ACCEPT,
+        header::ACCEPT_LANGUAGE,
+        header::CONTENT_TYPE,
+        header::COOKIE,
+        header::REFERER,
+        header::USER_AGENT,
+    ] {
+        if let Some(value) = headers.get(&name) {
+            request = request.header(name.as_str(), value.as_bytes());
+        }
+    }
+
+    if !body.is_empty() {
+        request = request.body(body.to_vec());
+    }
+
+    let upstream = request
+        .send()
+        .await
+        .map_err(|error| format!("phpMyAdmin proxy request failed: {error}"))?;
+    let status = StatusCode::from_u16(upstream.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
+    let mut builder = Response::builder().status(status);
+    for (name, value) in upstream.headers() {
+        if should_forward_phpmyadmin_response_header(name.as_str()) {
+            let value_text = if name == reqwest::header::LOCATION {
+                rewrite_phpmyadmin_location(value.to_str().unwrap_or_default())
+            } else {
+                value.to_str().unwrap_or_default().to_string()
+            };
+            if !value_text.is_empty() {
+                builder = builder.header(name.as_str(), value_text);
+            }
+        }
+    }
+    let bytes = upstream
+        .bytes()
+        .await
+        .map_err(|error| format!("Failed to read phpMyAdmin response: {error}"))?;
+    builder
+        .body(axum::body::Body::from(bytes))
+        .map_err(|error| format!("Failed to build phpMyAdmin response: {error}"))
+}
+
+fn should_forward_phpmyadmin_response_header(name: &str) -> bool {
+    matches!(
+        name.to_ascii_lowercase().as_str(),
+        "content-type" | "cache-control" | "expires" | "pragma" | "set-cookie" | "location"
+    )
+}
+
+fn rewrite_phpmyadmin_location(location: &str) -> String {
+    if let Some(path) = location.strip_prefix("http://127.0.0.1") {
+        return path.to_string();
+    }
+    if let Some(path) = location.strip_prefix("http://localhost") {
+        return path.to_string();
+    }
+    location.to_string()
 }
 
 async fn collect_software_store(
@@ -1686,6 +2175,10 @@ fn runtime_default_state(runtime_kind: &str) -> String {
     }
 }
 
+fn runtime_uses_lua_plugin(runtime_kind: &str) -> bool {
+    matches!(runtime_kind, "apache" | "php" | "mysql" | "phpmyadmin")
+}
+
 fn should_refresh_software_store(plugin_path: &Path) -> bool {
     if !plugin_path.exists() {
         return true;
@@ -1777,7 +2270,7 @@ async fn install_plugin_package(plugin_id: &str, task_id: &str) -> Result<String
 
     cleanup_legacy_runtime_metadata(&install_root);
 
-    if matches!(bundle.runtime_kind.as_str(), "apache" | "php" | "mysql") {
+    if runtime_uses_lua_plugin(&bundle.runtime_kind) {
         update_task_log(task_id, &format!("running {} setup scripts...", bundle.runtime_kind.to_uppercase()));
         if let Err(error) = run_native_windows_runtime_action(
             "install",
@@ -1820,7 +2313,7 @@ async fn install_plugin_package(plugin_id: &str, task_id: &str) -> Result<String
         install_dir: install_root.display().to_string(),
         package_file: bundle.package_file.display().to_string(),
         executable_path,
-        state: "stopped".to_string(),
+        state: runtime_default_state(&bundle.runtime_kind),
         pid: None,
         php_port,
     };
@@ -1949,17 +2442,30 @@ async fn download_url_to_path_with_task(
 ) -> Result<(), String> {
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(300))
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) MinPanel/0.1")
         .build()
         .map_err(|error| format!("Failed to create HTTP client: {error}"))?;
 
-    let mut response = client
-        .get(url)
-        .send()
+    let mut response = send_download_request(&client, url)
         .await
         .map_err(|error| format!("Failed to download {asset_label}: {error}"))?;
+    let mut effective_url = url.to_string();
+
+    if response.status() == reqwest::StatusCode::FORBIDDEN {
+        if let Some(fallback_url) = mysql_archive_cdn_fallback_url(url) {
+            update_task_log(task_id, "MySQL archive rejected the primary URL, retrying CDN mirror...");
+            response = send_download_request(&client, &fallback_url)
+                .await
+                .map_err(|error| format!("Failed to download {asset_label}: {error}"))?;
+            effective_url = fallback_url;
+        }
+    }
 
     if !response.status().is_success() {
-        return Err(format!("Download failed with status: {}", response.status()));
+        return Err(format!(
+            "Download failed with status: {} ({effective_url})",
+            response.status()
+        ));
     }
 
     let total_size = response.content_length().unwrap_or(0);
@@ -1984,6 +2490,37 @@ async fn download_url_to_path_with_task(
     }
 
     Ok(())
+}
+
+async fn send_download_request(client: &reqwest::Client, url: &str) -> Result<reqwest::Response, reqwest::Error> {
+    let mut request = client
+        .get(url)
+        .header(
+            reqwest::header::ACCEPT,
+            "application/zip, application/octet-stream, */*",
+        )
+        .header(reqwest::header::ACCEPT_LANGUAGE, "en-US,en;q=0.9");
+    if url.contains("downloads.mysql.com") || url.contains("cdn.mysql.com") {
+        request = request.header(reqwest::header::REFERER, "https://downloads.mysql.com/");
+    }
+    request.send().await
+}
+
+fn mysql_archive_cdn_fallback_url(url: &str) -> Option<String> {
+    if !url.contains("downloads.mysql.com/archives/get/") {
+        return None;
+    }
+    let file_name = url.split("/file/").nth(1)?.split(['?', '#']).next()?.trim();
+    let version = file_name.strip_prefix("mysql-")?.split('-').next()?;
+    let mut parts = version.split('.');
+    let major = parts.next()?;
+    let minor = parts.next()?;
+    if major.is_empty() || minor.is_empty() {
+        return None;
+    }
+    Some(format!(
+        "https://cdn.mysql.com/archives/mysql-{major}.{minor}/{file_name}"
+    ))
 }
 
 fn run_native_windows_runtime_action(
@@ -2021,6 +2558,21 @@ fn run_native_windows_runtime_action(
         );
         if let Some(port) = php_port {
             ctx.insert("port".to_string(), port.to_string());
+        }
+        if runtime_kind == "apache" {
+            if let Ok(registry) = load_runtime_registry() {
+                if let Some(phpmyadmin) = select_primary_runtime(&registry, "phpmyadmin") {
+                    ctx.insert(
+                        "phpmyadmin_dir".to_string(),
+                        phpmyadmin.install_dir.clone(),
+                    );
+                }
+                if let Some(port) = select_primary_runtime(&registry, "php")
+                    .and_then(|entry| entry.php_port)
+                {
+                    ctx.insert("phpmyadmin_php_port".to_string(), port.to_string());
+                }
+            }
         }
 
         Some(engine.call_hook(runtime_kind, hook_name, ctx))
@@ -3189,6 +3741,8 @@ pub(crate) fn sync_apache_site_bindings(registry: &mut RuntimeRegistry) -> Resul
             "website_root": website::resolve_website_root().display().to_string(),
             "data_root": data_root.display().to_string(),
             "sites": sites,
+            "phpmyadmin_dir": select_primary_runtime(registry, "phpmyadmin").map(|entry| entry.install_dir.clone()),
+            "phpmyadmin_php_port": select_primary_runtime(registry, "php").and_then(|entry| entry.php_port),
         }),
     )?;
 
@@ -3209,6 +3763,13 @@ fn select_primary_runtime_index(registry: &RuntimeRegistry, runtime_kind: &str) 
                 .then_with(|| left.version.cmp(&right.version))
         })
         .map(|(index, _)| index)
+}
+
+fn select_primary_runtime<'a>(
+    registry: &'a RuntimeRegistry,
+    runtime_kind: &str,
+) -> Option<&'a InstalledRuntime> {
+    select_primary_runtime_index(registry, runtime_kind).map(|index| &registry.entries[index])
 }
 
 fn restart_apache_runtime_if_running(entry: &mut InstalledRuntime) -> Result<(), String> {

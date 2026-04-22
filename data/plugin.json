@@ -39,7 +39,7 @@
     {
       "name": "mysql",
       "title": "MySQL",
-      "version": "5.7.40",
+      "version": "5.7.44",
       "ps": "Classic relational database service for WordPress, Laravel, and CMS stacks.",
       "price": "0",
       "endtime": 0,
@@ -49,9 +49,9 @@
       "dependent": "mysql",
       "versions": [
         {
-          "version": "5.7.40",
-          "full_version": "5.7.40",
-          "f_path": "http://d.hocdev.com/files/mysql-5.7.40.zip"
+          "version": "5.7.44",
+          "full_version": "5.7.44",
+          "f_path": "https://cdn.mysql.com/archives/mysql-5.7/mysql-5.7.44-winx64.zip"
         }
       ]
     },
@@ -70,7 +70,7 @@
         {
           "version": "5.2.1",
           "full_version": "5.2.1",
-          "f_path": "http://d.hocdev.com/files/phpmyadmin-5.2.1.zip"
+          "f_path": "https://files.phpmyadmin.net/phpMyAdmin/5.2.1/phpMyAdmin-5.2.1-all-languages.zip"
         }
       ]
     },

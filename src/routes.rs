@@ -1,6 +1,6 @@
 use axum::{
     response::Redirect,
-    routing::{get, post},
+    routing::{any, get, post},
     Router,
 };
 
@@ -14,17 +14,25 @@ async fn overview_redirect() -> Redirect {
     Redirect::permanent("/website")
 }
 
+async fn traffic_redirect() -> Redirect {
+    Redirect::permanent("/database")
+}
+
 pub fn routes() -> Router {
     Router::new()
         .route("/", get(root_redirect))
         .route("/dashboard", get(dashboard::page))
         .route("/website", get(website::website_page))
+        .route("/database", get(dashboard::database_page))
         .route("/overview", get(overview_redirect))
         .route("/software", get(dashboard::software_page))
-        .route("/traffic", get(dashboard::page))
+        .route("/traffic", get(traffic_redirect))
         .route("/disks", get(dashboard::page))
         .route("/processes", get(dashboard::page))
         .route("/dashboard/data", get(dashboard::data))
+        .route("/database/create", post(dashboard::create_database))
+        .route("/phpmyadmin", any(dashboard::phpmyadmin_proxy))
+        .route("/phpmyadmin/*path", any(dashboard::phpmyadmin_proxy))
         .route("/software/refresh", post(dashboard::refresh_software_store))
         .route(
             "/software/install",

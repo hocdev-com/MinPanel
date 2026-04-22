@@ -78,6 +78,16 @@ When modifying the dashboard layout, follow these synchronized responsive patter
 - **Software Settings Modal**: Keep `Setting` separate from the install/update version picker. It should open a dedicated two-pane modal with aaPanel-style left navigation and a service panel (`Stop`, `Restart`, `Reload`, alert toggle, daemon toggle); collapse the sidebar into wrapped chips on narrow screens instead of merging it back into the install modal.
 - **Software Settings Frame**: Match aaPanel's compact manager sizing for the settings dialog (`800px` wide by `650px` tall on desktop) and keep the overlay centered inside the main content area. The settings overlay must start after the left sidebar (`204px` desktop, `74px` compact sidebar) so responsive states never cover the dark menu.
 
+### 5.1. Database Page Responsive Pattern
+- **Menu Position**: The sidebar Database entry replaces Traffic and must sit above `App Store`, matching aaPanel's information hierarchy.
+- **aaPanel Database Skeleton**: Keep the Database page organized as tabs (`MySQL`, `SQLServer`, `MongoDB`, `Redis`, `PostgreSQL`), backup safety tip, toolbar actions, runtime/remote status strip, table, batch controls, and pagination.
+- **Toolbar Reflow**: Database toolbar controls should wrap at tablet widths; the search field must stretch full width before the table becomes cramped.
+- **Table Column Shedding**: Preserve a real table header. Hide `Password` and `Permission` first, then `Backup`, then `Username` and `Size` on the smallest breakpoint. Keep `Database name` and `Operation` visible at all widths.
+- **Empty State Colspan**: Database empty rows must use a dynamic `colspan` based on currently visible columns so empty messages remain centered after column shedding.
+- **Backend Honesty**: Database actions must only be enabled when backed by real endpoints. `Add Database` creates a MySQL database/user through the installed MySQL runtime; unsupported actions such as import, edit, backup, remote DB, and delete remain disabled until their endpoints exist.
+- **Runtime Awareness**: The Database page should use App Store runtime state where available, especially MySQL/Redis/PostgreSQL install and running status, while still allowing local database file discovery to populate read-only rows.
+- **phpMyAdmin Access Modal**: The Database toolbar and runtime strip should expose a `phpMyAdmin` button. It opens an aaPanel-style modal with left navigation (`Service`, `PHP version`, `Security configuration`), a public-access toggle, and `Password-free access`/`Public access` buttons. Public access must open on the current MinPanel origin, e.g. `http://localhost:8080/phpmyadmin/`, and the Rust `/phpmyadmin/*` proxy should forward to Apache's managed local alias so the browser stays on the panel port.
+
 ### 6. Shared Close Button Pattern
 - **Universal `X` Button**: Any dashboard/modal/dialog close button must use the shared circular close-button pattern, not a plain text `×`.
 - **Base Look**: Render it as a gray circular button with a white `X` built from CSS lines, matching aaPanel-style floating closes.

@@ -1,0 +1,151 @@
+<section class="card database-tab-card" aria-label="Database type navigation">
+  <div class="database-tabs" role="tablist" aria-label="Database type">
+    <button class="database-tab active" type="button" data-database-engine="mysql" aria-selected="true">MySQL</button>
+    <button class="database-tab" type="button" data-database-engine="sqlserver" aria-selected="false">SQLServer</button>
+    <button class="database-tab" type="button" data-database-engine="mongodb" aria-selected="false">MongoDB</button>
+    <button class="database-tab" type="button" data-database-engine="redis" aria-selected="false">Redis</button>
+    <button class="database-tab" type="button" data-database-engine="pgsql" aria-selected="false">PostgreSQL</button>
+  </div>
+</section>
+
+<section class="card database-card" id="database">
+  <div class="database-shell">
+    <div class="database-tip" id="database-backup-tip">
+      <span class="database-tip-icon" aria-hidden="true">!</span>
+      <span>After adding the database, be sure to</span>
+      <a href="/dashboard#processes">[Cron]</a>
+      <span>page adds scheduled backup tasks to ensure your data security.</span>
+    </div>
+
+    <div class="database-toolbar">
+      <div class="database-toolbar-left">
+        <button class="database-primary-button" id="database-add-button" type="button">Add Database</button>
+        <button class="database-toolbar-button" type="button" disabled>Root password</button>
+        <button class="database-toolbar-button" id="database-phpmyadmin-button" type="button">phpMyAdmin</button>
+        <button class="database-toolbar-button" type="button" disabled>Remote DB</button>
+        <button class="database-toolbar-button" type="button" disabled>Backup list</button>
+        <button class="database-toolbar-button" type="button" disabled>Sync all</button>
+      </div>
+
+      <div class="database-toolbar-right">
+        <label class="database-search">
+          <span class="sr-only">Database search</span>
+          <input id="database-search-input" type="search" placeholder="Database search" aria-label="Database search" />
+          <button id="database-search-button" type="button" aria-label="Search database">
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <circle cx="9" cy="9" r="5.5"></circle>
+              <path d="M13 13l3.5 3.5"></path>
+            </svg>
+          </button>
+        </label>
+      </div>
+    </div>
+
+    <div class="database-runtime-strip" id="database-runtime-strip"></div>
+
+    <div class="database-table-shell">
+      <table class="database-table">
+        <thead>
+          <tr>
+            <th class="database-check-col">
+              <input id="database-check-all" type="checkbox" aria-label="Select all databases on page" disabled />
+            </th>
+            <th class="database-name-col">Database name</th>
+            <th class="database-username-col">Username</th>
+            <th class="database-password-col">Password</th>
+            <th class="database-backup-col">Backup</th>
+            <th class="database-permission-col">Permission</th>
+            <th class="database-size-col">Size</th>
+            <th class="database-operate-col">Operation</th>
+          </tr>
+        </thead>
+        <tbody id="database-table-body"></tbody>
+      </table>
+    </div>
+
+    <div class="database-footer">
+      <div class="database-batch-actions">
+        <label class="database-select">
+          <span class="sr-only">Batch action</span>
+          <select disabled>
+            <option>Please choose</option>
+            <option>Backup</option>
+            <option>Delete database</option>
+          </select>
+        </label>
+        <button class="database-execute-button" type="button" disabled>Execute</button>
+      </div>
+
+      <div class="database-pagination">
+        <button class="database-page-nav" id="database-prev-page" type="button" aria-label="Previous page">
+          <svg viewBox="0 0 20 20" aria-hidden="true">
+            <path d="m12 5-5 5 5 5"></path>
+          </svg>
+        </button>
+        <span class="database-page-current" id="database-page-current">1</span>
+        <button class="database-page-nav" id="database-next-page" type="button" aria-label="Next page">
+          <svg viewBox="0 0 20 20" aria-hidden="true">
+            <path d="m8 5 5 5-5 5"></path>
+          </svg>
+        </button>
+        <span class="database-total" id="database-total-count">Total 0</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="database-create-modal" id="database-create-modal" hidden>
+  <div class="database-modal-backdrop" data-database-create-close></div>
+  <div class="database-create-panel" role="dialog" aria-modal="true" aria-labelledby="database-create-title">
+    <button class="panel-close-button panel-close-button--floating database-modal-close" id="database-create-close" type="button" aria-label="Close Add Database"></button>
+    <div class="database-modal-head">
+      <h3 id="database-create-title">Add Database</h3>
+    </div>
+    <form class="database-create-form" id="database-create-form">
+      <label class="database-form-row">
+        <span>Database name</span>
+        <input id="database-create-name" name="name" type="text" autocomplete="off" required />
+      </label>
+      <label class="database-form-row">
+        <span>Username</span>
+        <input id="database-create-username" name="username" type="text" autocomplete="off" required />
+      </label>
+      <label class="database-form-row">
+        <span>Password</span>
+        <div class="database-password-field">
+          <input id="database-create-password" name="password" type="text" autocomplete="new-password" required />
+          <button id="database-generate-password" type="button">Random</button>
+        </div>
+      </label>
+      <label class="database-form-row">
+        <span>Permission</span>
+        <select id="database-create-permission" disabled>
+          <option>Local server</option>
+        </select>
+      </label>
+      <p class="database-form-message" id="database-create-message" role="status"></p>
+      <div class="database-modal-footer">
+        <button class="database-toolbar-button" id="database-create-cancel" type="button">Cancel</button>
+        <button class="database-primary-button" id="database-create-submit" type="submit">Confirm</button>
+      </div>
+    </form>
+  </div>
+</section>
+
+<section class="database-phpmyadmin-modal" id="database-phpmyadmin-modal" hidden>
+  <div class="database-modal-backdrop" data-database-phpmyadmin-close></div>
+  <div class="database-phpmyadmin-panel" role="dialog" aria-modal="true" aria-labelledby="database-phpmyadmin-title">
+    <button class="panel-close-button panel-close-button--floating database-modal-close" id="database-phpmyadmin-close" type="button" aria-label="Close phpMyAdmin"></button>
+    <div class="database-modal-head">
+      <h3 id="database-phpmyadmin-title">phpMyAdmin</h3>
+    </div>
+    <div class="database-phpmyadmin-shell">
+      <aside class="database-phpmyadmin-sidebar">
+        <button class="database-phpmyadmin-menu-item active" type="button" data-phpmyadmin-section="service">Service</button>
+        <button class="database-phpmyadmin-menu-item" type="button" data-phpmyadmin-section="php">PHP version</button>
+        <button class="database-phpmyadmin-menu-item" type="button" data-phpmyadmin-section="security">Security configuration</button>
+      </aside>
+      <div class="database-phpmyadmin-main" id="database-phpmyadmin-content"></div>
+    </div>
+  </div>
+</section>

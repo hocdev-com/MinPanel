@@ -299,10 +299,45 @@ local function normalize_httpd_conf(contents, install_dir, enable_ssl)
     return join_lines(lines)
 end
 
-local function render_extra_conf(website_root, apache_logs_root)
+local function render_phpmyadmin_alias(phpmyadmin_dir, php_port)
+    phpmyadmin_dir = trim(phpmyadmin_dir or "")
+    php_port = trim(php_port or "")
+    if phpmyadmin_dir == "" or not panel.exists(path_join(phpmyadmin_dir, "index.php")) then
+        return ""
+    end
+
+    local document_root = apache_path(phpmyadmin_dir)
+    local php_handler = ""
+    if php_port ~= "" then
+        php_handler = string.format([[
+    ProxyFCGIBackendType GENERIC
+    ProxyFCGISetEnvIf "true" SCRIPT_FILENAME "%%{reqenv:REQUEST_FILENAME}"
+    ProxyFCGISetEnvIf "true" PATH_TRANSLATED "%%{reqenv:REQUEST_FILENAME}"
+    <FilesMatch "\.php$">
+        SetHandler "proxy:fcgi://127.0.0.1:%s/"
+    </FilesMatch>
+]], php_port)
+    end
+
+    return string.format([[
+
+# MinPanel managed phpMyAdmin
+Alias /phpmyadmin/ "%s/"
+Alias /phpmyadmin "%s/"
+<Directory "%s">
+    Options FollowSymLinks
+    AllowOverride All
+    Require all granted
+    DirectoryIndex index.php
+%s</Directory>
+]], document_root, document_root, document_root, php_handler):gsub("\n", "\r\n")
+end
+
+local function render_extra_conf(website_root, apache_logs_root, phpmyadmin_dir, phpmyadmin_php_port)
     local document_root = apache_path(website_root)
     local error_log = apache_path(path_join(apache_logs_root, "error.log"))
     local access_log = apache_path(path_join(apache_logs_root, "access.log"))
+    local phpmyadmin_alias = render_phpmyadmin_alias(phpmyadmin_dir, phpmyadmin_php_port)
 
     return string.format([[
 # MinPanel managed Apache extras
@@ -321,7 +356,7 @@ CustomLog "%s" common
 <IfModule proxy_module>
     ProxyTimeout 60
 </IfModule>
-]], document_root, error_log, access_log, document_root):gsub("\n", "\r\n")
+%s]], document_root, error_log, access_log, document_root, phpmyadmin_alias):gsub("\n", "\r\n")
 end
 
 local function detect_site_document_root(site_root)
@@ -513,7 +548,7 @@ local function ensure_runtime_config(ctx)
     local enable_ssl = runtime_requires_ssl(ctx, vhost_root)
     local normalized = normalize_httpd_conf(panel.read_file(httpd_conf), install_dir, enable_ssl)
     write_if_changed(httpd_conf, normalized)
-    write_if_changed(extra_conf_path, render_extra_conf(website_root, apache_logs_root))
+    write_if_changed(extra_conf_path, render_extra_conf(website_root, apache_logs_root, ctx.phpmyadmin_dir, ctx.phpmyadmin_php_port))
 
     return {
         httpd_conf = httpd_conf,

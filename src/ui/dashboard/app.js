@@ -38,8 +38,8 @@ function createWebsiteDeleteDialogState(overrides = {}) {
 const sidebarNavConfig = {
   Dashboard: { path: "/dashboard", section: "dashboard" },
   Website: { path: "/website", section: "website" },
+  Database: { path: "/database", section: "database" },
   "App Store": { path: "/software", section: "software" },
-  Traffic: { path: "/traffic", section: "traffic" },
   Disk: { path: "/disks", section: "disks" },
   Process: { path: "/processes", section: "processes" },
   "System API": { path: "/system" },
@@ -88,6 +88,17 @@ const websiteState = {
   pendingActions: {},
   pendingDeleteId: null,
   deleteDialog: createWebsiteDeleteDialogState(),
+};
+
+const databaseState = {
+  items: [],
+  engine: "mysql",
+  search: "",
+  page: 1,
+  pageSize: 10,
+  phpMyAdminSection: "service",
+  phpMyAdminPublic: true,
+  creating: false,
 };
 
 const softwareState = {
@@ -215,6 +226,7 @@ async function fetchJsonWithTimeout(url, options = {}, timeoutMs = 10000) {
 function normalizeDashboardPath(pathname) {
   if (!pathname || pathname === "/") return "/dashboard";
   if (pathname === "/overview") return "/website";
+  if (pathname === "/traffic") return "/database";
   return pathname;
 }
 
@@ -1548,6 +1560,513 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+
+function getDatabaseView() {
+  const search = databaseState.search;
+  const visibleItems = databaseState.engine === "mysql" ? databaseState.items : [];
+  const filtered = visibleItems.filter((item) => {
+    const haystack = `${item.name} ${item.engine} ${item.username} ${item.permission} ${item.path}`.toLowerCase();
+    return !search || haystack.includes(search);
+  });
+  const totalPages = Math.max(1, Math.ceil(filtered.length / databaseState.pageSize));
+  databaseState.page = Math.min(databaseState.page, totalPages);
+  const start = (databaseState.page - 1) * databaseState.pageSize;
+  const pageItems = filtered.slice(start, start + databaseState.pageSize);
+  return { filtered, totalPages, pageItems };
+}
+
+function getDatabaseVisibleColumnCount() {
+  const width = window.innerWidth || document.documentElement.clientWidth || 0;
+  if (width <= 640) return 3;
+  if (width <= 900) return 5;
+  if (width <= 1180) return 6;
+  return 8;
+}
+
+function databaseEngineLabel(engine) {
+  switch (engine) {
+    case "sqlserver":
+      return "SQLServer";
+    case "mongodb":
+      return "MongoDB";
+    case "redis":
+      return "Redis";
+    case "pgsql":
+      return "PostgreSQL";
+    case "mysql":
+    default:
+      return "MySQL";
+  }
+}
+
+function databaseEngineIcon(engine, item = null) {
+  if (engine === "redis") return softwareVisual("redis", { name: "redis", title: "Redis" });
+  if (engine === "mysql") return softwareVisual("mysql", { name: "mysql", title: "MySQL" });
+  if (item?.engine === "SQLite") {
+    return '<svg viewBox="0 0 28 28" fill="none"><path d="M7 6.2c0-1.8 3.1-3.2 7-3.2s7 1.4 7 3.2v15.6c0 1.8-3.1 3.2-7 3.2s-7-1.4-7-3.2z" fill="#eef6ff" stroke="#4f9bd8" stroke-width="1.7"/><path d="M7 11.4c0 1.8 3.1 3.2 7 3.2s7-1.4 7-3.2M7 16.6c0 1.8 3.1 3.2 7 3.2s7-1.4 7-3.2" stroke="#4f9bd8" stroke-width="1.7"/></svg>';
+  }
+  return '<svg viewBox="0 0 28 28" fill="none"><rect x="5" y="4" width="18" height="20" rx="3" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.7"/><path d="M9 10h10M9 14h10M9 18h6" stroke="#20a53a" stroke-width="1.7" stroke-linecap="round"/></svg>';
+}
+
+function findDatabaseRuntime() {
+  const expected = databaseState.engine === "pgsql" ? ["pgsql", "postgres", "postgresql"] : [databaseState.engine];
+  if (!["mysql", "redis", "pgsql"].includes(databaseState.engine)) return null;
+  return getSoftwareDisplayItems().find((item) => {
+    const haystack = `${item.name || ""} ${item.title || ""} ${item.visual || ""}`.toLowerCase();
+    return item.installed && expected.some((token) => haystack.includes(token));
+  }) || null;
+}
+
+function findPhpMyAdminRuntime() {
+  return getSoftwareDisplayItems().find((item) => {
+    const haystack = `${item.name || ""} ${item.title || ""} ${item.visual || ""}`.toLowerCase();
+    return item.installed && haystack.includes("phpmyadmin");
+  }) || null;
+}
+
+function findPrimaryPhpRuntime() {
+  return (websiteState.phpRuntimes || [])[0] || null;
+}
+
+function renderPhpMyAdminServicePanel() {
+  const phpmyadmin = findPhpMyAdminRuntime();
+  const mysql = findDatabaseRuntime();
+  const installed = Boolean(phpmyadmin);
+  const publicAccess = databaseState.phpMyAdminPublic;
+  return `
+    <section class="database-phpmyadmin-section">
+      <div class="database-phpmyadmin-row">
+        <span>Database</span>
+        <label class="software-display-switch">
+          <input id="database-phpmyadmin-public-toggle" type="checkbox" ${publicAccess ? "checked" : ""}>
+          <span class="software-display-slider" aria-hidden="true"></span>
+        </label>
+        <span>Enable public access</span>
+      </div>
+      <div class="database-phpmyadmin-status-line">
+        <span class="database-phpmyadmin-dot" aria-hidden="true"></span>
+        <span>${publicAccess ? "Turning off [public access] improves security" : "Public access is disabled"}</span>
+      </div>
+      <div class="database-phpmyadmin-divider"></div>
+      <div class="database-phpmyadmin-access-row">
+        <button class="database-phpmyadmin-access-button is-hot" type="button" data-phpmyadmin-access="password-free" ${installed ? "" : "disabled"}>
+          <span class="database-hot-ribbon">HOT</span>
+          Password-free access
+        </button>
+        <button class="database-phpmyadmin-access-button" type="button" data-phpmyadmin-access="public" ${installed && publicAccess ? "" : "disabled"}>Public access</button>
+      </div>
+      <ul class="database-phpmyadmin-notes">
+        <li>Password-free access requires logging into the panel first</li>
+        <li>If password-free access does not respond, use [Public access]</li>
+        <li>If access through the panel is unresponsive, please use [Public access] to access phpMyAdmin</li>
+        <li>If the access appears 502, please check the [php status] or try to [change php version]</li>
+      </ul>
+      <div class="database-phpmyadmin-runtime-state">
+        <span>phpMyAdmin: ${installed ? escapeHtml(phpmyadmin.version || "Installed") : "Not installed"}</span>
+        <span>MySQL: ${mysql ? escapeHtml(mysql.status === "running" ? "Running" : "Stopped") : "Not installed"}</span>
+      </div>
+    </section>
+  `;
+}
+
+function renderPhpMyAdminPhpPanel() {
+  const php = findPrimaryPhpRuntime();
+  const options = (websiteState.phpRuntimes || []).map((runtime) => (
+    `<option value="${escapeHtml(runtime.id)}">${escapeHtml(runtime.label || runtime.version || runtime.id)}</option>`
+  )).join("");
+  return `
+    <section class="database-phpmyadmin-section">
+      <div class="database-phpmyadmin-section-head">
+        <span>PHP version</span>
+        <strong>${escapeHtml(php?.label || "No PHP runtime installed")}</strong>
+      </div>
+      <label class="database-form-row database-phpmyadmin-select-row">
+        <span>Version</span>
+        <select id="database-phpmyadmin-php-version" ${options ? "" : "disabled"}>
+          ${options || "<option>No PHP runtime</option>"}
+        </select>
+      </label>
+      <p class="database-phpmyadmin-copy">phpMyAdmin is a PHP application. Apache must route it to an installed PHP runtime before public access can respond.</p>
+    </section>
+  `;
+}
+
+function renderPhpMyAdminSecurityPanel() {
+  return `
+    <section class="database-phpmyadmin-section">
+      <div class="database-phpmyadmin-section-head">
+        <span>Security configuration</span>
+        <strong>${databaseState.phpMyAdminPublic ? "Public access enabled" : "Public access disabled"}</strong>
+      </div>
+      <div class="database-phpmyadmin-security-list">
+        <label class="database-phpmyadmin-check-row">
+          <input type="checkbox" checked disabled>
+          <span>Cookie authentication</span>
+        </label>
+        <label class="database-phpmyadmin-check-row">
+          <input type="checkbox" ${databaseState.phpMyAdminPublic ? "checked" : ""} data-phpmyadmin-public-check>
+          <span>Enable public access</span>
+        </label>
+        <label class="database-phpmyadmin-check-row">
+          <input type="checkbox" checked disabled>
+          <span>Generated blowfish secret</span>
+        </label>
+      </div>
+    </section>
+  `;
+}
+
+function renderPhpMyAdminModal() {
+  const content = document.getElementById("database-phpmyadmin-content");
+  if (!content) return;
+  document.querySelectorAll("[data-phpmyadmin-section]").forEach((button) => {
+    const active = button.dataset.phpmyadminSection === databaseState.phpMyAdminSection;
+    button.classList.toggle("active", active);
+  });
+  if (databaseState.phpMyAdminSection === "php") {
+    content.innerHTML = renderPhpMyAdminPhpPanel();
+  } else if (databaseState.phpMyAdminSection === "security") {
+    content.innerHTML = renderPhpMyAdminSecurityPanel();
+  } else {
+    content.innerHTML = renderPhpMyAdminServicePanel();
+  }
+}
+
+function openPhpMyAdminModal() {
+  databaseState.phpMyAdminSection = "service";
+  renderPhpMyAdminModal();
+  const modal = document.getElementById("database-phpmyadmin-modal");
+  if (modal) modal.hidden = false;
+}
+
+function closePhpMyAdminModal() {
+  const modal = document.getElementById("database-phpmyadmin-modal");
+  if (modal) modal.hidden = true;
+}
+
+function openPhpMyAdminAccess(mode) {
+  const phpmyadmin = findPhpMyAdminRuntime();
+  if (!phpmyadmin) {
+    window.alert("phpMyAdmin is not installed. Install it from App Store first.");
+    return;
+  }
+  if (mode === "public" && !databaseState.phpMyAdminPublic) {
+    window.alert("Public access is disabled.");
+    return;
+  }
+  window.open(`${window.location.origin}/phpmyadmin/`, "_blank", "noopener");
+}
+
+function randomDatabasePassword() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789_#@";
+  const bytes = new Uint8Array(16);
+  window.crypto?.getRandomValues?.(bytes);
+  return Array.from(bytes, (byte, index) => chars[(byte || (index * 17 + 11)) % chars.length]).join("");
+}
+
+function openDatabaseCreateModal() {
+  const modal = document.getElementById("database-create-modal");
+  const nameInput = document.getElementById("database-create-name");
+  const usernameInput = document.getElementById("database-create-username");
+  const passwordInput = document.getElementById("database-create-password");
+  const message = document.getElementById("database-create-message");
+  if (!modal || !nameInput || !usernameInput || !passwordInput) return;
+  nameInput.value = "";
+  usernameInput.value = "";
+  usernameInput.dataset.touched = "false";
+  passwordInput.value = randomDatabasePassword();
+  if (message) message.textContent = "";
+  modal.hidden = false;
+  nameInput.focus();
+}
+
+function closeDatabaseCreateModal() {
+  const modal = document.getElementById("database-create-modal");
+  if (modal) modal.hidden = true;
+  databaseState.creating = false;
+}
+
+function syncDatabaseUsernameFromName() {
+  const nameInput = document.getElementById("database-create-name");
+  const usernameInput = document.getElementById("database-create-username");
+  if (!nameInput || !usernameInput || usernameInput.dataset.touched === "true") return;
+  usernameInput.value = nameInput.value.trim().replace(/[^A-Za-z0-9_]/g, "_").slice(0, 64);
+}
+
+async function submitDatabaseCreate() {
+  if (databaseState.creating) return;
+  const nameInput = document.getElementById("database-create-name");
+  const usernameInput = document.getElementById("database-create-username");
+  const passwordInput = document.getElementById("database-create-password");
+  const message = document.getElementById("database-create-message");
+  const submit = document.getElementById("database-create-submit");
+  if (!nameInput || !usernameInput || !passwordInput) return;
+  const payload = {
+    name: nameInput.value.trim(),
+    username: usernameInput.value.trim(),
+    password: passwordInput.value,
+  };
+  databaseState.creating = true;
+  if (submit) submit.disabled = true;
+  if (message) {
+    message.textContent = "Creating database...";
+    message.classList.remove("is-error");
+  }
+  try {
+    const { response, body } = await fetchJsonWithTimeout(
+      "/database/create",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      },
+      15000,
+    );
+    if (!response.ok || !body.status) {
+      throw new Error(body.message || `HTTP ${response.status}`);
+    }
+    closeDatabaseCreateModal();
+    await refreshDashboard();
+  } catch (error) {
+    if (message) {
+      message.textContent = error?.message || "Database creation failed";
+      message.classList.add("is-error");
+    } else {
+      window.alert(error?.message || "Database creation failed");
+    }
+  } finally {
+    databaseState.creating = false;
+    if (submit) submit.disabled = false;
+  }
+}
+
+function renderDatabaseRuntimeStrip() {
+  const strip = document.getElementById("database-runtime-strip");
+  if (!strip) return;
+  const label = databaseEngineLabel(databaseState.engine);
+  const runtime = findDatabaseRuntime();
+  const supportsLocalRuntime = ["mysql", "redis", "pgsql"].includes(databaseState.engine);
+
+  if (!supportsLocalRuntime) {
+    strip.innerHTML = `
+      <div class="database-runtime-main">
+        <span class="database-runtime-icon" aria-hidden="true">${databaseEngineIcon(databaseState.engine)}</span>
+        <span><span class="database-runtime-name">${escapeHtml(label)}</span> local service management is not wired in MiniPanel yet.</span>
+      </div>
+      <span class="database-runtime-actions"><button type="button" disabled>Remote DB</button></span>
+    `;
+    return;
+  }
+
+  if (!runtime) {
+    strip.innerHTML = `
+      <div class="database-runtime-main">
+        <span class="database-runtime-icon" aria-hidden="true">${databaseEngineIcon(databaseState.engine)}</span>
+        <span><span class="database-runtime-name">${escapeHtml(label)}</span> is not installed locally.</span>
+        <span class="database-runtime-state is-missing">Not installed</span>
+      </div>
+      <span class="database-runtime-actions">
+        <button type="button" disabled>Click install</button>
+        <button type="button" disabled>Add Remote DB</button>
+        <button type="button" data-database-open-phpmyadmin>phpMyAdmin</button>
+      </span>
+    `;
+    return;
+  }
+
+  const running = runtime.status === "running";
+  strip.innerHTML = `
+    <div class="database-runtime-main">
+      <span class="database-runtime-icon" aria-hidden="true">${databaseEngineIcon(databaseState.engine, runtime)}</span>
+      <span><span class="database-runtime-name">${escapeHtml(`${runtime.title} ${runtime.version}`.trim())}</span> local service</span>
+      <span class="database-runtime-state${running ? "" : " is-stopped"}">${running ? "Running" : "Stopped"}</span>
+    </div>
+    <span class="database-runtime-actions">
+      <button type="button" disabled>Root password</button>
+      <button type="button" disabled>Remote DB</button>
+      <button type="button" data-database-open-phpmyadmin>phpMyAdmin</button>
+    </span>
+  `;
+}
+
+function renderDatabaseTable() {
+  const tbody = document.getElementById("database-table-body");
+  if (!tbody) return;
+  renderDatabaseRuntimeStrip();
+  const { filtered, totalPages, pageItems } = getDatabaseView();
+
+  if (!pageItems.length) {
+    const runtime = findDatabaseRuntime();
+    const emptyText = runtime
+      ? "Database list is empty."
+      : `${databaseEngineLabel(databaseState.engine)} is not installed or no local database files were detected.`;
+    tbody.innerHTML = `<tr class="database-empty"><td colspan="${getDatabaseVisibleColumnCount()}">${escapeHtml(emptyText)}</td></tr>`;
+  } else {
+    tbody.innerHTML = pageItems.map((item) => `
+      <tr>
+        <td class="database-check-col"><input type="checkbox" aria-label="Select ${escapeHtml(item.name)}" disabled /></td>
+        <td class="database-name-col">
+          <div class="database-name-cell">
+            <span class="database-engine-icon" aria-hidden="true">${databaseEngineIcon(databaseState.engine, item)}</span>
+            <span class="database-name-meta">
+              <span class="database-name-title">${escapeHtml(item.name)}</span>
+              <span class="database-name-path" title="${escapeHtml(item.path)}">${escapeHtml(item.path)}</span>
+            </span>
+          </div>
+        </td>
+        <td class="database-username-col">${escapeHtml(item.username || "--")}</td>
+        <td class="database-password-col"><span class="database-password-mask">${escapeHtml(item.password || "--")}</span></td>
+        <td class="database-backup-col"><span class="database-backup-count">${Number(item.backup_count || 0)}</span></td>
+        <td class="database-permission-col">${escapeHtml(item.permission || "Local")}</td>
+        <td class="database-size-col">${escapeHtml(formatBytes(Number(item.size || 0)))}</td>
+        <td class="database-operate-col">
+          <span class="database-operate-links">
+            <button class="database-operate-link" type="button" data-database-open-phpmyadmin>Admin</button>
+            <button class="database-operate-link" type="button" disabled>Tools</button>
+            <button class="database-operate-link" type="button" disabled>Delete</button>
+          </span>
+        </td>
+      </tr>
+    `).join("");
+  }
+
+  const current = document.getElementById("database-page-current");
+  const prev = document.getElementById("database-prev-page");
+  const next = document.getElementById("database-next-page");
+  const total = document.getElementById("database-total-count");
+  if (current) current.textContent = String(databaseState.page);
+  if (prev) prev.disabled = databaseState.page <= 1;
+  if (next) next.disabled = databaseState.page >= totalPages;
+  if (total) total.textContent = `Total ${filtered.length}`;
+}
+
+function bindDatabaseControls() {
+  if (!document.getElementById("database-table-body")) return;
+  const addButton = document.getElementById("database-add-button");
+  const phpMyAdminButton = document.getElementById("database-phpmyadmin-button");
+  const createModal = document.getElementById("database-create-modal");
+  const createClose = document.getElementById("database-create-close");
+  const createCancel = document.getElementById("database-create-cancel");
+  const createForm = document.getElementById("database-create-form");
+  const createName = document.getElementById("database-create-name");
+  const createUsername = document.getElementById("database-create-username");
+  const generatePassword = document.getElementById("database-generate-password");
+  const phpMyAdminModal = document.getElementById("database-phpmyadmin-modal");
+  const phpMyAdminClose = document.getElementById("database-phpmyadmin-close");
+  const phpMyAdminContent = document.getElementById("database-phpmyadmin-content");
+
+  if (addButton) addButton.addEventListener("click", openDatabaseCreateModal);
+  if (phpMyAdminButton) phpMyAdminButton.addEventListener("click", openPhpMyAdminModal);
+  if (createClose) createClose.addEventListener("click", closeDatabaseCreateModal);
+  if (createCancel) createCancel.addEventListener("click", closeDatabaseCreateModal);
+  if (createModal) {
+    createModal.addEventListener("click", (event) => {
+      if (event.target.hasAttribute("data-database-create-close")) {
+        closeDatabaseCreateModal();
+      }
+    });
+  }
+  if (createForm) {
+    createForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      submitDatabaseCreate();
+    });
+  }
+  if (createName) createName.addEventListener("input", syncDatabaseUsernameFromName);
+  if (createUsername) {
+    createUsername.addEventListener("input", () => {
+      createUsername.dataset.touched = "true";
+    });
+  }
+  if (generatePassword) {
+    generatePassword.addEventListener("click", () => {
+      const passwordInput = document.getElementById("database-create-password");
+      if (passwordInput) passwordInput.value = randomDatabasePassword();
+    });
+  }
+  if (phpMyAdminClose) phpMyAdminClose.addEventListener("click", closePhpMyAdminModal);
+  if (phpMyAdminModal) {
+    phpMyAdminModal.addEventListener("click", (event) => {
+      if (event.target.hasAttribute("data-database-phpmyadmin-close")) {
+        closePhpMyAdminModal();
+      }
+    });
+    phpMyAdminModal.addEventListener("click", (event) => {
+      const sectionButton = event.target.closest("[data-phpmyadmin-section]");
+      if (sectionButton) {
+        databaseState.phpMyAdminSection = sectionButton.dataset.phpmyadminSection || "service";
+        renderPhpMyAdminModal();
+        return;
+      }
+      const accessButton = event.target.closest("[data-phpmyadmin-access]");
+      if (accessButton) {
+        openPhpMyAdminAccess(accessButton.dataset.phpmyadminAccess);
+      }
+    });
+    phpMyAdminModal.addEventListener("change", (event) => {
+      if (event.target.id === "database-phpmyadmin-public-toggle" || event.target.hasAttribute("data-phpmyadmin-public-check")) {
+        databaseState.phpMyAdminPublic = Boolean(event.target.checked);
+        renderPhpMyAdminModal();
+      }
+    });
+  }
+  if (phpMyAdminContent) renderPhpMyAdminModal();
+
+  document.querySelectorAll("[data-database-engine]").forEach((button) => {
+    button.addEventListener("click", () => {
+      databaseState.engine = button.dataset.databaseEngine || "mysql";
+      databaseState.page = 1;
+      document.querySelectorAll("[data-database-engine]").forEach((tab) => {
+        const active = tab === button;
+        tab.classList.toggle("active", active);
+        tab.setAttribute("aria-selected", active ? "true" : "false");
+      });
+      renderDatabaseTable();
+    });
+  });
+
+  const searchInput = document.getElementById("database-search-input");
+  const searchButton = document.getElementById("database-search-button");
+  const runtimeStrip = document.getElementById("database-runtime-strip");
+  const tableBody = document.getElementById("database-table-body");
+  const applySearch = () => {
+    databaseState.search = (searchInput?.value || "").trim().toLowerCase();
+    databaseState.page = 1;
+    renderDatabaseTable();
+  };
+  if (searchInput) searchInput.addEventListener("input", applySearch);
+  if (searchButton) searchButton.addEventListener("click", applySearch);
+  if (runtimeStrip) {
+    runtimeStrip.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-database-open-phpmyadmin]");
+      if (button) openPhpMyAdminModal();
+    });
+  }
+  if (tableBody) {
+    tableBody.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-database-open-phpmyadmin]");
+      if (button) openPhpMyAdminModal();
+    });
+  }
+
+  const prev = document.getElementById("database-prev-page");
+  const next = document.getElementById("database-next-page");
+  if (prev) {
+    prev.addEventListener("click", () => {
+      databaseState.page = Math.max(1, databaseState.page - 1);
+      renderDatabaseTable();
+    });
+  }
+  if (next) {
+    next.addEventListener("click", () => {
+      const { totalPages } = getDatabaseView();
+      databaseState.page = Math.min(totalPages, databaseState.page + 1);
+      renderDatabaseTable();
+    });
+  }
+
+  window.addEventListener("resize", renderDatabaseTable);
 }
 
 function getWebsiteView() {
@@ -3040,6 +3559,8 @@ function updateOverview(data) {
   }
   renderDashboardSoftwareSummary();
   renderSoftwareList();
+  databaseState.items = Array.isArray(data.databases) ? data.databases : [];
+  renderDatabaseTable();
   websiteState.items = Array.isArray(data.websites) ? data.websites : [];
   websiteState.websiteRoot = data.website_root || websiteState.websiteRoot || "";
   const validIds = new Set(websiteState.items.map((item) => item.id));
@@ -3342,6 +3863,8 @@ document.addEventListener("DOMContentLoaded", () => {
   bindSoftwareControls();
   renderDashboardSoftwareSummary();
   renderSoftwareList();
+  bindDatabaseControls();
+  renderDatabaseTable();
   bindWebsiteControls();
   renderWebsiteTable();
   renderLogModal();
@@ -3393,6 +3916,8 @@ document.addEventListener("DOMContentLoaded", () => {
       closeSoftwareSettingsModal();
       closeLogModal();
       closeWebsiteCreateModal();
+      closeDatabaseCreateModal();
+      closePhpMyAdminModal();
       closeMessagesModal();
     }
   });
