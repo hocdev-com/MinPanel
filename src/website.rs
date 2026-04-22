@@ -1082,12 +1082,6 @@ fn create_website(request: &WebsiteCreateRequest) -> Result<String, String> {
 
 fn ensure_site_index_php(site_path: &Path, preserve_existing_html: bool) -> Result<(), String> {
     let index_file = site_path.join("index.php");
-    let favicon_file = site_path.join("favicon.png");
-
-    if !favicon_file.exists() {
-        fs::write(&favicon_file, include_bytes!("ui/dashboard/favicon.png"))
-            .map_err(|error| format!("Failed to create default favicon: {error}"))?;
-    }
 
     if !index_file.exists() {
         fs::write(
@@ -1129,8 +1123,8 @@ if (isset($_GET['q'])) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MinPanel</title>
-    <link rel="icon" href="/favicon.png?v=1" type="image/png">
-    <link rel="apple-touch-icon" href="/favicon.png?v=1">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32' fill='none'%3E%3Cpath d='M6 26V6H10L16 12L22 6H26V26H22V12L16 18L10 12V26H6Z' fill='%2320a53a'/%3E%3Cpath d='M11 17H21' stroke='%2320a53a' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32' fill='none'%3E%3Cpath d='M6 26V6H10L16 12L22 6H26V26H22V12L16 18L10 12V26H6Z' fill='%2320a53a'/%3E%3Cpath d='M11 17H21' stroke='%2320a53a' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E">
 
     <link href="https://fonts.googleapis.com/css?family=Karla:400" rel="stylesheet">
 

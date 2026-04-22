@@ -136,18 +136,15 @@ async fn dashboard_script() -> impl IntoResponse {
 
 async fn dashboard_favicon() -> impl IntoResponse {
     (
-        [(header::CONTENT_TYPE, HeaderValue::from_static("image/png"))],
-        include_bytes!("ui/dashboard/favicon.png").as_slice(),
+        [(header::CONTENT_TYPE, HeaderValue::from_static("image/svg+xml"))],
+        include_str!("ui/dashboard/favicon.svg"),
     )
 }
 
 async fn dashboard_favicon_ico() -> impl IntoResponse {
     (
-        [(
-            header::CONTENT_TYPE,
-            HeaderValue::from_static("image/x-icon"),
-        )],
-        include_bytes!("ui/dashboard/favicon.png").as_slice(),
+        [(header::CONTENT_TYPE, HeaderValue::from_static("image/svg+xml"))],
+        include_str!("ui/dashboard/favicon.svg"),
     )
 }
 
