@@ -2480,7 +2480,9 @@ select {
   margin: 4vh auto 0;
   width: min(720px, calc(100vw - 28px));
   max-height: 88vh;
-  overflow: auto;
+  overflow: visible;
+  display: flex;
+  flex-direction: column;
   border-radius: 12px;
   border: 1px solid #d9e2ec;
   background: #fff;
@@ -2561,7 +2563,6 @@ select {
 }
 
 .website-create-close {
-  position: relative;
 }
 
 .website-create-tabs {
@@ -2593,6 +2594,8 @@ select {
 
 .website-create-form {
   padding: 18px;
+  overflow-y: auto;
+  max-height: calc(88vh - 60px);
 }
 
 .website-create-grid {
@@ -5249,7 +5252,7 @@ select {
   margin: 6vh auto 0;
   width: min(680px, calc(100vw - 32px));
   max-height: 82vh;
-  overflow: auto;
+  overflow: visible;
   border-radius: 18px;
   border: 1px solid rgba(148, 163, 184, 0.22);
   background: #fff;
@@ -5271,7 +5274,6 @@ select {
 }
 
 .log-modal-close {
-  position: relative;
 }
 
 .log-modal-meta {
@@ -5824,7 +5826,7 @@ select {
   box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.25);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .messages-modal-head {
@@ -5843,7 +5845,6 @@ select {
 }
 
 .messages-modal-close {
-  position: relative;
 }
 
 .messages-modal-body {
