@@ -19,16 +19,8 @@ async fn traffic_redirect() -> Redirect {
 }
 
 pub fn routes() -> Router {
-    Router::new()
-        .route("/", get(root_redirect))
-        .route("/dashboard", get(dashboard::page))
-        .route("/website", get(website::website_page))
-        .route("/database", get(dashboard::database_page))
-        .route("/overview", get(overview_redirect))
-        .route("/software", get(dashboard::software_page))
-        .route("/traffic", get(traffic_redirect))
-        .route("/disks", get(dashboard::page))
-        .route("/processes", get(dashboard::page))
+    // API routes: return 401 if not authenticated
+    let protected_api = Router::new()
         .route("/dashboard/data", get(dashboard::data))
         .route("/database/create", post(dashboard::create_database))
         .route("/phpmyadmin", any(dashboard::phpmyadmin_proxy))
@@ -69,7 +61,6 @@ pub fn routes() -> Router {
         .route("/website/start", post(website::start_website_site))
         .route("/website/pause", post(website::pause_website_site))
         .route("/website/ssl", post(website::apply_website_ssl_handler))
-        .route("/login", post(auth::login))
         .route("/system", get(system::info))
         .route("/process", get(process::list))
         .route("/process/kill", post(process::kill))
@@ -77,4 +68,26 @@ pub fn routes() -> Router {
         .route("/files/write", post(file::write))
         .route("/files/directories", post(file::list_directories))
         .route("/files/directories/create", post(file::create_directory))
+        .route("/auth/change-password", post(auth::change_password))
+        .route("/auth/logout", post(auth::logout))
+        .layer(axum::middleware::from_fn(auth::require_auth));
+
+    // Page routes: redirect to /login if not authenticated
+    let protected_pages = Router::new()
+        .route("/dashboard", get(dashboard::page))
+        .route("/website", get(website::website_page))
+        .route("/database", get(dashboard::database_page))
+        .route("/software", get(dashboard::software_page))
+        .route("/disks", get(dashboard::page))
+        .route("/processes", get(dashboard::page))
+        .layer(axum::middleware::from_fn(auth::require_auth_page));
+
+    // Public routes (no auth required)
+    Router::new()
+        .route("/", get(root_redirect))
+        .route("/overview", get(overview_redirect))
+        .route("/traffic", get(traffic_redirect))
+        .route("/login", get(auth::login_page).post(auth::login))
+        .merge(protected_api)
+        .merge(protected_pages)
 }

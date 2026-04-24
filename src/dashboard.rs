@@ -4911,7 +4911,7 @@ mod tests {
             php_port: Some(9000),
         };
 
-        assert_eq!(runtime_binding_id(&entry), "php-8-3-28");
+        assert_eq!(runtime_binding_id(&entry), "php-8-3-28-php");
     }
 
     #[test]

@@ -14,7 +14,11 @@ pub struct ReadRequest {
 }
 
 pub async fn read(Json(req): Json<ReadRequest>) -> Json<String> {
-    match fs::read_to_string(req.path) {
+    let path = PathBuf::from(&req.path);
+    if let Err(message) = validate_file_access(&path) {
+        return Json(format!("Error: {message}"));
+    }
+    match fs::read_to_string(&path) {
         Ok(content) => Json(content),
         Err(_) => Json("Error reading file".into()),
     }
@@ -27,10 +31,51 @@ pub struct WriteRequest {
 }
 
 pub async fn write(Json(req): Json<WriteRequest>) -> Json<String> {
-    match fs::write(req.path, req.content) {
+    let path = PathBuf::from(&req.path);
+    if let Err(message) = validate_file_access(&path) {
+        return Json(format!("Error: {message}"));
+    }
+    match fs::write(&path, &req.content) {
         Ok(_) => Json("Written".into()),
         Err(_) => Json("Error writing file".into()),
     }
+}
+
+/// Validates that a file path is inside the website root or the application
+/// data directory. Blocks access to system paths and path traversal attacks.
+fn validate_file_access(path: &Path) -> Result<(), String> {
+    // Resolve the absolute canonical path (follows symlinks, resolves ..)
+    // For write operations on new files, canonicalize the parent instead.
+    let canonical = if path.exists() {
+        fs::canonicalize(path)
+            .map_err(|_| "Cannot resolve file path".to_string())?
+    } else {
+        let parent = path.parent()
+            .ok_or_else(|| "Invalid file path".to_string())?;
+        if !parent.exists() {
+            return Err("Parent directory does not exist".to_string());
+        }
+        let canonical_parent = fs::canonicalize(parent)
+            .map_err(|_| "Cannot resolve parent directory".to_string())?;
+        let file_name = path.file_name()
+            .ok_or_else(|| "Missing file name".to_string())?;
+        canonical_parent.join(file_name)
+    };
+
+    // Allowed roots: website root and application data directory
+    let website_root = fs::canonicalize(website::resolve_website_root()).ok();
+    let data_root = crate::dashboard::resolve_data_base_dir()
+        .and_then(|base| fs::canonicalize(base.join("data")).ok());
+
+    let allowed = website_root.iter().chain(data_root.iter()).any(|root| {
+        path_starts_with(&canonical, root)
+    });
+
+    if !allowed {
+        return Err("Access denied: path is outside the allowed directories".to_string());
+    }
+
+    Ok(())
 }
 
 #[derive(Deserialize, Default)]
