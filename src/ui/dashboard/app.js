@@ -94,8 +94,10 @@ const databaseState = {
   items: [],
   engine: "mysql",
   search: "",
+  filter: "all",
   page: 1,
   pageSize: 10,
+  revealedPasswords: new Set(),
   phpMyAdminSection: "service",
   phpMyAdminPublic: true,
   creating: false,
@@ -221,6 +223,38 @@ async function fetchJsonWithTimeout(url, options = {}, timeoutMs = 10000) {
   } finally {
     window.clearTimeout(timeout);
   }
+}
+
+async function copyTextToClipboard(text) {
+  if (!text) return false;
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (_) {
+      // Fall through to the legacy copy path used by desktop webviews.
+    }
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "readonly");
+  textarea.style.position = "fixed";
+  textarea.style.top = "-1000px";
+  textarea.style.left = "-1000px";
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+
+  let copied = false;
+  try {
+    copied = document.execCommand("copy");
+  } catch (_) {
+    copied = false;
+  }
+
+  textarea.remove();
+  return copied;
 }
 
 function normalizeDashboardPath(pathname) {
@@ -1578,8 +1612,11 @@ function getDatabaseView() {
   const search = databaseState.search;
   const visibleItems = databaseState.engine === "mysql" ? databaseState.items : [];
   const filtered = visibleItems.filter((item) => {
+    const matchesFilter = databaseState.filter === "all"
+      || (databaseState.filter === "saved" && Boolean(item.password))
+      || (databaseState.filter === "missing" && !item.password);
     const haystack = `${item.name} ${item.engine} ${item.username} ${item.permission} ${item.path}`.toLowerCase();
-    return !search || haystack.includes(search);
+    return matchesFilter && (!search || haystack.includes(search));
   });
   const totalPages = Math.max(1, Math.ceil(filtered.length / databaseState.pageSize));
   databaseState.page = Math.min(databaseState.page, totalPages);
@@ -1592,8 +1629,8 @@ function getDatabaseVisibleColumnCount() {
   const width = window.innerWidth || document.documentElement.clientWidth || 0;
   if (width <= 640) return 3;
   if (width <= 900) return 5;
-  if (width <= 1180) return 6;
-  return 8;
+  if (width <= 1180) return 7;
+  return 9;
 }
 
 function databaseEngineLabel(engine) {
@@ -1780,52 +1817,61 @@ function closeDatabaseRemoteDbModal() {
   if (modal) modal.hidden = true;
 }
 
+function findPhpMyAdminSoftwareItem() {
+  return getSoftwareDisplayItems().find((item) => {
+    if (!item.installed) return false;
+    const haystack = `${item.name || ""} ${item.title || ""} ${item.visual || ""}`.toLowerCase();
+    return haystack.includes("phpmyadmin");
+  }) || null;
+}
+
+function openDatabasePhpMyAdmin() {
+  const popup = window.open("", "_blank");
+  if (popup && !popup.closed) {
+    try {
+      popup.opener = null;
+    } catch (_) {
+      // Ignore cross-window safety assignment failures.
+    }
+    popup.location = "/phpmyadmin/";
+    return;
+  }
+  window.location.assign("/phpmyadmin/");
+}
+
+function getDatabasePasswordDisplayText(password, masked) {
+  const actual = String(password || "");
+  if (masked) return "**********";
+  if (actual.length <= 7) return actual;
+  return `${actual.slice(0, 7)}...`;
+}
+
 function renderDatabaseRuntimeStrip() {
-  const strip = document.getElementById("database-runtime-strip");
   const toolbarRootPass = document.getElementById("database-root-password-button");
-  if (!strip) return;
-  const label = databaseEngineLabel(databaseState.engine);
+  const toolbarPhpMyAdmin = document.getElementById("database-phpmyadmin-button");
+  const runtimeButton = document.getElementById("database-runtime-button");
   const runtime = findDatabaseRuntime();
-  const supportsLocalRuntime = ["mysql", "redis", "pgsql"].includes(databaseState.engine);
+  const phpMyAdmin = findPhpMyAdminSoftwareItem();
+  const mysqlRunning = Boolean(runtime && runtime.status === "running" && databaseState.engine === "mysql");
 
-  if (toolbarRootPass) toolbarRootPass.disabled = !runtime || runtime.status !== "running" || databaseState.engine !== "mysql";
-
-  if (!supportsLocalRuntime) {
-    strip.innerHTML = `
-      <div class="database-runtime-main">
-        <span class="database-runtime-icon" aria-hidden="true">${databaseEngineIcon(databaseState.engine)}</span>
-        <span><span class="database-runtime-name">${escapeHtml(label)}</span> local service management is not wired in MiniPanel yet.</span>
-      </div>
-      <span class="database-runtime-actions"></span>
-    `;
-    return;
+  if (toolbarRootPass) toolbarRootPass.disabled = !mysqlRunning;
+  if (toolbarPhpMyAdmin) toolbarPhpMyAdmin.disabled = !mysqlRunning || !phpMyAdmin;
+  if (runtimeButton) {
+    if (runtime) {
+      const running = runtime.status === "running";
+      runtimeButton.hidden = false;
+      runtimeButton.dataset.status = running ? "running" : "stopped";
+      runtimeButton.innerHTML = `
+        <span class="database-runtime-button-icon" aria-hidden="true">${databaseEngineIcon(databaseState.engine, runtime)}</span>
+        <span class="database-runtime-button-label">${escapeHtml(`${runtime.title} ${runtime.version}`.trim())}</span>
+        <span class="database-runtime-button-state">${running ? "Running" : "Stopped"}</span>
+      `;
+    } else {
+      runtimeButton.hidden = true;
+      runtimeButton.innerHTML = "";
+      delete runtimeButton.dataset.status;
+    }
   }
-
-  if (!runtime) {
-    strip.innerHTML = `
-      <div class="database-runtime-main">
-        <span class="database-runtime-icon" aria-hidden="true">${databaseEngineIcon(databaseState.engine)}</span>
-        <span><span class="database-runtime-name">${escapeHtml(label)}</span> is not installed locally.</span>
-        <span class="database-runtime-state is-missing">Not installed</span>
-      </div>
-      <span class="database-runtime-actions">
-        <button type="button" disabled>Click install</button>
-      </span>
-    `;
-    return;
-  }
-
-  const running = runtime.status === "running";
-  strip.innerHTML = `
-    <div class="database-runtime-main">
-      <span class="database-runtime-icon" aria-hidden="true">${databaseEngineIcon(databaseState.engine, runtime)}</span>
-      <span><span class="database-runtime-name">${escapeHtml(`${runtime.title} ${runtime.version}`.trim())}</span> local service</span>
-      <span class="database-runtime-state${running ? "" : " is-stopped"}">${running ? "Running" : "Stopped"}</span>
-    </div>
-    <span class="database-runtime-actions">
-      <button type="button" ${running ? "" : "disabled"} data-database-open-root-password>Root password</button>
-    </span>
-  `;
 }
 
 function renderDatabaseTable() {
@@ -1833,9 +1879,11 @@ function renderDatabaseTable() {
   if (!tbody) return;
   renderDatabaseRuntimeStrip();
   const { filtered, totalPages, pageItems } = getDatabaseView();
+  const runtime = findDatabaseRuntime();
+  const hasPhpMyAdmin = Boolean(findPhpMyAdminSoftwareItem());
+  const mysqlRunning = Boolean(runtime && runtime.status === "running" && databaseState.engine === "mysql");
 
   if (!pageItems.length) {
-    const runtime = findDatabaseRuntime();
     const emptyText = runtime
       ? "Database list is empty."
       : `${databaseEngineLabel(databaseState.engine)} is not installed or no local database files were detected.`;
@@ -1852,23 +1900,33 @@ function renderDatabaseTable() {
             </span>
           </div>
         </td>
+        <td class="database-username-col" title="${escapeHtml(item.username || item.name || "")}">${escapeHtml(item.username || item.name || "")}</td>
         <td class="database-password-col">
           <div class="database-password-cell">
-            <span class="database-password-mask" data-password="${escapeHtml(item.password || "")}">**********</span>
-            <button class="database-password-action" type="button" data-database-action="toggle-password" aria-label="Toggle password visibility">
+            <span class="database-password-mask ${item.password && databaseState.revealedPasswords.has(item.id) ? "is-revealed" : "is-masked"}" data-password="${escapeHtml(item.password || "")}" data-password-id="${escapeHtml(item.id || "")}" data-masked="${item.password && databaseState.revealedPasswords.has(item.id) ? "false" : "true"}">${item.password ? getDatabasePasswordDisplayText(item.password, !databaseState.revealedPasswords.has(item.id)) : "Not saved"}</span>
+            <button class="database-password-action" type="button" data-database-action="toggle-password" aria-label="Toggle password visibility" title="${item.password ? "Show password" : "Password is not available for this database"}"${item.password ? "" : " disabled"}>
               <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
             </button>
-            <button class="database-password-action" type="button" data-database-action="copy-password" aria-label="Copy password">
+            <button class="database-password-action" type="button" data-database-action="copy-password" aria-label="Copy password" title="${item.password ? "Copy password" : "Password is not available for this database"}"${item.password ? "" : " disabled"}>
               <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
             </button>
           </div>
         </td>
-        <td class="database-backup-col"><span class="database-backup-count">${Number(item.backup_count || 0)}</span></td>
-        <td class="database-permission-col">${escapeHtml(item.permission || "Local")}</td>
-        <td class="database-size-col">${escapeHtml(formatBytes(Number(item.size || 0)))}</td>
+        <td class="database-quota-col"><span class="database-quota-state">Not set</span></td>
+        <td class="database-backup-col">
+          <span class="database-backup-cell">
+            <span class="database-inline-status ${Number(item.backup_count || 0) > 0 ? "is-ready" : "is-missing"}">${Number(item.backup_count || 0) > 0 ? `Exists(${Number(item.backup_count || 0)})` : "Not exist"}</span>
+            <button class="database-inline-link" type="button" disabled>Import</button>
+          </span>
+        </td>
+        <td class="database-location-col">Localhost</td>
+        <td class="database-note-col"><span class="database-note-value" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</span></td>
         <td class="database-operate-col">
           <span class="database-operate-links">
+            <button class="database-operate-link" type="button" data-database-action="open-phpmyadmin" ${mysqlRunning && hasPhpMyAdmin ? "" : "disabled"}>phpMyAdmin</button>
+            <button class="database-operate-link" type="button" disabled>Permission</button>
             <button class="database-operate-link" type="button" disabled>Tools</button>
+            <button class="database-operate-link" type="button" disabled>Password</button>
             <button class="database-operate-link" type="button" disabled>Delete</button>
           </span>
         </td>
@@ -1898,6 +1956,8 @@ function bindDatabaseControls() {
   const generatePassword = document.getElementById("database-generate-password");
 
   const rootPasswordButton = document.getElementById("database-root-password-button");
+  const phpMyAdminButton = document.getElementById("database-phpmyadmin-button");
+  const filterSelect = document.getElementById("database-filter-select");
   const rootPasswordModal = document.getElementById("database-root-password-modal");
   const rootPasswordClose = document.getElementById("database-root-password-close");
   const rootPasswordCancel = document.getElementById("database-root-password-cancel");
@@ -1906,6 +1966,7 @@ function bindDatabaseControls() {
 
   if (addButton) addButton.addEventListener("click", openDatabaseCreateModal);
   if (rootPasswordButton) rootPasswordButton.addEventListener("click", openDatabaseRootPasswordModal);
+  if (phpMyAdminButton) phpMyAdminButton.addEventListener("click", openDatabasePhpMyAdmin);
   if (createClose) createClose.addEventListener("click", closeDatabaseCreateModal);
   if (createCancel) createCancel.addEventListener("click", closeDatabaseCreateModal);
   if (createModal) {
@@ -1971,7 +2032,6 @@ function bindDatabaseControls() {
 
   const searchInput = document.getElementById("database-search-input");
   const searchButton = document.getElementById("database-search-button");
-  const runtimeStrip = document.getElementById("database-runtime-strip");
   const tableBody = document.getElementById("database-table-body");
   const applySearch = () => {
     databaseState.search = (searchInput?.value || "").trim().toLowerCase();
@@ -1980,23 +2040,41 @@ function bindDatabaseControls() {
   };
   if (searchInput) searchInput.addEventListener("input", applySearch);
   if (searchButton) searchButton.addEventListener("click", applySearch);
-  if (runtimeStrip) {
-    runtimeStrip.addEventListener("click", (event) => {
-      const rootPassButton = event.target.closest("[data-database-open-root-password]");
-      if (rootPassButton) openDatabaseRootPasswordModal();
+  if (filterSelect) {
+    filterSelect.addEventListener("change", () => {
+      databaseState.filter = filterSelect.value || "all";
+      databaseState.page = 1;
+      renderDatabaseTable();
     });
   }
 
   if (tableBody) {
     tableBody.addEventListener("click", (event) => {
+      const phpMyAdminAction = event.target.closest('[data-database-action="open-phpmyadmin"]');
+      if (phpMyAdminAction) {
+        if (!phpMyAdminAction.disabled) openDatabasePhpMyAdmin();
+        return;
+      }
       const toggleButton = event.target.closest('[data-database-action="toggle-password"]');
       if (toggleButton) {
         const mask = toggleButton.parentElement.querySelector(".database-password-mask");
         if (mask) {
           const actual = mask.dataset.password || "";
+          const passwordId = mask.dataset.passwordId || "";
+          if (!actual) return;
           const isMasked = mask.getAttribute("data-masked") !== "false";
-          mask.textContent = isMasked ? actual : "**********";
+          if (passwordId) {
+            if (isMasked) {
+              databaseState.revealedPasswords.add(passwordId);
+            } else {
+              databaseState.revealedPasswords.delete(passwordId);
+            }
+          }
+          mask.textContent = getDatabasePasswordDisplayText(actual, !isMasked);
           mask.setAttribute("data-masked", isMasked ? "false" : "true");
+          mask.classList.toggle("is-masked", !isMasked);
+          mask.classList.toggle("is-revealed", isMasked);
+          toggleButton.title = isMasked ? "Hide password" : "Show password";
           toggleButton.innerHTML = isMasked 
             ? '<svg viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 1.24-2.11m4.24-4.24A11.21 11.21 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>'
             : '<svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
@@ -2008,10 +2086,17 @@ function bindDatabaseControls() {
         const mask = copyButton.parentElement.querySelector(".database-password-mask");
         if (mask) {
           const actual = mask.dataset.password || "";
-          navigator.clipboard.writeText(actual).then(() => {
-            const originalIcon = copyButton.innerHTML;
+          if (!actual) return;
+          const originalIcon = copyButton.innerHTML;
+          copyTextToClipboard(actual).then((copied) => {
+            if (!copied) {
+              window.alert("Unable to copy password.");
+              return;
+            }
             copyButton.innerHTML = '<svg viewBox="0 0 24 24" style="stroke: #22c55e;"><polyline points="20 6 9 17 4 12"></polyline></svg>';
-            setTimeout(() => { copyButton.innerHTML = originalIcon; }, 2000);
+            window.setTimeout(() => {
+              copyButton.innerHTML = originalIcon;
+            }, 2000);
           });
         }
         return;
@@ -3529,6 +3614,12 @@ function updateOverview(data) {
   renderDashboardSoftwareSummary();
   renderSoftwareList();
   databaseState.items = Array.isArray(data.databases) ? data.databases : [];
+  {
+    const validIds = new Set(databaseState.items.map((item) => item.id).filter(Boolean));
+    databaseState.revealedPasswords = new Set(
+      [...databaseState.revealedPasswords].filter((id) => validIds.has(id)),
+    );
+  }
   renderDatabaseTable();
   websiteState.items = Array.isArray(data.websites) ? data.websites : [];
   websiteState.websiteRoot = data.website_root || websiteState.websiteRoot || "";

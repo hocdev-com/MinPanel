@@ -588,6 +588,16 @@ select {
   flex-wrap: wrap;
 }
 
+.database-toolbar-left {
+  flex: 1 1 auto;
+}
+
+.database-toolbar-right {
+  margin-left: auto;
+  flex: 0 1 auto;
+  justify-content: flex-end;
+}
+
 .database-primary-button,
 .database-toolbar-button,
 .database-execute-button {
@@ -617,6 +627,99 @@ select {
 .database-page-nav:disabled {
   opacity: 0.58;
   cursor: default;
+}
+
+.database-toolbar-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.database-toolbar-link:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.database-toolbar-select {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.database-toolbar-select select {
+  min-width: 154px;
+  height: 32px;
+  padding: 0 36px 0 12px;
+  border: 1px solid #d6deea;
+  border-radius: 10px;
+  background: #fff;
+  color: #334155;
+  font-size: 12px;
+  appearance: none;
+  outline: none;
+}
+
+.database-toolbar-select::after {
+  content: "";
+  position: absolute;
+  right: 12px;
+  width: 8px;
+  height: 8px;
+  border-right: 1.5px solid #94a3b8;
+  border-bottom: 1.5px solid #94a3b8;
+  transform: rotate(45deg) translateY(-2px);
+  pointer-events: none;
+}
+
+.database-runtime-button {
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid #d6deea;
+  border-radius: 10px;
+  background: #fff;
+  color: #334155;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  cursor: default;
+}
+
+.database-runtime-button[hidden] {
+  display: none;
+}
+
+.database-runtime-button-icon {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 18px;
+}
+
+.database-runtime-button-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.database-runtime-button-label {
+  color: #1f2937;
+  white-space: nowrap;
+}
+
+.database-runtime-button-state {
+  color: var(--accent);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.database-runtime-button[data-status="stopped"] .database-runtime-button-state {
+  color: #ef4444;
 }
 
 .database-search {
@@ -777,12 +880,30 @@ select {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 
 .database-password-mask {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   color: #334155;
   font-size: 13px;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.database-password-mask.is-masked {
+  flex: 0 0 auto;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.database-password-mask.is-revealed {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .database-password-action {
@@ -805,6 +926,16 @@ select {
   color: #2563eb;
 }
 
+.database-password-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.database-password-action:disabled:hover {
+  background: transparent;
+  color: #94a3b8;
+}
+
 .database-password-action svg {
   width: 16px;
   height: 16px;
@@ -825,32 +956,42 @@ select {
 
 .database-username-col,
 .database-password-col,
+.database-quota-col,
 .database-backup-col,
-.database-permission-col,
-.database-size-col,
+.database-location-col,
+.database-note-col,
 .database-operate-col {
   white-space: nowrap;
 }
 
 .database-username-col {
   width: 15%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .database-password-col {
-  width: 104px;
+  width: 138px;
 }
 
-.database-backup-col,
-.database-size-col {
-  width: 86px;
+.database-quota-col {
+  width: 100px;
 }
 
-.database-permission-col {
-  width: 112px;
+.database-backup-col {
+  width: 126px;
+}
+
+.database-location-col {
+  width: 96px;
+}
+
+.database-note-col {
+  width: 13%;
 }
 
 .database-operate-col {
-  width: 184px;
+  width: 258px;
   text-align: right;
 }
 
@@ -910,17 +1051,49 @@ select {
   color: #94a3b8;
 }
 
-.database-backup-count {
-  min-width: 18px;
-  height: 18px;
-  padding: 0 4px;
-  border-radius: 4px;
-  background: #ffe6e2;
-  color: #ef4444;
+.database-quota-state,
+.database-inline-status {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  font-size: 11px;
+  color: var(--accent);
+}
+
+.database-quota-state {
+  color: #16a34a;
+}
+
+.database-inline-status.is-ready {
+  color: #16a34a;
+}
+
+.database-inline-status.is-missing {
+  color: #f97316;
+}
+
+.database-inline-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font-size: 12px;
+  cursor: default;
+}
+
+.database-inline-link:disabled {
+  opacity: 0.9;
+}
+
+.database-backup-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.database-note-value {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .database-operate-links {
@@ -1329,39 +1502,47 @@ select {
 
 @media (max-width: 1180px) {
   .database-password-col,
-  .database-permission-col,
+  .database-quota-col,
   .database-table th.database-password-col,
   .database-table td.database-password-col,
-  .database-table th.database-permission-col,
-  .database-table td.database-permission-col {
+  .database-table th.database-quota-col,
+  .database-table td.database-quota-col {
     display: none;
   }
 
   .database-name-col {
-    width: 35%;
+    width: 29%;
   }
 }
 
 @media (max-width: 900px) {
   .database-toolbar-left,
   .database-toolbar-right,
+  .database-toolbar-select,
   .database-search,
-  .database-search input {
+  .database-search input,
+  .database-toolbar-select select {
     width: 100%;
   }
 
   .database-backup-col,
+  .database-note-col,
   .database-table th.database-backup-col,
   .database-table td.database-backup-col {
     display: none;
   }
 
+  .database-table th.database-note-col,
+  .database-table td.database-note-col {
+    display: none;
+  }
+
   .database-name-col {
-    width: 48%;
+    width: 36%;
   }
 
   .database-operate-col {
-    width: 136px;
+    width: 228px;
   }
 
   .database-phpmyadmin-shell {
@@ -1423,11 +1604,11 @@ select {
   }
 
   .database-username-col,
-  .database-size-col,
+  .database-location-col,
   .database-table th.database-username-col,
   .database-table td.database-username-col,
-  .database-table th.database-size-col,
-  .database-table td.database-size-col {
+  .database-table th.database-location-col,
+  .database-table td.database-location-col {
     display: none;
   }
 
@@ -1440,7 +1621,14 @@ select {
   }
 
   .database-operate-col {
-    width: 104px;
+    width: 156px;
+  }
+
+  .database-operate-links {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    row-gap: 4px;
+    white-space: normal;
   }
 
   .database-name-title,

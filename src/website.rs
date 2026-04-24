@@ -2115,7 +2115,11 @@ fn ensure_windows_ssl_root_installed(openssl_dir: &Path) -> Result<(), String> {
                 .output()
             {
                 let stdout = String::from_utf8_lossy(&output.stdout);
-                let clean_stdout = stdout.replace(" ", "").replace("\r", "").replace("\n", "").to_lowercase();
+                let clean_stdout = stdout
+                    .replace(" ", "")
+                    .replace("\r", "")
+                    .replace("\n", "")
+                    .to_lowercase();
                 if clean_stdout.contains(&target_hash) {
                     found = true;
                     break;

@@ -21,11 +21,19 @@
       <div class="database-toolbar-left">
         <button class="database-primary-button" id="database-add-button" type="button">Add Database</button>
         <button class="database-toolbar-button" id="database-root-password-button" type="button" disabled>Root password</button>
-        <button class="database-toolbar-button" type="button" disabled>Backup list</button>
-        <button class="database-toolbar-button" type="button" disabled>Sync all</button>
+        <button class="database-toolbar-button" id="database-phpmyadmin-button" type="button" disabled>phpMyAdmin</button>
+        <button class="database-runtime-button" id="database-runtime-button" type="button" disabled hidden></button>
       </div>
 
       <div class="database-toolbar-right">
+        <label class="database-toolbar-select">
+          <span class="sr-only">Database filter</span>
+          <select id="database-filter-select" aria-label="Database filter">
+            <option value="all">All</option>
+            <option value="saved">Saved password</option>
+            <option value="missing">Not saved</option>
+          </select>
+        </label>
         <label class="database-search">
           <span class="sr-only">Database search</span>
           <input id="database-search-input" type="search" placeholder="Database search" aria-label="Database search" />
@@ -39,8 +47,6 @@
       </div>
     </div>
 
-    <div class="database-runtime-strip" id="database-runtime-strip"></div>
-
     <div class="database-table-shell">
       <table class="database-table">
         <thead>
@@ -51,10 +57,11 @@
             <th class="database-name-col">Database name</th>
             <th class="database-username-col">Username</th>
             <th class="database-password-col">Password</th>
+            <th class="database-quota-col">Quota</th>
             <th class="database-backup-col">Backup</th>
-            <th class="database-permission-col">Permission</th>
-            <th class="database-size-col">Size</th>
-            <th class="database-operate-col">Operation</th>
+            <th class="database-location-col">Location</th>
+            <th class="database-note-col">Note</th>
+            <th class="database-operate-col">Operate</th>
           </tr>
         </thead>
         <tbody id="database-table-body"></tbody>

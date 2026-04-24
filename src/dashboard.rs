@@ -22,9 +22,9 @@ use std::{
     thread,
     time::{Duration, Instant, SystemTime},
 };
+use sysinfo::{Disks, Networks, ProcessRefreshKind, System};
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
-use sysinfo::{Disks, Networks, ProcessRefreshKind, System};
 
 use crate::website;
 
@@ -160,6 +160,17 @@ pub struct DatabaseEntry {
     modified_ms: u128,
     path: String,
     source: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Default)]
+struct DatabaseCredentialStore {
+    mysql: HashMap<String, StoredDatabaseCredential>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+struct StoredDatabaseCredential {
+    username: String,
+    password: String,
 }
 
 pub struct LuaPluginEngine;
@@ -825,14 +836,20 @@ pub async fn install_software_package(
     // Create task entry
     {
         if let Ok(mut tasks) = get_task_manager().lock() {
-            tasks.insert(task_id.clone(), TaskInfo {
-                id: task_id.clone(),
-                name: format!("Install[{}]", plugin_id),
-                status: "running".to_string(),
-                log: "".to_string(),
-                last_message: "Starting...".to_string(),
-                created_at: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default().as_secs(),
-            });
+            tasks.insert(
+                task_id.clone(),
+                TaskInfo {
+                    id: task_id.clone(),
+                    name: format!("Install[{}]", plugin_id),
+                    status: "running".to_string(),
+                    log: "".to_string(),
+                    last_message: "Starting...".to_string(),
+                    created_at: SystemTime::now()
+                        .duration_since(SystemTime::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs(),
+                },
+            );
         }
     }
 
@@ -843,7 +860,7 @@ pub async fn install_software_package(
             Ok(message) => {
                 update_task_log(&tid, &format!("Ready: {message}"));
                 set_task_status(&tid, "success");
-            },
+            }
             Err(error) => {
                 update_task_log(&tid, &format!("Error: {error}"));
                 set_task_status(&tid, "failed");
@@ -867,9 +884,7 @@ pub async fn list_tasks() -> Json<Vec<TaskInfo>> {
     }
 }
 
-pub async fn get_task_log(
-    axum::extract::Path(id): axum::extract::Path<String>,
-) -> Json<Value> {
+pub async fn get_task_log(axum::extract::Path(id): axum::extract::Path<String>) -> Json<Value> {
     if let Ok(tasks) = get_task_manager().lock() {
         if let Some(task) = tasks.get(&id) {
             return Json(json!({ "id": id, "log": task.log, "status": task.status }));
@@ -1009,7 +1024,14 @@ pub async fn phpmyadmin_proxy(
     headers: HeaderMap,
     body: Bytes,
 ) -> Response {
-    match proxy_phpmyadmin_request(method, uri.path_and_query().map(|value| value.as_str()), headers, body).await {
+    match proxy_phpmyadmin_request(
+        method,
+        uri.path_and_query().map(|value| value.as_str()),
+        headers,
+        body,
+    )
+    .await
+    {
         Ok(response) => response,
         Err(error) => (
             StatusCode::BAD_GATEWAY,
@@ -1143,8 +1165,9 @@ fn is_database_file(name: &str) -> bool {
 fn collect_database_entries() -> Vec<DatabaseEntry> {
     let mut entries = Vec::new();
     let mut seen = HashSet::new();
+    let credentials = load_database_credentials();
 
-    collect_mysql_database_entries(&mut entries, &mut seen);
+    collect_mysql_database_entries(&mut entries, &mut seen, &credentials);
 
     if let Ok(current_dir) = env::current_dir() {
         collect_database_entries_from_dir(&current_dir, "Workspace", 0, &mut seen, &mut entries);
@@ -1295,6 +1318,12 @@ fn create_mysql_database(request: &DatabaseCreateRequest) -> Result<String, Stri
     );
 
     run_mysql_command(&client_path, &sql)?;
+    if let Err(error) = save_mysql_database_credential(&database_name, &username, password) {
+        eprintln!(
+            "[Database] Failed to save credential for {}: {}",
+            database_name, error
+        );
+    }
     Ok(format!("Database {database_name} created"))
 }
 
@@ -1318,12 +1347,53 @@ fn set_mysql_root_password(password: &str) -> Result<String, String> {
 
     let escaped_password = escape_mysql_string(password);
     // On Windows, the mysql client might be configured to use empty password initially.
-    // If it's already set, we might need a more complex way to change it, 
+    // If it's already set, we might need a more complex way to change it,
     // but usually aaPanel-style setups allow this if we are running as administrator/local system.
-    let sql = format!("ALTER USER 'root'@'localhost' IDENTIFIED BY '{escaped_password}'; FLUSH PRIVILEGES;");
+    let sql = format!(
+        "ALTER USER 'root'@'localhost' IDENTIFIED BY '{escaped_password}'; FLUSH PRIVILEGES;"
+    );
 
     run_mysql_command(&client_path, &sql)?;
     Ok("Root password changed successfully".to_string())
+}
+
+fn load_database_credentials() -> DatabaseCredentialStore {
+    let Ok(path) = database_credentials_path() else {
+        return DatabaseCredentialStore::default();
+    };
+    let Ok(contents) = fs::read_to_string(path) else {
+        return DatabaseCredentialStore::default();
+    };
+    serde_json::from_str::<DatabaseCredentialStore>(&contents).unwrap_or_default()
+}
+
+fn save_database_credentials(store: &DatabaseCredentialStore) -> Result<(), String> {
+    let path = database_credentials_path()?;
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|error| format!("Failed to create database credential directory: {error}"))?;
+    }
+    let contents = serde_json::to_string_pretty(store)
+        .map_err(|error| format!("Failed to serialize database credentials: {error}"))?;
+    fs::write(&path, contents)
+        .map_err(|error| format!("Failed to write database credentials: {error}"))?;
+    Ok(())
+}
+
+fn save_mysql_database_credential(
+    name: &str,
+    username: &str,
+    password: &str,
+) -> Result<(), String> {
+    let mut store = load_database_credentials();
+    store.mysql.insert(
+        name.to_ascii_lowercase(),
+        StoredDatabaseCredential {
+            username: username.to_string(),
+            password: password.to_string(),
+        },
+    );
+    save_database_credentials(&store)
 }
 
 fn validate_mysql_identifier(value: &str, label: &str) -> Result<String, String> {
@@ -1338,7 +1408,9 @@ fn validate_mysql_identifier(value: &str, label: &str) -> Result<String, String>
         .chars()
         .all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
     {
-        return Err(format!("{label} can only contain letters, numbers, and underscores"));
+        return Err(format!(
+            "{label} can only contain letters, numbers, and underscores"
+        ));
     }
     Ok(value.to_string())
 }
@@ -1354,7 +1426,9 @@ fn escape_mysql_string(value: &str) -> String {
 fn mysql_client_path(entry: &InstalledRuntime) -> Option<PathBuf> {
     let install_dir = Path::new(&entry.install_dir);
     let candidates = [
-        install_dir.join("bin").join(if cfg!(windows) { "mysql.exe" } else { "mysql" }),
+        install_dir
+            .join("bin")
+            .join(if cfg!(windows) { "mysql.exe" } else { "mysql" }),
         install_dir.join(if cfg!(windows) { "mysql.exe" } else { "mysql" }),
     ];
     candidates.into_iter().find(|path| path.exists())
@@ -1400,7 +1474,11 @@ fn run_mysql_command(client_path: &Path, sql: &str) -> Result<String, String> {
     })
 }
 
-fn collect_mysql_database_entries(entries: &mut Vec<DatabaseEntry>, seen: &mut HashSet<String>) {
+fn collect_mysql_database_entries(
+    entries: &mut Vec<DatabaseEntry>,
+    seen: &mut HashSet<String>,
+    credentials: &DatabaseCredentialStore,
+) {
     let Ok(registry) = load_runtime_registry() else {
         return;
     };
@@ -1441,12 +1519,17 @@ fn collect_mysql_database_entries(entries: &mut Vec<DatabaseEntry>, seen: &mut H
         if !seen.insert(key.clone()) {
             continue;
         }
+        let stored = credentials.mysql.get(&name.to_ascii_lowercase());
         entries.push(DatabaseEntry {
             id: slugify(&key, '-'),
             name: name.to_string(),
             engine: "MySQL".to_string(),
-            username: name.to_string(),
-            password: "********".to_string(),
+            username: stored
+                .map(|credential| credential.username.clone())
+                .unwrap_or_else(|| name.to_string()),
+            password: stored
+                .map(|credential| credential.password.clone())
+                .unwrap_or_default(),
             permission: "Local".to_string(),
             backup_count: 0,
             size,
@@ -1496,14 +1579,16 @@ async fn proxy_phpmyadmin_request(
     body: Bytes,
 ) -> Result<Response, String> {
     let registry = load_runtime_registry()?;
-    let phpmyadmin = select_primary_runtime(&registry, "phpmyadmin")
-        .ok_or_else(|| "phpMyAdmin is not installed. Install it from App Store first.".to_string())?;
+    let phpmyadmin = select_primary_runtime(&registry, "phpmyadmin").ok_or_else(|| {
+        "phpMyAdmin is not installed. Install it from App Store first.".to_string()
+    })?;
     let phpmyadmin_root = PathBuf::from(&phpmyadmin.install_dir);
     if !phpmyadmin_root.join("index.php").exists() {
         return Err("phpMyAdmin index.php was not found in the install directory.".to_string());
     }
-    let php = select_primary_runtime(&registry, "php")
-        .ok_or_else(|| "PHP is not installed. Install PHP before opening phpMyAdmin.".to_string())?;
+    let php = select_primary_runtime(&registry, "php").ok_or_else(|| {
+        "PHP is not installed. Install PHP before opening phpMyAdmin.".to_string()
+    })?;
     let php_cgi = php_cgi_path(php)
         .ok_or_else(|| "php-cgi.exe was not found in the PHP install directory.".to_string())?;
     ensure_phpmyadmin_php_extensions(php)?;
@@ -1604,8 +1689,16 @@ fn is_php_file(path: &Path) -> bool {
 fn php_cgi_path(entry: &InstalledRuntime) -> Option<PathBuf> {
     let install_dir = Path::new(&entry.install_dir);
     [
-        install_dir.join(if cfg!(windows) { "php-cgi.exe" } else { "php-cgi" }),
-        install_dir.join("bin").join(if cfg!(windows) { "php-cgi.exe" } else { "php-cgi" }),
+        install_dir.join(if cfg!(windows) {
+            "php-cgi.exe"
+        } else {
+            "php-cgi"
+        }),
+        install_dir.join("bin").join(if cfg!(windows) {
+            "php-cgi.exe"
+        } else {
+            "php-cgi"
+        }),
     ]
     .into_iter()
     .find(|path| path.exists())
@@ -1625,8 +1718,8 @@ fn ensure_phpmyadmin_php_extensions(entry: &InstalledRuntime) -> Result<(), Stri
         }
     }
 
-    let contents = fs::read_to_string(&php_ini)
-        .map_err(|error| format!("Failed to read php.ini: {error}"))?;
+    let contents =
+        fs::read_to_string(&php_ini).map_err(|error| format!("Failed to read php.ini: {error}"))?;
     let normalized = normalize_php_ini_for_phpmyadmin(&contents, install_dir);
     if normalized != contents {
         fs::write(&php_ini, normalized)
@@ -1636,9 +1729,16 @@ fn ensure_phpmyadmin_php_extensions(entry: &InstalledRuntime) -> Result<(), Stri
 }
 
 fn normalize_php_ini_for_phpmyadmin(contents: &str, install_dir: &Path) -> String {
-    let extension_dir = install_dir.join("ext").display().to_string().replace('\\', "/");
+    let extension_dir = install_dir
+        .join("ext")
+        .display()
+        .to_string()
+        .replace('\\', "/");
     let wanted = [
-        ("extension_dir", format!("extension_dir = \"{extension_dir}\"")),
+        (
+            "extension_dir",
+            format!("extension_dir = \"{extension_dir}\""),
+        ),
         ("mysqli", "extension=mysqli".to_string()),
         ("mbstring", "extension=mbstring".to_string()),
         ("openssl", "extension=openssl".to_string()),
@@ -1732,7 +1832,8 @@ fn php_single_quote_escape(value: &str) -> String {
 }
 
 fn serve_phpmyadmin_static_file(path: &Path) -> Result<Response, String> {
-    let body = fs::read(path).map_err(|error| format!("Failed to read phpMyAdmin file: {error}"))?;
+    let body =
+        fs::read(path).map_err(|error| format!("Failed to read phpMyAdmin file: {error}"))?;
     Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, phpmyadmin_mime_type(path))
@@ -1806,22 +1907,40 @@ fn execute_phpmyadmin_script(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
 
-    if let Some(content_type) = headers.get(header::CONTENT_TYPE).and_then(|value| value.to_str().ok()) {
+    if let Some(content_type) = headers
+        .get(header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+    {
         command.env("CONTENT_TYPE", content_type);
     }
-    if let Some(cookie) = headers.get(header::COOKIE).and_then(|value| value.to_str().ok()) {
+    if let Some(cookie) = headers
+        .get(header::COOKIE)
+        .and_then(|value| value.to_str().ok())
+    {
         command.env("HTTP_COOKIE", cookie);
     }
-    if let Some(user_agent) = headers.get(header::USER_AGENT).and_then(|value| value.to_str().ok()) {
+    if let Some(user_agent) = headers
+        .get(header::USER_AGENT)
+        .and_then(|value| value.to_str().ok())
+    {
         command.env("HTTP_USER_AGENT", user_agent);
     }
-    if let Some(accept) = headers.get(header::ACCEPT).and_then(|value| value.to_str().ok()) {
+    if let Some(accept) = headers
+        .get(header::ACCEPT)
+        .and_then(|value| value.to_str().ok())
+    {
         command.env("HTTP_ACCEPT", accept);
     }
-    if let Some(language) = headers.get(header::ACCEPT_LANGUAGE).and_then(|value| value.to_str().ok()) {
+    if let Some(language) = headers
+        .get(header::ACCEPT_LANGUAGE)
+        .and_then(|value| value.to_str().ok())
+    {
         command.env("HTTP_ACCEPT_LANGUAGE", language);
     }
-    if let Some(referer) = headers.get(header::REFERER).and_then(|value| value.to_str().ok()) {
+    if let Some(referer) = headers
+        .get(header::REFERER)
+        .and_then(|value| value.to_str().ok())
+    {
         command.env("HTTP_REFERER", referer);
     }
     let php_ini_dir = Path::new(&php_entry.install_dir);
@@ -1872,7 +1991,11 @@ fn build_cgi_response(output: &[u8]) -> Result<Response, String> {
         let name = name.trim();
         let value = value.trim();
         if name.eq_ignore_ascii_case("Status") {
-            if let Some(code) = value.split_whitespace().next().and_then(|code| code.parse::<u16>().ok()) {
+            if let Some(code) = value
+                .split_whitespace()
+                .next()
+                .and_then(|code| code.parse::<u16>().ok())
+            {
                 status = StatusCode::from_u16(code).unwrap_or(StatusCode::OK);
             }
             continue;
@@ -2239,7 +2362,12 @@ fn web_server_runtime_label(kind: &str) -> String {
 }
 
 fn build_runtime_id(name: &str, version: &str, runtime_kind: &str) -> String {
-    format!("{}-{}-{}", slugify(name, '-'), slugify(version, '-'), slugify(runtime_kind, '-'))
+    format!(
+        "{}-{}-{}",
+        slugify(name, '-'),
+        slugify(version, '-'),
+        slugify(runtime_kind, '-')
+    )
 }
 
 pub(crate) fn runtime_binding_id(entry: &InstalledRuntime) -> String {
@@ -2262,8 +2390,11 @@ pub(crate) fn resolve_php_runtime_binding_id(
     let mut legacy_matches = php_registry
         .iter()
         .filter(|(_, entry)| {
-            let legacy_version_binding =
-                format!("{}-{}", slugify(&entry.name, '-'), slugify(&entry.version, '-'));
+            let legacy_version_binding = format!(
+                "{}-{}",
+                slugify(&entry.name, '-'),
+                slugify(&entry.version, '-')
+            );
             let version_only_binding = slugify(&entry.version, '-');
 
             entry.id == binding_id
@@ -2322,7 +2453,8 @@ pub(crate) fn save_runtime_registry(registry: &RuntimeRegistry) -> Result<(), St
     }
     let contents = serde_json::to_string_pretty(registry)
         .map_err(|error| format!("Failed to serialize registry: {error}"))?;
-    fs::write(&path, contents).map_err(|error| format!("Failed to write runtime registry: {error}"))?;
+    fs::write(&path, contents)
+        .map_err(|error| format!("Failed to write runtime registry: {error}"))?;
     Ok(())
 }
 
@@ -2339,6 +2471,15 @@ fn runtime_registry_path() -> Result<PathBuf, String> {
     let base_dir = resolve_data_base_dir()
         .ok_or_else(|| "Unable to resolve application directory".to_string())?;
     Ok(base_dir.join("data").join("registry").join("software.json"))
+}
+
+fn database_credentials_path() -> Result<PathBuf, String> {
+    let base_dir = resolve_data_base_dir()
+        .ok_or_else(|| "Unable to resolve application directory".to_string())?;
+    Ok(base_dir
+        .join("data")
+        .join("registry")
+        .join("databases.json"))
 }
 
 fn hydrate_runtime_entry(
@@ -2382,7 +2523,8 @@ fn infer_runtime_entry(
     let executable_path = if runtime_kind == "phpmyadmin" {
         None
     } else {
-        detect_runtime_executable(install_dir, &runtime_kind, true).map(|path| path.display().to_string())
+        detect_runtime_executable(install_dir, &runtime_kind, true)
+            .map(|path| path.display().to_string())
     };
     let php_port = (runtime_kind == "php")
         .then(|| resolve_php_runtime_port(install_dir, &version, inspection));
@@ -2606,24 +2748,34 @@ async fn install_plugin_package(plugin_id: &str, task_id: &str) -> Result<String
                 }
                 Err(error) => {
                     if i < 4 {
-                        update_task_log(task_id, &format!("Retrying directory removal (attempt {}/5)...", i + 2));
+                        update_task_log(
+                            task_id,
+                            &format!("Retrying directory removal (attempt {}/5)...", i + 2),
+                        );
                         thread::sleep(Duration::from_millis(500));
                     } else {
                         // Final fallback: attempt to rename it out of the way
-                        let trash_dir = data_base_dir.join("data").join("trash").join(uuid::Uuid::new_v4().to_string());
+                        let trash_dir = data_base_dir
+                            .join("data")
+                            .join("trash")
+                            .join(uuid::Uuid::new_v4().to_string());
                         let _ = fs::create_dir_all(trash_dir.parent().unwrap());
                         if fs::rename(&install_root, &trash_dir).is_ok() {
                             let _ = fs::remove_dir_all(&trash_dir);
                             deleted = true;
                         } else {
-                            return Err(format!("Failed to replace previous install directory: {error}"));
+                            return Err(format!(
+                                "Failed to replace previous install directory: {error}"
+                            ));
                         }
                     }
                 }
             }
         }
         if !deleted {
-             return Err("Failed to clear installation directory after multiple attempts.".to_string());
+            return Err(
+                "Failed to clear installation directory after multiple attempts.".to_string(),
+            );
         }
     }
     fs::create_dir_all(&install_root)
@@ -2642,7 +2794,13 @@ async fn install_plugin_package(plugin_id: &str, task_id: &str) -> Result<String
     cleanup_legacy_runtime_metadata(&install_root);
 
     if runtime_uses_lua_plugin(&bundle.runtime_kind) {
-        update_task_log(task_id, &format!("running {} setup scripts...", bundle.runtime_kind.to_uppercase()));
+        update_task_log(
+            task_id,
+            &format!(
+                "running {} setup scripts...",
+                bundle.runtime_kind.to_uppercase()
+            ),
+        );
         if let Err(error) = run_native_windows_runtime_action(
             "install",
             &install_root,
@@ -2670,9 +2828,15 @@ async fn install_plugin_package(plugin_id: &str, task_id: &str) -> Result<String
                 contents.push(entry.file_name().to_string_lossy().to_string());
             }
         }
-        let dir_info = if contents.is_empty() { " (directory is empty)".to_string() } else { format!(": [{}]", contents.join(", ")) };
+        let dir_info = if contents.is_empty() {
+            " (directory is empty)".to_string()
+        } else {
+            format!(": [{}]", contents.join(", "))
+        };
         let _ = fs::remove_dir_all(&install_root);
-        return Err(format!("Install failed: runtime executable was not found after extraction{dir_info}"));
+        return Err(format!(
+            "Install failed: runtime executable was not found after extraction{dir_info}"
+        ));
     }
 
     let mut installed_entry = InstalledRuntime {
@@ -2748,8 +2912,6 @@ async fn install_plugin_package(plugin_id: &str, task_id: &str) -> Result<String
     ))
 }
 
-
-
 async fn resolve_plugin_definition(
     plugin_id: &str,
 ) -> Result<(PluginRaw, Option<PluginVersionRaw>, String, String), String> {
@@ -2774,9 +2936,10 @@ async fn resolve_plugin_definition(
     Ok((plugin, version_entry, version, runtime_kind))
 }
 
-
-
-async fn download_plugin_bundle_with_task(plugin_id: &str, task_id: &str) -> Result<DownloadedPluginBundle, String> {
+async fn download_plugin_bundle_with_task(
+    plugin_id: &str,
+    task_id: &str,
+) -> Result<DownloadedPluginBundle, String> {
     let (plugin, version_entry, version, runtime_kind) =
         resolve_plugin_definition(plugin_id).await?;
     let data_base_dir = resolve_data_base_dir()
@@ -2824,7 +2987,10 @@ async fn download_url_to_path_with_task(
 
     if response.status() == reqwest::StatusCode::FORBIDDEN {
         if let Some(fallback_url) = mysql_archive_cdn_fallback_url(url) {
-            update_task_log(task_id, "MySQL archive rejected the primary URL, retrying CDN mirror...");
+            update_task_log(
+                task_id,
+                "MySQL archive rejected the primary URL, retrying CDN mirror...",
+            );
             response = send_download_request(&client, &fallback_url)
                 .await
                 .map_err(|error| format!("Failed to download {asset_label}: {error}"))?;
@@ -2843,13 +3009,21 @@ async fn download_url_to_path_with_task(
     let mut downloaded = 0;
     let mut last_percent = 0;
 
-    let mut file = File::create(target_path).await.map_err(|e| format!("Failed to create file: {e}"))?;
+    let mut file = File::create(target_path)
+        .await
+        .map_err(|e| format!("Failed to create file: {e}"))?;
 
     update_task_log(task_id, "0% tải xuống tệp .zip");
 
-    while let Some(chunk) = response.chunk().await.map_err(|e| format!("Error downloading: {e}"))? {
+    while let Some(chunk) = response
+        .chunk()
+        .await
+        .map_err(|e| format!("Error downloading: {e}"))?
+    {
         downloaded += chunk.len() as u64;
-        file.write_all(&chunk).await.map_err(|e| format!("Error writing: {e}"))?;
+        file.write_all(&chunk)
+            .await
+            .map_err(|e| format!("Error writing: {e}"))?;
 
         if total_size > 0 {
             let percent = (downloaded * 100 / total_size) as u32;
@@ -2863,7 +3037,10 @@ async fn download_url_to_path_with_task(
     Ok(())
 }
 
-async fn send_download_request(client: &reqwest::Client, url: &str) -> Result<reqwest::Response, reqwest::Error> {
+async fn send_download_request(
+    client: &reqwest::Client,
+    url: &str,
+) -> Result<reqwest::Response, reqwest::Error> {
     let mut request = client
         .get(url)
         .header(
@@ -2933,13 +3110,10 @@ fn run_native_windows_runtime_action(
         if runtime_kind == "apache" {
             if let Ok(registry) = load_runtime_registry() {
                 if let Some(phpmyadmin) = select_primary_runtime(&registry, "phpmyadmin") {
-                    ctx.insert(
-                        "phpmyadmin_dir".to_string(),
-                        phpmyadmin.install_dir.clone(),
-                    );
+                    ctx.insert("phpmyadmin_dir".to_string(), phpmyadmin.install_dir.clone());
                 }
-                if let Some(port) = select_primary_runtime(&registry, "php")
-                    .and_then(|entry| entry.php_port)
+                if let Some(port) =
+                    select_primary_runtime(&registry, "php").and_then(|entry| entry.php_port)
                 {
                     ctx.insert("phpmyadmin_php_port".to_string(), port.to_string());
                 }
@@ -3963,7 +4137,10 @@ fn open_installed_runtime_path(runtime_id: &str) -> Result<String, String> {
         .ok_or_else(|| "Runtime is not installed".to_string())?;
     let install_dir = PathBuf::from(&entry.install_dir);
     if !install_dir.exists() {
-        return Err(format!("Install path does not exist: {}", install_dir.display()));
+        return Err(format!(
+            "Install path does not exist: {}",
+            install_dir.display()
+        ));
     }
     if !install_dir.is_dir() {
         return Err(format!(
@@ -4178,7 +4355,11 @@ fn restart_apache_runtime_if_running(entry: &mut InstalledRuntime) -> Result<(),
     Ok(())
 }
 
-fn detect_runtime_executable(install_root: &Path, runtime_kind: &str, recursive: bool) -> Option<PathBuf> {
+fn detect_runtime_executable(
+    install_root: &Path,
+    runtime_kind: &str,
+    recursive: bool,
+) -> Option<PathBuf> {
     for candidate in preferred_runtime_executable_candidates(install_root, runtime_kind) {
         if candidate.exists() {
             return Some(candidate);
@@ -4689,7 +4870,10 @@ pub(crate) fn resolve_data_base_dir() -> Option<PathBuf> {
     // Only log once to avoid flooding console during polling
     static LOGGED: OnceLock<()> = OnceLock::new();
     LOGGED.get_or_init(|| {
-        println!("[System] Data base directory resolved to: {}", base.display());
+        println!(
+            "[System] Data base directory resolved to: {}",
+            base.display()
+        );
     });
 
     Some(base)

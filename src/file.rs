@@ -47,17 +47,18 @@ fn validate_file_access(path: &Path) -> Result<(), String> {
     // Resolve the absolute canonical path (follows symlinks, resolves ..)
     // For write operations on new files, canonicalize the parent instead.
     let canonical = if path.exists() {
-        fs::canonicalize(path)
-            .map_err(|_| "Cannot resolve file path".to_string())?
+        fs::canonicalize(path).map_err(|_| "Cannot resolve file path".to_string())?
     } else {
-        let parent = path.parent()
+        let parent = path
+            .parent()
             .ok_or_else(|| "Invalid file path".to_string())?;
         if !parent.exists() {
             return Err("Parent directory does not exist".to_string());
         }
-        let canonical_parent = fs::canonicalize(parent)
-            .map_err(|_| "Cannot resolve parent directory".to_string())?;
-        let file_name = path.file_name()
+        let canonical_parent =
+            fs::canonicalize(parent).map_err(|_| "Cannot resolve parent directory".to_string())?;
+        let file_name = path
+            .file_name()
             .ok_or_else(|| "Missing file name".to_string())?;
         canonical_parent.join(file_name)
     };
@@ -67,9 +68,10 @@ fn validate_file_access(path: &Path) -> Result<(), String> {
     let data_root = crate::dashboard::resolve_data_base_dir()
         .and_then(|base| fs::canonicalize(base.join("data")).ok());
 
-    let allowed = website_root.iter().chain(data_root.iter()).any(|root| {
-        path_starts_with(&canonical, root)
-    });
+    let allowed = website_root
+        .iter()
+        .chain(data_root.iter())
+        .any(|root| path_starts_with(&canonical, root));
 
     if !allowed {
         return Err("Access denied: path is outside the allowed directories".to_string());
@@ -223,8 +225,7 @@ fn create_website_directory(parent_path: &str, name: &str) -> Result<PathBuf, St
 
 fn resolve_directory_picker_path(path: &str) -> Result<(PathBuf, PathBuf), String> {
     let root = website::resolve_website_root();
-    fs::create_dir_all(&root)
-        .map_err(|error| format!("Failed to create website root: {error}"))?;
+    fs::create_dir_all(&root).map_err(|error| format!("Failed to create website root: {error}"))?;
     let root = fs::canonicalize(&root)
         .map_err(|error| format!("Failed to resolve website root: {error}"))?;
     let requested = path.trim();

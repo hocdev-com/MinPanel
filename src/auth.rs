@@ -264,9 +264,7 @@ pub async fn login(Json(payload): Json<LoginRequest>) -> impl IntoResponse {
     }
 }
 
-pub async fn change_password(
-    Json(payload): Json<ChangePasswordRequest>,
-) -> impl IntoResponse {
+pub async fn change_password(Json(payload): Json<ChangePasswordRequest>) -> impl IntoResponse {
     let config = ensure_config();
     let current_hash = hash_password(&payload.current_password, &config.salt);
 
@@ -332,10 +330,7 @@ pub fn initialize() {
 }
 
 /// Middleware for API routes: returns 401 if not authenticated.
-pub async fn require_auth(
-    request: Request<axum::body::Body>,
-    next: Next,
-) -> Response {
+pub async fn require_auth(request: Request<axum::body::Body>, next: Next) -> Response {
     if is_authenticated(request.headers()) {
         return next.run(request).await;
     }
@@ -343,10 +338,7 @@ pub async fn require_auth(
 }
 
 /// Middleware for page routes: redirects to /login if not authenticated.
-pub async fn require_auth_page(
-    request: Request<axum::body::Body>,
-    next: Next,
-) -> Response {
+pub async fn require_auth_page(request: Request<axum::body::Body>, next: Next) -> Response {
     if is_authenticated(request.headers()) {
         return next.run(request).await;
     }
