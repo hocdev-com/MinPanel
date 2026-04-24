@@ -2562,9 +2562,6 @@ select {
   z-index: 4;
 }
 
-.website-create-close {
-}
-
 .website-create-tabs {
   display: flex;
   gap: 2px;
@@ -3574,10 +3571,6 @@ select {
   flex-direction: column;
 }
 
-.software-settings-close {
-  top: -15px;
-  right: -15px;
-}
 
 .software-settings-head {
   padding: 18px 24px 16px;
@@ -4042,10 +4035,6 @@ select {
   color: #334155;
 }
 
-.website-delete-close {
-  top: -15px;
-  right: -15px;
-}
 
 .website-delete-body {
   padding: 26px 34px 20px;
@@ -5273,9 +5262,6 @@ select {
   font-size: 19px;
 }
 
-.log-modal-close {
-}
-
 .log-modal-meta {
   padding: 12px 20px 0;
   color: var(--muted);
@@ -5842,9 +5828,6 @@ select {
   font-size: 16px;
   font-weight: 600;
   color: #1e293b;
-}
-
-.messages-modal-close {
 }
 
 .messages-modal-body {
