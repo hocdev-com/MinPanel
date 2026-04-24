@@ -608,7 +608,7 @@ function renderSoftwareCategories() {
 function renderSoftwareRecently() {
   const recently = document.getElementById("software-recently");
   if (!recently) return;
-  const items = getSoftwareDisplayItems().filter((item) => item.installed).slice(0, 4);
+  const items = getSoftwareDisplayItems().filter((item) => item.installed).slice(0, 1);
   recently.innerHTML = `
     <div class="software-recently-main">
       <div class="software-recently-title">Recently plugin:</div>
