@@ -23,6 +23,10 @@ pub fn routes() -> Router {
     let protected_api = Router::new()
         .route("/dashboard/data", get(dashboard::data))
         .route("/database/create", post(dashboard::create_database))
+        .route(
+            "/database/set-root-password",
+            post(dashboard::set_database_root_password),
+        )
         .route("/phpmyadmin", any(dashboard::phpmyadmin_proxy))
         .route("/phpmyadmin/", any(dashboard::phpmyadmin_proxy))
         .route("/phpmyadmin/*path", any(dashboard::phpmyadmin_proxy))

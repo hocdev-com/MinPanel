@@ -1630,146 +1630,6 @@ function findDatabaseRuntime() {
   }) || null;
 }
 
-function findPhpMyAdminRuntime() {
-  return getSoftwareDisplayItems().find((item) => {
-    const haystack = `${item.name || ""} ${item.title || ""} ${item.visual || ""}`.toLowerCase();
-    return item.installed && haystack.includes("phpmyadmin");
-  }) || null;
-}
-
-function findPrimaryPhpRuntime() {
-  return (websiteState.phpRuntimes || [])[0] || null;
-}
-
-function renderPhpMyAdminServicePanel() {
-  const phpmyadmin = findPhpMyAdminRuntime();
-  const mysql = findDatabaseRuntime();
-  const installed = Boolean(phpmyadmin);
-  const publicAccess = databaseState.phpMyAdminPublic;
-  return `
-    <section class="database-phpmyadmin-section">
-      <div class="database-phpmyadmin-row">
-        <span>Database</span>
-        <label class="software-display-switch">
-          <input id="database-phpmyadmin-public-toggle" type="checkbox" ${publicAccess ? "checked" : ""}>
-          <span class="software-display-slider" aria-hidden="true"></span>
-        </label>
-        <span>Enable public access</span>
-      </div>
-      <div class="database-phpmyadmin-status-line">
-        <span class="database-phpmyadmin-dot" aria-hidden="true"></span>
-        <span>${publicAccess ? "Turning off [public access] improves security" : "Public access is disabled"}</span>
-      </div>
-      <div class="database-phpmyadmin-divider"></div>
-      <div class="database-phpmyadmin-access-row">
-        <button class="database-phpmyadmin-access-button is-hot" type="button" data-phpmyadmin-access="password-free" ${installed ? "" : "disabled"}>
-          <span class="database-hot-ribbon">HOT</span>
-          Password-free access
-        </button>
-        <button class="database-phpmyadmin-access-button" type="button" data-phpmyadmin-access="public" ${installed && publicAccess ? "" : "disabled"}>Public access</button>
-      </div>
-      <ul class="database-phpmyadmin-notes">
-        <li>Password-free access requires logging into the panel first</li>
-        <li>If password-free access does not respond, use [Public access]</li>
-        <li>If access through the panel is unresponsive, please use [Public access] to access phpMyAdmin</li>
-        <li>If the access appears 502, please check the [php status] or try to [change php version]</li>
-      </ul>
-      <div class="database-phpmyadmin-runtime-state">
-        <span>phpMyAdmin: ${installed ? escapeHtml(phpmyadmin.version || "Installed") : "Not installed"}</span>
-        <span>MySQL: ${mysql ? escapeHtml(mysql.status === "running" ? "Running" : "Stopped") : "Not installed"}</span>
-      </div>
-    </section>
-  `;
-}
-
-function renderPhpMyAdminPhpPanel() {
-  const php = findPrimaryPhpRuntime();
-  const options = (websiteState.phpRuntimes || []).map((runtime) => (
-    `<option value="${escapeHtml(runtime.id)}">${escapeHtml(runtime.label || runtime.version || runtime.id)}</option>`
-  )).join("");
-  return `
-    <section class="database-phpmyadmin-section">
-      <div class="database-phpmyadmin-section-head">
-        <span>PHP version</span>
-        <strong>${escapeHtml(php?.label || "No PHP runtime installed")}</strong>
-      </div>
-      <label class="database-form-row database-phpmyadmin-select-row">
-        <span>Version</span>
-        <select id="database-phpmyadmin-php-version" ${options ? "" : "disabled"}>
-          ${options || "<option>No PHP runtime</option>"}
-        </select>
-      </label>
-      <p class="database-phpmyadmin-copy">phpMyAdmin is a PHP application. Apache must route it to an installed PHP runtime before public access can respond.</p>
-    </section>
-  `;
-}
-
-function renderPhpMyAdminSecurityPanel() {
-  return `
-    <section class="database-phpmyadmin-section">
-      <div class="database-phpmyadmin-section-head">
-        <span>Security configuration</span>
-        <strong>${databaseState.phpMyAdminPublic ? "Public access enabled" : "Public access disabled"}</strong>
-      </div>
-      <div class="database-phpmyadmin-security-list">
-        <label class="database-phpmyadmin-check-row">
-          <input type="checkbox" checked disabled>
-          <span>Cookie authentication</span>
-        </label>
-        <label class="database-phpmyadmin-check-row">
-          <input type="checkbox" ${databaseState.phpMyAdminPublic ? "checked" : ""} data-phpmyadmin-public-check>
-          <span>Enable public access</span>
-        </label>
-        <label class="database-phpmyadmin-check-row">
-          <input type="checkbox" checked disabled>
-          <span>Generated blowfish secret</span>
-        </label>
-      </div>
-    </section>
-  `;
-}
-
-function renderPhpMyAdminModal() {
-  const content = document.getElementById("database-phpmyadmin-content");
-  if (!content) return;
-  document.querySelectorAll("[data-phpmyadmin-section]").forEach((button) => {
-    const active = button.dataset.phpmyadminSection === databaseState.phpMyAdminSection;
-    button.classList.toggle("active", active);
-  });
-  if (databaseState.phpMyAdminSection === "php") {
-    content.innerHTML = renderPhpMyAdminPhpPanel();
-  } else if (databaseState.phpMyAdminSection === "security") {
-    content.innerHTML = renderPhpMyAdminSecurityPanel();
-  } else {
-    content.innerHTML = renderPhpMyAdminServicePanel();
-  }
-}
-
-function openPhpMyAdminModal() {
-  databaseState.phpMyAdminSection = "service";
-  renderPhpMyAdminModal();
-  const modal = document.getElementById("database-phpmyadmin-modal");
-  if (modal) modal.hidden = false;
-}
-
-function closePhpMyAdminModal() {
-  const modal = document.getElementById("database-phpmyadmin-modal");
-  if (modal) modal.hidden = true;
-}
-
-function openPhpMyAdminAccess(mode) {
-  const phpmyadmin = findPhpMyAdminRuntime();
-  if (!phpmyadmin) {
-    window.alert("phpMyAdmin is not installed. Install it from App Store first.");
-    return;
-  }
-  if (mode === "public" && !databaseState.phpMyAdminPublic) {
-    window.alert("Public access is disabled.");
-    return;
-  }
-  window.open(`${window.location.origin}/phpmyadmin/`, "_blank", "noopener");
-}
-
 function randomDatabasePassword() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789_#@";
   const bytes = new Uint8Array(16);
@@ -1853,12 +1713,82 @@ async function submitDatabaseCreate() {
   }
 }
 
+function openDatabaseRootPasswordModal() {
+  const modal = document.getElementById("database-root-password-modal");
+  const passwordInput = document.getElementById("database-root-password-input");
+  const message = document.getElementById("database-root-password-message");
+  if (!modal || !passwordInput) return;
+  passwordInput.value = randomDatabasePassword();
+  if (message) message.textContent = "";
+  modal.hidden = false;
+  passwordInput.focus();
+}
+
+function closeDatabaseRootPasswordModal() {
+  const modal = document.getElementById("database-root-password-modal");
+  if (modal) modal.hidden = true;
+}
+
+async function submitDatabaseRootPassword() {
+  const passwordInput = document.getElementById("database-root-password-input");
+  const message = document.getElementById("database-root-password-message");
+  const submit = document.getElementById("database-root-password-submit");
+  if (!passwordInput) return;
+  const password = passwordInput.value;
+  if (!password) return;
+
+  if (submit) submit.disabled = true;
+  if (message) {
+    message.textContent = "Changing password...";
+    message.classList.remove("is-error");
+  }
+
+  try {
+    const { response, body } = await fetchJsonWithTimeout(
+      "/database/set-root-password",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      },
+      15000,
+    );
+    if (!response.ok || !body.status) {
+      throw new Error(body.message || `HTTP ${response.status}`);
+    }
+    closeDatabaseRootPasswordModal();
+    window.alert("Root password changed successfully");
+  } catch (error) {
+    if (message) {
+      message.textContent = error?.message || "Failed to change root password";
+      message.classList.add("is-error");
+    } else {
+      window.alert(error?.message || "Failed to change root password");
+    }
+  } finally {
+    if (submit) submit.disabled = false;
+  }
+}
+
+function openDatabaseRemoteDbModal() {
+  const modal = document.getElementById("database-remote-db-modal");
+  if (modal) modal.hidden = false;
+}
+
+function closeDatabaseRemoteDbModal() {
+  const modal = document.getElementById("database-remote-db-modal");
+  if (modal) modal.hidden = true;
+}
+
 function renderDatabaseRuntimeStrip() {
   const strip = document.getElementById("database-runtime-strip");
+  const toolbarRootPass = document.getElementById("database-root-password-button");
   if (!strip) return;
   const label = databaseEngineLabel(databaseState.engine);
   const runtime = findDatabaseRuntime();
   const supportsLocalRuntime = ["mysql", "redis", "pgsql"].includes(databaseState.engine);
+
+  if (toolbarRootPass) toolbarRootPass.disabled = !runtime || runtime.status !== "running" || databaseState.engine !== "mysql";
 
   if (!supportsLocalRuntime) {
     strip.innerHTML = `
@@ -1866,7 +1796,7 @@ function renderDatabaseRuntimeStrip() {
         <span class="database-runtime-icon" aria-hidden="true">${databaseEngineIcon(databaseState.engine)}</span>
         <span><span class="database-runtime-name">${escapeHtml(label)}</span> local service management is not wired in MiniPanel yet.</span>
       </div>
-      <span class="database-runtime-actions"><button type="button" disabled>Remote DB</button></span>
+      <span class="database-runtime-actions"></span>
     `;
     return;
   }
@@ -1880,8 +1810,6 @@ function renderDatabaseRuntimeStrip() {
       </div>
       <span class="database-runtime-actions">
         <button type="button" disabled>Click install</button>
-        <button type="button" disabled>Add Remote DB</button>
-        <button type="button" data-database-open-phpmyadmin>phpMyAdmin</button>
       </span>
     `;
     return;
@@ -1895,9 +1823,7 @@ function renderDatabaseRuntimeStrip() {
       <span class="database-runtime-state${running ? "" : " is-stopped"}">${running ? "Running" : "Stopped"}</span>
     </div>
     <span class="database-runtime-actions">
-      <button type="button" disabled>Root password</button>
-      <button type="button" disabled>Remote DB</button>
-      <button type="button" data-database-open-phpmyadmin>phpMyAdmin</button>
+      <button type="button" ${running ? "" : "disabled"} data-database-open-root-password>Root password</button>
     </span>
   `;
 }
@@ -1923,18 +1849,25 @@ function renderDatabaseTable() {
             <span class="database-engine-icon" aria-hidden="true">${databaseEngineIcon(databaseState.engine, item)}</span>
             <span class="database-name-meta">
               <span class="database-name-title">${escapeHtml(item.name)}</span>
-              <span class="database-name-path" title="${escapeHtml(item.path)}">${escapeHtml(item.path)}</span>
             </span>
           </div>
         </td>
-        <td class="database-username-col">${escapeHtml(item.username || "--")}</td>
-        <td class="database-password-col"><span class="database-password-mask">${escapeHtml(item.password || "--")}</span></td>
+        <td class="database-password-col">
+          <div class="database-password-cell">
+            <span class="database-password-mask" data-password="${escapeHtml(item.password || "")}">**********</span>
+            <button class="database-password-action" type="button" data-database-action="toggle-password" aria-label="Toggle password visibility">
+              <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            </button>
+            <button class="database-password-action" type="button" data-database-action="copy-password" aria-label="Copy password">
+              <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            </button>
+          </div>
+        </td>
         <td class="database-backup-col"><span class="database-backup-count">${Number(item.backup_count || 0)}</span></td>
         <td class="database-permission-col">${escapeHtml(item.permission || "Local")}</td>
         <td class="database-size-col">${escapeHtml(formatBytes(Number(item.size || 0)))}</td>
         <td class="database-operate-col">
           <span class="database-operate-links">
-            <button class="database-operate-link" type="button" data-database-open-phpmyadmin>Admin</button>
             <button class="database-operate-link" type="button" disabled>Tools</button>
             <button class="database-operate-link" type="button" disabled>Delete</button>
           </span>
@@ -1956,7 +1889,6 @@ function renderDatabaseTable() {
 function bindDatabaseControls() {
   if (!document.getElementById("database-table-body")) return;
   const addButton = document.getElementById("database-add-button");
-  const phpMyAdminButton = document.getElementById("database-phpmyadmin-button");
   const createModal = document.getElementById("database-create-modal");
   const createClose = document.getElementById("database-create-close");
   const createCancel = document.getElementById("database-create-cancel");
@@ -1964,12 +1896,16 @@ function bindDatabaseControls() {
   const createName = document.getElementById("database-create-name");
   const createUsername = document.getElementById("database-create-username");
   const generatePassword = document.getElementById("database-generate-password");
-  const phpMyAdminModal = document.getElementById("database-phpmyadmin-modal");
-  const phpMyAdminClose = document.getElementById("database-phpmyadmin-close");
-  const phpMyAdminContent = document.getElementById("database-phpmyadmin-content");
+
+  const rootPasswordButton = document.getElementById("database-root-password-button");
+  const rootPasswordModal = document.getElementById("database-root-password-modal");
+  const rootPasswordClose = document.getElementById("database-root-password-close");
+  const rootPasswordCancel = document.getElementById("database-root-password-cancel");
+  const rootPasswordForm = document.getElementById("database-root-password-form");
+  const generateRootPassword = document.getElementById("database-generate-root-password");
 
   if (addButton) addButton.addEventListener("click", openDatabaseCreateModal);
-  if (phpMyAdminButton) phpMyAdminButton.addEventListener("click", openPhpMyAdminModal);
+  if (rootPasswordButton) rootPasswordButton.addEventListener("click", openDatabaseRootPasswordModal);
   if (createClose) createClose.addEventListener("click", closeDatabaseCreateModal);
   if (createCancel) createCancel.addEventListener("click", closeDatabaseCreateModal);
   if (createModal) {
@@ -1997,33 +1933,28 @@ function bindDatabaseControls() {
       if (passwordInput) passwordInput.value = randomDatabasePassword();
     });
   }
-  if (phpMyAdminClose) phpMyAdminClose.addEventListener("click", closePhpMyAdminModal);
-  if (phpMyAdminModal) {
-    phpMyAdminModal.addEventListener("click", (event) => {
-      if (event.target.hasAttribute("data-database-phpmyadmin-close")) {
-        closePhpMyAdminModal();
-      }
-    });
-    phpMyAdminModal.addEventListener("click", (event) => {
-      const sectionButton = event.target.closest("[data-phpmyadmin-section]");
-      if (sectionButton) {
-        databaseState.phpMyAdminSection = sectionButton.dataset.phpmyadminSection || "service";
-        renderPhpMyAdminModal();
-        return;
-      }
-      const accessButton = event.target.closest("[data-phpmyadmin-access]");
-      if (accessButton) {
-        openPhpMyAdminAccess(accessButton.dataset.phpmyadminAccess);
-      }
-    });
-    phpMyAdminModal.addEventListener("change", (event) => {
-      if (event.target.id === "database-phpmyadmin-public-toggle" || event.target.hasAttribute("data-phpmyadmin-public-check")) {
-        databaseState.phpMyAdminPublic = Boolean(event.target.checked);
-        renderPhpMyAdminModal();
+  
+  if (rootPasswordClose) rootPasswordClose.addEventListener("click", closeDatabaseRootPasswordModal);
+  if (rootPasswordCancel) rootPasswordCancel.addEventListener("click", closeDatabaseRootPasswordModal);
+  if (rootPasswordModal) {
+    rootPasswordModal.addEventListener("click", (event) => {
+      if (event.target.hasAttribute("data-database-root-password-close")) {
+        closeDatabaseRootPasswordModal();
       }
     });
   }
-  if (phpMyAdminContent) renderPhpMyAdminModal();
+  if (rootPasswordForm) {
+    rootPasswordForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      submitDatabaseRootPassword();
+    });
+  }
+  if (generateRootPassword) {
+    generateRootPassword.addEventListener("click", () => {
+      const passwordInput = document.getElementById("database-root-password-input");
+      if (passwordInput) passwordInput.value = randomDatabasePassword();
+    });
+  }
 
   document.querySelectorAll("[data-database-engine]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -2051,14 +1982,40 @@ function bindDatabaseControls() {
   if (searchButton) searchButton.addEventListener("click", applySearch);
   if (runtimeStrip) {
     runtimeStrip.addEventListener("click", (event) => {
-      const button = event.target.closest("[data-database-open-phpmyadmin]");
-      if (button) openPhpMyAdminModal();
+      const rootPassButton = event.target.closest("[data-database-open-root-password]");
+      if (rootPassButton) openDatabaseRootPasswordModal();
     });
   }
+
   if (tableBody) {
     tableBody.addEventListener("click", (event) => {
-      const button = event.target.closest("[data-database-open-phpmyadmin]");
-      if (button) openPhpMyAdminModal();
+      const toggleButton = event.target.closest('[data-database-action="toggle-password"]');
+      if (toggleButton) {
+        const mask = toggleButton.parentElement.querySelector(".database-password-mask");
+        if (mask) {
+          const actual = mask.dataset.password || "";
+          const isMasked = mask.getAttribute("data-masked") !== "false";
+          mask.textContent = isMasked ? actual : "**********";
+          mask.setAttribute("data-masked", isMasked ? "false" : "true");
+          toggleButton.innerHTML = isMasked 
+            ? '<svg viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 1.24-2.11m4.24-4.24A11.21 11.21 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>'
+            : '<svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
+        }
+        return;
+      }
+      const copyButton = event.target.closest('[data-database-action="copy-password"]');
+      if (copyButton) {
+        const mask = copyButton.parentElement.querySelector(".database-password-mask");
+        if (mask) {
+          const actual = mask.dataset.password || "";
+          navigator.clipboard.writeText(actual).then(() => {
+            const originalIcon = copyButton.innerHTML;
+            copyButton.innerHTML = '<svg viewBox="0 0 24 24" style="stroke: #22c55e;"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+            setTimeout(() => { copyButton.innerHTML = originalIcon; }, 2000);
+          });
+        }
+        return;
+      }
     });
   }
 

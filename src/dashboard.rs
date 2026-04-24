@@ -589,6 +589,11 @@ pub struct DatabaseCreateRequest {
     password: String,
 }
 
+#[derive(Deserialize)]
+pub struct DatabaseRootPasswordRequest {
+    password: String,
+}
+
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub(crate) struct RuntimeRegistry {
     #[serde(default)]
@@ -983,6 +988,21 @@ pub async fn create_database(Json(request): Json<DatabaseCreateRequest>) -> Json
     }
 }
 
+pub async fn set_database_root_password(
+    Json(request): Json<DatabaseRootPasswordRequest>,
+) -> Json<OperationStatus> {
+    match set_mysql_root_password(&request.password) {
+        Ok(message) => Json(OperationStatus {
+            status: true,
+            message,
+        }),
+        Err(error) => Json(OperationStatus {
+            status: false,
+            message: error,
+        }),
+    }
+}
+
 pub async fn phpmyadmin_proxy(
     method: Method,
     OriginalUri(uri): OriginalUri,
@@ -1276,6 +1296,34 @@ fn create_mysql_database(request: &DatabaseCreateRequest) -> Result<String, Stri
 
     run_mysql_command(&client_path, &sql)?;
     Ok(format!("Database {database_name} created"))
+}
+
+fn set_mysql_root_password(password: &str) -> Result<String, String> {
+    let password = password.trim();
+    if password.is_empty() {
+        return Err("Password is required".to_string());
+    }
+    if password.chars().count() > 128 {
+        return Err("Password must be 128 characters or less".to_string());
+    }
+
+    let registry = load_runtime_registry()?;
+    let mysql = select_primary_runtime(&registry, "mysql")
+        .ok_or_else(|| "MySQL is not installed. Install MySQL from App Store first.".to_string())?;
+    let client_path = mysql_client_path(mysql)
+        .ok_or_else(|| "mysql.exe was not found in the MySQL install directory.".to_string())?;
+    if !mysql_runtime_is_available(mysql) {
+        return Err("MySQL is not running. Start MySQL before changing root password.".to_string());
+    }
+
+    let escaped_password = escape_mysql_string(password);
+    // On Windows, the mysql client might be configured to use empty password initially.
+    // If it's already set, we might need a more complex way to change it, 
+    // but usually aaPanel-style setups allow this if we are running as administrator/local system.
+    let sql = format!("ALTER USER 'root'@'localhost' IDENTIFIED BY '{escaped_password}'; FLUSH PRIVILEGES;");
+
+    run_mysql_command(&client_path, &sql)?;
+    Ok("Root password changed successfully".to_string())
 }
 
 fn validate_mysql_identifier(value: &str, label: &str) -> Result<String, String> {

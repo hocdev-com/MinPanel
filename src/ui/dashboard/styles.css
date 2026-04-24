@@ -773,6 +773,48 @@ select {
   border-bottom: 0;
 }
 
+.database-password-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.database-password-mask {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  color: #334155;
+  font-size: 13px;
+}
+
+.database-password-action {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.database-password-action:hover {
+  background: #f1f5f9;
+  color: #2563eb;
+}
+
+.database-password-action svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .database-check-col {
   width: 42px;
 }

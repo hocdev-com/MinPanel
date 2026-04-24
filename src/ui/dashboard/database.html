@@ -20,9 +20,7 @@
     <div class="database-toolbar">
       <div class="database-toolbar-left">
         <button class="database-primary-button" id="database-add-button" type="button">Add Database</button>
-        <button class="database-toolbar-button" type="button" disabled>Root password</button>
-        <button class="database-toolbar-button" id="database-phpmyadmin-button" type="button">phpMyAdmin</button>
-        <button class="database-toolbar-button" type="button" disabled>Remote DB</button>
+        <button class="database-toolbar-button" id="database-root-password-button" type="button" disabled>Root password</button>
         <button class="database-toolbar-button" type="button" disabled>Backup list</button>
         <button class="database-toolbar-button" type="button" disabled>Sync all</button>
       </div>
@@ -132,20 +130,32 @@
   </div>
 </section>
 
-<section class="database-phpmyadmin-modal" id="database-phpmyadmin-modal" hidden>
-  <div class="database-modal-backdrop" data-database-phpmyadmin-close></div>
-  <div class="database-phpmyadmin-panel" role="dialog" aria-modal="true" aria-labelledby="database-phpmyadmin-title">
-    <button class="panel-close-button panel-close-button--floating database-modal-close" id="database-phpmyadmin-close" type="button" aria-label="Close phpMyAdmin"></button>
+<section class="database-create-modal" id="database-root-password-modal" hidden>
+  <div class="database-modal-backdrop" data-database-root-password-close></div>
+  <div class="database-create-panel" role="dialog" aria-modal="true" aria-labelledby="database-root-password-title">
+    <button class="panel-close-button panel-close-button--floating database-modal-close" id="database-root-password-close" type="button" aria-label="Close Root Password"></button>
     <div class="database-modal-head">
-      <h3 id="database-phpmyadmin-title">phpMyAdmin</h3>
+      <h3 id="database-root-password-title">Change Root Password</h3>
     </div>
-    <div class="database-phpmyadmin-shell">
-      <aside class="database-phpmyadmin-sidebar">
-        <button class="database-phpmyadmin-menu-item active" type="button" data-phpmyadmin-section="service">Service</button>
-        <button class="database-phpmyadmin-menu-item" type="button" data-phpmyadmin-section="php">PHP version</button>
-        <button class="database-phpmyadmin-menu-item" type="button" data-phpmyadmin-section="security">Security configuration</button>
-      </aside>
-      <div class="database-phpmyadmin-main" id="database-phpmyadmin-content"></div>
-    </div>
+    <form class="database-create-form" id="database-root-password-form">
+      <div class="database-tip" style="margin-bottom: 20px;">
+        <span class="database-tip-icon" aria-hidden="true">!</span>
+        <span>Modifying the root password will affect all applications using the root account.</span>
+      </div>
+      <label class="database-form-row">
+        <span>New Password</span>
+        <div class="database-password-field">
+          <input id="database-root-password-input" name="password" type="text" autocomplete="new-password" required />
+          <button id="database-generate-root-password" type="button">Random</button>
+        </div>
+      </label>
+      <p class="database-form-message" id="database-root-password-message" role="status"></p>
+      <div class="database-modal-footer">
+        <button class="database-toolbar-button" id="database-root-password-cancel" type="button">Cancel</button>
+        <button class="database-primary-button" id="database-root-password-submit" type="submit">Confirm</button>
+      </div>
+    </form>
   </div>
 </section>
+
+
