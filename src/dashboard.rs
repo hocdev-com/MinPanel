@@ -1366,11 +1366,12 @@ fn collect_mysql_database_entries(entries: &mut Vec<DatabaseEntry>, seen: &mut H
         return;
     };
 
-    let sql = "SELECT table_schema, COALESCE(SUM(data_length + index_length), 0) \
-               FROM information_schema.tables \
-               WHERE table_schema NOT IN ('information_schema','mysql','performance_schema','sys') \
-               GROUP BY table_schema \
-               ORDER BY table_schema;";
+    let sql = "SELECT s.schema_name, COALESCE(SUM(t.data_length + t.index_length), 0) \
+               FROM information_schema.schemata s \
+               LEFT JOIN information_schema.tables t ON s.schema_name = t.table_schema \
+               WHERE s.schema_name NOT IN ('information_schema','mysql','performance_schema','sys') \
+               GROUP BY s.schema_name \
+               ORDER BY s.schema_name;";
     let output = match run_mysql_command_with_args(&client_path, &["-N", "-B", "-e", sql]) {
         Ok(output) => output,
         Err(_) => return,
@@ -1654,7 +1655,7 @@ fn ensure_phpmyadmin_config(root: &Path) -> Result<(), String> {
 fn phpmyadmin_config_body(root: &Path) -> String {
     let seed = root.display().to_string();
     let hash = fast_hash(&seed);
-    let secret = format!("MinPanel{hash:016x}phpMyAdminSecureKey");
+    let secret = format!("MinPanel{:016x}PMAKey!!", hash);
     format!(
         "<?php\r\n\
 /**\r\n\
