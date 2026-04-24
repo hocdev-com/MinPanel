@@ -1051,6 +1051,7 @@ async function runSoftwareAction(id, action) {
   softwareState.pendingActions[id] = action;
   renderDashboardSoftwareSummary();
   renderSoftwareList();
+  if (softwareState.settingsModal.open) refreshSoftwareSettingsModal();
   try {
     const timeoutMs = action === "start" || action === "stop" ? 35000 : 30000;
     const { response, body: result } = await fetchJsonWithTimeout(
@@ -1068,13 +1069,17 @@ async function runSoftwareAction(id, action) {
     setSoftwareOptimisticState(id, action);
     renderDashboardSoftwareSummary();
     renderSoftwareList();
+    if (softwareState.settingsModal.open) refreshSoftwareSettingsModal();
     await refreshDashboard();
     delete softwareState.optimisticStates[id];
     renderDashboardSoftwareSummary();
     renderSoftwareList();
+    if (softwareState.settingsModal.open) refreshSoftwareSettingsModal();
   } catch (error) {
     delete softwareState.pendingActions[id];
     delete softwareState.optimisticStates[id];
+    if (softwareState.settingsModal.open) refreshSoftwareSettingsModal();
+
     const errorMessage = error?.name === "AbortError"
       ? "The status action took too long and was cancelled. Check the runtime process and try again."
       : error?.message;
@@ -1307,6 +1312,13 @@ function refreshSoftwareSettingsModal() {
   const content = document.getElementById("software-settings-content");
   const title = document.getElementById("software-settings-title");
   if (!content || !title) return;
+
+  if (softwareState.settingsModal.open && softwareState.settingsModal.title) {
+    const allItems = getSoftwareDisplayItems();
+    softwareState.settingsModal.versions = allItems
+      .filter((item) => item.title === softwareState.settingsModal.title && item.installed)
+      .sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true, sensitivity: "base" }));
+  }
 
   renderSoftwareSettingsMenu();
   const item = getSelectedSoftwareSettingsItem();
