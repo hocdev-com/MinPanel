@@ -4732,6 +4732,194 @@ select {
   white-space: nowrap;
 }
 
+.software-recently-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.software-recently-actions .software-recently-action {
+  margin-left: 0;
+}
+
+.software-start-all-button {
+  position: relative;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid rgba(32, 165, 58, 0.28);
+  border-radius: 999px;
+  background: #f5fbf6;
+  color: #20a53a;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 26px;
+  cursor: pointer;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, color 0.18s ease;
+}
+
+.software-start-all-button:hover:not(:disabled),
+.software-start-all-button:focus-visible:not(:disabled) {
+  border-color: rgba(32, 165, 58, 0.52);
+  background: #eefbf0;
+  box-shadow: 0 0 0 2px rgba(32, 165, 58, 0.08);
+  outline: none;
+}
+
+.software-start-all-button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.software-start-all-button.is-stop-mode,
+.software-start-all-button.is-stop-mode:disabled {
+  opacity: 1;
+  border-color: rgba(224, 81, 93, 0.34);
+  background: #fff0f2;
+  color: #d94a58;
+}
+
+.software-start-all-icon,
+.software-start-all-spinner {
+  position: absolute;
+  inset: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.software-start-all-icon svg {
+  width: 15px;
+  height: 15px;
+  display: block;
+  fill: none;
+}
+
+.software-start-all-icon circle {
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
+
+.software-start-all-icon path {
+  fill: currentColor;
+  stroke: none;
+}
+
+.software-start-all-icon rect {
+  fill: currentColor;
+  stroke: none;
+}
+
+.software-start-all-spinner {
+  opacity: 0;
+  transition: opacity 0.16s ease;
+}
+
+.software-start-all-spinner::before {
+  content: "";
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  border: 1.8px solid rgba(32, 165, 58, 0.22);
+  border-top-color: currentColor;
+}
+
+.software-start-all-button.is-stop-mode .software-start-all-spinner::before {
+  border-color: rgba(224, 81, 93, 0.24);
+  border-top-color: currentColor;
+}
+
+.software-start-all-button.is-busy .software-start-all-icon {
+  opacity: 0;
+}
+
+.software-start-all-button.is-busy .software-start-all-spinner {
+  opacity: 1;
+}
+
+.software-start-all-button.is-busy .software-start-all-spinner::before {
+  animation: software-status-spin 1s linear infinite;
+}
+
+.software-refresh-icon-button {
+  position: relative;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid rgba(71, 85, 105, 0.24);
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #64748b;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 26px;
+  cursor: pointer;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, color 0.18s ease;
+}
+
+.software-refresh-icon-button:hover:not(:disabled),
+.software-refresh-icon-button:focus-visible:not(:disabled) {
+  border-color: rgba(71, 85, 105, 0.42);
+  background: #f1f5f9;
+  box-shadow: 0 0 0 2px rgba(100, 116, 139, 0.08);
+  outline: none;
+}
+
+.software-refresh-icon-button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.software-refresh-icon,
+.software-refresh-spinner {
+  position: absolute;
+  inset: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.software-refresh-icon svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.software-refresh-spinner {
+  opacity: 0;
+  transition: opacity 0.16s ease;
+}
+
+.software-refresh-spinner::before {
+  content: "";
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  border: 1.8px solid rgba(71, 85, 105, 0.18);
+  border-top-color: currentColor;
+}
+
+.software-refresh-icon-button.is-busy .software-refresh-icon {
+  opacity: 0;
+}
+
+.software-refresh-icon-button.is-busy .software-refresh-spinner {
+  opacity: 1;
+}
+
+.software-refresh-icon-button.is-busy .software-refresh-spinner::before {
+  animation: software-status-spin 1s linear infinite;
+}
+
 .software-table-wrap {
   border: 1px solid var(--border);
   border-radius: 14px;

@@ -908,6 +908,32 @@ pub async fn start_software_package(
     }
 }
 
+pub async fn start_all_software_packages() -> Json<OperationStatus> {
+    match start_all_installed_runtimes() {
+        Ok(message) => Json(OperationStatus {
+            status: true,
+            message,
+        }),
+        Err(error) => Json(OperationStatus {
+            status: false,
+            message: error,
+        }),
+    }
+}
+
+pub async fn stop_all_software_packages() -> Json<OperationStatus> {
+    match stop_all_installed_runtimes() {
+        Ok(message) => Json(OperationStatus {
+            status: true,
+            message,
+        }),
+        Err(error) => Json(OperationStatus {
+            status: false,
+            message: error,
+        }),
+    }
+}
+
 pub async fn stop_software_package(
     Json(request): Json<SoftwareDownloadRequest>,
 ) -> Json<OperationStatus> {
@@ -4080,6 +4106,99 @@ fn runtime_stop_priority(runtime_kind: &str) -> u8 {
         "php" => 1,
         "mysql" => 2,
         _ => 3,
+    }
+}
+
+fn runtime_start_priority(runtime_kind: &str) -> u8 {
+    match runtime_kind {
+        "mysql" => 0,
+        "php" => 1,
+        "apache" => 2,
+        _ => 3,
+    }
+}
+
+fn start_all_installed_runtimes() -> Result<String, String> {
+    let mut entries = load_runtime_registry()?
+        .entries
+        .into_iter()
+        .filter(|entry| {
+            entry.runtime_kind != "phpmyadmin"
+                && is_runtime_entry_ready(entry)
+                && entry.state != "running"
+        })
+        .collect::<Vec<_>>();
+    entries.sort_by(|left, right| {
+        runtime_start_priority(&left.runtime_kind)
+            .cmp(&runtime_start_priority(&right.runtime_kind))
+            .then_with(|| left.version.cmp(&right.version))
+    });
+
+    if entries.is_empty() {
+        return Ok("All installed runtimes are already running.".to_string());
+    }
+
+    let mut started = Vec::new();
+    let mut errors = Vec::new();
+    for entry in entries {
+        match start_installed_runtime(&entry.id) {
+            Ok(_) => started.push(format!("{} {}", entry.title, entry.version)),
+            Err(error) => errors.push(format!("{} {}: {error}", entry.title, entry.version)),
+        }
+    }
+
+    if errors.is_empty() {
+        Ok(format!("Started {} runtime(s).", started.len()))
+    } else if started.is_empty() {
+        Err(format!("Failed to start runtimes: {}", errors.join("; ")))
+    } else {
+        Err(format!(
+            "Started {} runtime(s), but some failed: {}",
+            started.len(),
+            errors.join("; ")
+        ))
+    }
+}
+
+fn stop_all_installed_runtimes() -> Result<String, String> {
+    let mut entries = load_runtime_registry()?
+        .entries
+        .into_iter()
+        .filter(|entry| {
+            entry.runtime_kind != "phpmyadmin"
+                && is_runtime_entry_ready(entry)
+                && entry.state == "running"
+        })
+        .collect::<Vec<_>>();
+    entries.sort_by(|left, right| {
+        runtime_stop_priority(&left.runtime_kind)
+            .cmp(&runtime_stop_priority(&right.runtime_kind))
+            .then_with(|| left.version.cmp(&right.version))
+    });
+
+    if entries.is_empty() {
+        return Ok("All installed runtimes are already stopped.".to_string());
+    }
+
+    let mut stopped = Vec::new();
+    let mut errors = Vec::new();
+    for entry in entries {
+        match stop_installed_runtime(&entry.id) {
+            Ok(_) => stopped.push(format!("{} {}", entry.title, entry.version)),
+            Err(error) => errors.push(format!("{} {}: {error}", entry.title, entry.version)),
+        }
+    }
+
+    if errors.is_empty() {
+        Ok(format!("Stopped {} runtime(s).", stopped.len()))
+    } else if stopped.is_empty() {
+        Err(format!("Failed to stop runtimes: {}", errors.join("; ")))
+    } else {
+        Err(format!(
+            "Stopped {} runtime(s), but some failed: {}",
+            stopped.len(),
+            errors.join("; ")
+        ))
     }
 }
 

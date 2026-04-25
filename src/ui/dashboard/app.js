@@ -110,6 +110,8 @@ const softwareState = {
   search: "",
   page: 1,
   pageSize: 5,
+  batchPendingAction: "",
+  refreshPending: false,
   pendingActions: {},
   optimisticStates: {},
   installModal: {
@@ -132,7 +134,11 @@ let softwareSettingsModalControlsBound = false;
 let websiteRuntimePopoverHideTimer = null;
 
 function hasPendingSoftwareActions() {
-  return Object.keys(softwareState.pendingActions).length > 0;
+  return Boolean(softwareState.batchPendingAction) || Object.keys(softwareState.pendingActions).length > 0;
+}
+
+function hasBusySoftwareRecentlyActions() {
+  return hasPendingSoftwareActions() || softwareState.refreshPending;
 }
 
 function readSoftwareDashboardDisplayPrefs() {
@@ -642,16 +648,80 @@ function renderSoftwareCategories() {
 function renderSoftwareRecently() {
   const recently = document.getElementById("software-recently");
   if (!recently) return;
-  const items = getSoftwareDisplayItems().filter((item) => item.installed).slice(0, 1);
+  const displayItems = getSoftwareDisplayItems();
+  const items = displayItems.filter((item) => item.installed).slice(0, 1);
+  const startAllCandidates = getSoftwareStartAllCandidateIds();
+  const stopAllCandidates = getSoftwareStopAllCandidateIds();
+  const startAllBusy = softwareState.batchPendingAction === "start-all";
+  const stopAllBusy = softwareState.batchPendingAction === "stop-all";
+  const stopAllMode = stopAllBusy || (!startAllBusy && stopAllCandidates.length > 0 && startAllCandidates.length === 0);
+  const batchAction = stopAllMode ? "stop-all" : "start-all";
+  const batchCandidates = batchAction === "stop-all" ? stopAllCandidates : startAllCandidates;
+  const refreshBusy = softwareState.refreshPending;
+  const batchLabel = startAllBusy
+    ? "Starting all runtimes"
+    : stopAllBusy
+      ? "Stopping all runtimes"
+      : stopAllMode
+        ? "Stop all running runtimes"
+        : "Start all stopped runtimes";
+  const refreshLabel = refreshBusy ? "Updating app list" : "Update app list";
   recently.innerHTML = `
     <div class="software-recently-main">
-      <div class="software-recently-title">Recently plugin:</div>
+      <div class="software-recently-title">Recently:</div>
       <div class="software-recently-list">
         ${items.map((item) => `<span class="software-recently-pill">${escapeHtml(`${item.title} ${item.version}`)}</span>`).join("")}
       </div>
     </div>
-    <button class="software-refresh-button software-recently-action" id="software-refresh-button" type="button">Update App List</button>
+    <div class="software-recently-actions">
+      <button
+        class="software-start-all-button software-recently-action${startAllBusy || stopAllBusy ? " is-busy" : ""}${stopAllMode ? " is-stop-mode" : ""}"
+        id="software-start-all-button"
+        type="button"
+        aria-label="${escapeHtml(batchLabel)}"
+        title="${escapeHtml(batchLabel)}"
+        ${batchCandidates.length === 0 || hasBusySoftwareRecentlyActions() ? "disabled" : ""}
+      >
+        <span class="software-start-all-icon" aria-hidden="true">
+          <svg viewBox="0 0 20 20" focusable="false">
+            <circle cx="10" cy="10" r="8.25"></circle>
+            ${stopAllMode
+              ? '<rect x="6.6" y="6.6" width="6.8" height="6.8" rx="0.9"></rect>'
+              : '<path d="M8 6.6v6.8l5.6-3.4z"></path>'}
+          </svg>
+        </span>
+        <span class="software-start-all-spinner" aria-hidden="true"></span>
+      </button>
+      <button
+        class="software-refresh-icon-button software-recently-action${refreshBusy ? " is-busy" : ""}"
+        id="software-refresh-button"
+        type="button"
+        aria-label="${escapeHtml(refreshLabel)}"
+        title="${escapeHtml(refreshLabel)}"
+        ${hasBusySoftwareRecentlyActions() ? "disabled" : ""}
+      >
+        <span class="software-refresh-icon" aria-hidden="true">
+          <svg viewBox="0 0 20 20" focusable="false">
+            <path d="M15.4 9.1a5.7 5.7 0 1 0 1 3.3"></path>
+            <path d="M15.6 5.7v3.9h-3.9"></path>
+          </svg>
+        </span>
+        <span class="software-refresh-spinner" aria-hidden="true"></span>
+      </button>
+    </div>
   `;
+}
+
+function getSoftwareStartAllCandidateIds() {
+  return getSoftwareDisplayItems()
+    .filter((item) => item.installed && item.status !== "running" && item.runtime_kind !== "phpmyadmin")
+    .map((item) => item.id);
+}
+
+function getSoftwareStopAllCandidateIds() {
+  return getSoftwareDisplayItems()
+    .filter((item) => item.installed && item.status === "running" && item.runtime_kind !== "phpmyadmin")
+    .map((item) => item.id);
 }
 
 function renderDashboardSoftwareSummary() {
@@ -1045,26 +1115,72 @@ function bindSoftwareControls() {
   }
 
   softwareSection.addEventListener("click", async (event) => {
+    const startAllButton = event.target.closest("#software-start-all-button");
+    if (startAllButton) {
+      const startIds = getSoftwareStartAllCandidateIds();
+      const stopIds = getSoftwareStopAllCandidateIds();
+      const batchAction = startIds.length ? "start-all" : (stopIds.length ? "stop-all" : "");
+      const ids = batchAction === "stop-all" ? stopIds : startIds;
+      if (!ids.length || !batchAction || hasPendingSoftwareActions()) return;
+      softwareState.batchPendingAction = batchAction;
+      ids.forEach((id) => {
+        softwareState.pendingActions[id] = batchAction === "stop-all" ? "stop" : "start";
+      });
+      renderDashboardSoftwareSummary();
+      renderSoftwareList();
+      if (softwareState.settingsModal.open) refreshSoftwareSettingsModal();
+      try {
+        const { response, body: result } = await fetchJsonWithTimeout(
+          `/software/${batchAction}`,
+          {
+            method: "POST",
+          },
+          180000,
+        );
+        if (!response.ok || !result.status) {
+          throw new Error(result.message || `HTTP ${response.status}`);
+        }
+      } catch (error) {
+        if (error?.message) {
+          window.alert(error.message);
+        }
+      } finally {
+        softwareState.batchPendingAction = "";
+        ids.forEach((id) => {
+          delete softwareState.pendingActions[id];
+        });
+        try {
+          await refreshDashboard();
+        } catch {
+          renderDashboardSoftwareSummary();
+          renderSoftwareList();
+          if (softwareState.settingsModal.open) refreshSoftwareSettingsModal();
+        }
+      }
+      return;
+    }
+
     const refreshButton = event.target.closest("#software-refresh-button");
     if (!refreshButton) return;
-    const originalLabel = "Update App List";
-    refreshButton.disabled = true;
-    refreshButton.textContent = "Updating...";
+    if (hasBusySoftwareRecentlyActions()) return;
+    softwareState.refreshPending = true;
+    renderSoftwareList();
     try {
       const response = await fetch("/software/refresh", { method: "POST" });
       const result = await response.json().catch(() => ({ status: false }));
       if (!response.ok || !result.status) {
         throw new Error(result.message || `HTTP ${response.status}`);
       }
-      refreshButton.textContent = "Updated";
       await refreshDashboard();
     } catch (error) {
-      refreshButton.textContent = "Retry failed";
+      softwareState.refreshPending = false;
+      renderSoftwareList();
+      if (error?.message) {
+        window.alert(error.message);
+      }
     } finally {
-      setTimeout(() => {
-        refreshButton.disabled = false;
-        refreshButton.textContent = originalLabel;
-      }, 1200);
+      softwareState.refreshPending = false;
+      renderSoftwareList();
     }
   });
 
