@@ -32,7 +32,7 @@
         {
           "version": "2.4.57",
           "full_version": "2.4.57",
-          "f_path": "http://d.hocdev.com/files/apache-2.4.57.zip"
+          "f_path": "https://www.apachelounge.com/download/VS16/binaries/httpd-2.4.57-win64-VS16.zip"
         }
       ]
     },
@@ -89,14 +89,14 @@
         {
           "version": "8.3.30",
           "full_version": "8.3.30",
-          "f_path": "http://d.hocdev.com/files/php-8.3.30.zip"
+          "f_path": "https://downloads.php.net/~windows/releases/archives/php-8.3.30-Win32-vs16-x64.zip"
         }
       ]
     },
     {
       "name": "php",
       "title": "PHP",
-      "version": "8.4.19",
+      "version": "8.4.20",
       "ps": "Latest PHP runtime with FPM support for modern frameworks and CMS sites.",
       "price": "0",
       "endtime": 0,
@@ -106,9 +106,9 @@
       "dependent": "php",
       "versions": [
         {
-          "version": "8.4.19",
-          "full_version": "8.4.19",
-          "f_path": "http://d.hocdev.com/files/php-8.4.19.zip"
+          "version": "8.4.20",
+          "full_version": "8.4.20",
+          "f_path": "https://downloads.php.net/~windows/releases/archives/php-8.4.20-Win32-vs17-x64.zip"
         }
       ]
     }
