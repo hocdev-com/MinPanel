@@ -119,3 +119,9 @@ When modifying the dashboard layout, follow these synchronized responsive patter
 - The `.main` container should keep side/top padding but no bottom padding when a bottom edge footer is present, so the footer can touch the viewport bottom without creating extra scroll height.
 - Edge footers should stretch across the `.main` content width and use negative inline margins based on the shared main padding variable; avoid hard-coded pixel offsets such as `-20px`/`-22px` because they leave 1px seams when padding or borders change.
 - Remove left/right borders on full-width edge footers when they must visually touch the dark sidebar and right viewport edge.
+
+### 9. Plugin Manifest Format
+- Prefer one `data/plugin.json` entry per product family (for example one `php` entry), then declare installable builds inside `versions[]` instead of duplicating the whole plugin block per version.
+- Each `versions[]` item may override `install_checks` when the runtime hook path differs by branch or major/minor version.
+- Use `downloads[]` for package sources. The first URL is the primary download target and later URLs are ordered mirrors.
+- Legacy `f_path` manifests remain readable in Rust, but new edits should use the grouped `versions[]` plus `downloads[]` format.

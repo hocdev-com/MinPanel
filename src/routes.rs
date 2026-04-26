@@ -40,9 +40,15 @@ pub fn routes() -> Router {
             post(dashboard::download_software_package),
         )
         .route("/software/start", post(dashboard::start_software_package))
-        .route("/software/start-all", post(dashboard::start_all_software_packages))
+        .route(
+            "/software/start-all",
+            post(dashboard::start_all_software_packages),
+        )
         .route("/software/stop", post(dashboard::stop_software_package))
-        .route("/software/stop-all", post(dashboard::stop_all_software_packages))
+        .route(
+            "/software/stop-all",
+            post(dashboard::stop_all_software_packages),
+        )
         .route(
             "/software/restart",
             post(dashboard::restart_software_package),

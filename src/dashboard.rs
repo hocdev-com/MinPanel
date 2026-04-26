@@ -561,10 +561,12 @@ struct PluginRaw {
     #[serde(default)]
     dependent: String,
     #[serde(default)]
+    install_checks: String,
+    #[serde(default)]
     versions: Vec<PluginVersionRaw>,
 }
 
-#[derive(Deserialize, Clone)]
+#[derive(Deserialize, Clone, Default)]
 struct PluginVersionRaw {
     #[serde(default)]
     version: String,
@@ -572,6 +574,12 @@ struct PluginVersionRaw {
     full_version: String,
     #[serde(default)]
     f_path: String,
+    #[serde(default)]
+    install_checks: String,
+    #[serde(default, alias = "download_urls", alias = "urls")]
+    downloads: Vec<String>,
+    #[serde(default)]
+    mirrors: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -2129,6 +2137,110 @@ fn fast_hash<T: Hash>(value: &T) -> u64 {
     hasher.finish()
 }
 
+fn select_plugin_version_entry(version: &PluginVersionRaw, fallback: &str) -> String {
+    if !version.version.is_empty() && version.version != "0" {
+        return version.version.clone();
+    }
+    if !version.full_version.is_empty() && version.full_version != "0" {
+        return version.full_version.clone();
+    }
+    if !fallback.is_empty() && fallback != "0" {
+        return fallback.to_string();
+    }
+    "--".to_string()
+}
+
+fn merge_plugin_version_defaults(
+    plugin: &PluginRaw,
+    version: &PluginVersionRaw,
+) -> PluginVersionRaw {
+    let mut merged = version.clone();
+    if merged.install_checks.trim().is_empty() {
+        merged.install_checks = plugin.install_checks.clone();
+    }
+    if merged.version.trim().is_empty() || merged.version == "0" {
+        merged.version = plugin.version.clone();
+    }
+    if merged.full_version.trim().is_empty() || merged.full_version == "0" {
+        merged.full_version = select_plugin_version_entry(&merged, &plugin.version);
+    }
+    merged
+}
+
+fn effective_plugin_versions(plugin: &PluginRaw) -> Vec<PluginVersionRaw> {
+    if plugin.versions.is_empty() {
+        return Vec::new();
+    }
+    plugin
+        .versions
+        .iter()
+        .map(|entry| merge_plugin_version_defaults(plugin, entry))
+        .collect()
+}
+
+fn expand_plugin_variants(plugin: PluginRaw) -> Vec<PluginRaw> {
+    let versions = effective_plugin_versions(&plugin);
+    if versions.is_empty() {
+        return vec![plugin];
+    }
+
+    versions
+        .into_iter()
+        .map(|version_entry| {
+            let mut variant = plugin.clone();
+            variant.version = select_plugin_version_entry(&version_entry, &plugin.version);
+            if !version_entry.install_checks.trim().is_empty() {
+                variant.install_checks = version_entry.install_checks.clone();
+            }
+            variant.versions = vec![version_entry];
+            variant
+        })
+        .collect()
+}
+
+fn expand_plugin_list(plugins: Vec<PluginRaw>) -> Vec<PluginRaw> {
+    plugins
+        .into_iter()
+        .flat_map(expand_plugin_variants)
+        .collect()
+}
+
+fn plugin_download_urls(version: &PluginVersionRaw) -> Vec<String> {
+    let mut urls = Vec::new();
+    for candidate in std::iter::once(version.f_path.as_str())
+        .chain(version.downloads.iter().map(String::as_str))
+        .chain(version.mirrors.iter().map(String::as_str))
+    {
+        let trimmed = candidate.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        if !urls.iter().any(|existing| existing == trimmed) {
+            urls.push(trimmed.to_string());
+        }
+    }
+    urls
+}
+
+fn build_download_candidates(urls: &[String]) -> Vec<String> {
+    let mut candidates = Vec::new();
+    for url in urls {
+        let trimmed = url.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        if !candidates.iter().any(|existing| existing == trimmed) {
+            candidates.push(trimmed.to_string());
+        }
+        if let Some(fallback) = mysql_archive_cdn_fallback_url(trimmed) {
+            if !candidates.iter().any(|existing| existing == &fallback) {
+                candidates.push(fallback);
+            }
+        }
+    }
+    candidates
+}
+
 async fn load_plugin_store(force_refresh: bool) -> Result<PluginStoreFile, String> {
     let contents = sync_software_store(force_refresh).await?;
     serde_json::from_str::<PluginStoreFile>(&contents)
@@ -2163,7 +2275,7 @@ fn map_plugin_store(
         })
         .collect::<Vec<_>>();
 
-    let mut plugins = store.list;
+    let mut plugins = expand_plugin_list(store.list);
     plugins.sort_by(|left, right| left.sort.cmp(&right.sort));
 
     let runtime_entries = registry
@@ -2942,8 +3054,7 @@ async fn resolve_plugin_definition(
     plugin_id: &str,
 ) -> Result<(PluginRaw, Option<PluginVersionRaw>, String, String), String> {
     let store = load_plugin_store(false).await?;
-    let plugin = store
-        .list
+    let plugin = expand_plugin_list(store.list)
         .into_iter()
         .find(|entry| {
             let version = select_plugin_version(entry);
@@ -2955,7 +3066,7 @@ async fn resolve_plugin_definition(
     let version_entry = plugin
         .versions
         .iter()
-        .find(|entry| !entry.f_path.trim().is_empty())
+        .find(|entry| !plugin_download_urls(entry).is_empty())
         .cloned();
     let version = select_plugin_version(&plugin);
     let runtime_kind = detect_runtime_kind(&plugin.name, &plugin.dependent);
@@ -2974,17 +3085,20 @@ async fn download_plugin_bundle_with_task(
     if !downloads_dir.exists() {
         let _ = fs::create_dir_all(&downloads_dir);
     }
-    let package_path = version_entry.as_ref().map(|v| v.f_path.clone());
-    let Some(package_path) = package_path else {
+    let package_urls = version_entry
+        .as_ref()
+        .map(plugin_download_urls)
+        .unwrap_or_default();
+    if package_urls.is_empty() {
         return Err("No package found for this version".to_string());
-    };
+    }
     let file_name = format!(
         "{}-{}.zip",
         sanitize_path_segment(&plugin.name),
         sanitize_path_segment(&version)
     );
     let target_path = downloads_dir.join(file_name);
-    download_url_to_path_with_task(&package_path, &target_path, "plugin package", task_id).await?;
+    download_urls_to_path_with_task(&package_urls, &target_path, "plugin package", task_id).await?;
     Ok(DownloadedPluginBundle {
         plugin_name: plugin.name,
         plugin_title: plugin.title,
@@ -2994,35 +3108,56 @@ async fn download_plugin_bundle_with_task(
     })
 }
 
-async fn download_url_to_path_with_task(
-    url: &str,
+async fn download_urls_to_path_with_task(
+    urls: &[String],
     target_path: &Path,
     asset_label: &str,
     task_id: &str,
 ) -> Result<(), String> {
+    let candidates = build_download_candidates(urls);
+    if candidates.is_empty() {
+        return Err(format!("No download URL configured for {asset_label}"));
+    }
+
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(300))
         .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) MinPanel/0.1")
         .build()
         .map_err(|error| format!("Failed to create HTTP client: {error}"))?;
 
-    let mut response = send_download_request(&client, url)
-        .await
-        .map_err(|error| format!("Failed to download {asset_label}: {error}"))?;
-    let mut effective_url = url.to_string();
-
-    if response.status() == reqwest::StatusCode::FORBIDDEN {
-        if let Some(fallback_url) = mysql_archive_cdn_fallback_url(url) {
+    let mut last_error = None;
+    for (index, url) in candidates.iter().enumerate() {
+        if index > 0 {
             update_task_log(
                 task_id,
-                "MySQL archive rejected the primary URL, retrying CDN mirror...",
+                &format!("Retrying download from mirror {index}..."),
             );
-            response = send_download_request(&client, &fallback_url)
-                .await
-                .map_err(|error| format!("Failed to download {asset_label}: {error}"))?;
-            effective_url = fallback_url;
+        }
+        match download_url_to_path_with_client(&client, url, target_path, asset_label, task_id)
+            .await
+        {
+            Ok(()) => return Ok(()),
+            Err(error) => {
+                last_error = Some(error);
+                let _ = std::fs::remove_file(target_path);
+            }
         }
     }
+
+    Err(last_error.unwrap_or_else(|| format!("Failed to download {asset_label}")))
+}
+
+async fn download_url_to_path_with_client(
+    client: &reqwest::Client,
+    url: &str,
+    target_path: &Path,
+    asset_label: &str,
+    task_id: &str,
+) -> Result<(), String> {
+    let mut response = send_download_request(client, url)
+        .await
+        .map_err(|error| format!("Failed to download {asset_label}: {error} ({url})"))?;
+    let effective_url = url.to_string();
 
     if !response.status().is_success() {
         return Err(format!(
@@ -4832,13 +4967,8 @@ fn select_plugin_version(plugin: &PluginRaw) -> String {
     if !plugin.version.is_empty() && plugin.version != "0" {
         return plugin.version.clone();
     }
-    if let Some(version) = plugin.versions.first() {
-        if !version.version.is_empty() && version.version != "0" {
-            return version.version.clone();
-        }
-        if !version.full_version.is_empty() && version.full_version != "0" {
-            return version.full_version.clone();
-        }
+    if let Some(version) = effective_plugin_versions(plugin).first() {
+        return select_plugin_version_entry(version, &plugin.version);
     }
     "--".to_string()
 }
@@ -5184,6 +5314,71 @@ fn build_alerts(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn expand_plugin_variants_splits_multi_version_manifest() {
+        let variants = expand_plugin_variants(PluginRaw {
+            name: "php".to_string(),
+            title: "PHP".to_string(),
+            version: String::new(),
+            ps: "PHP runtime".to_string(),
+            price: serde_json::Value::String("0".to_string()),
+            endtime: 0,
+            r#type: 1,
+            sort: 2,
+            dependent: "php".to_string(),
+            install_checks: String::new(),
+            versions: vec![
+                PluginVersionRaw {
+                    version: "8.3.30".to_string(),
+                    full_version: String::new(),
+                    f_path: String::new(),
+                    install_checks: "data/plugins/php-8.3".to_string(),
+                    downloads: vec!["https://example.com/php-8.3.30.zip".to_string()],
+                    mirrors: vec!["https://mirror.example.com/php-8.3.30.zip".to_string()],
+                },
+                PluginVersionRaw {
+                    version: "8.4.20".to_string(),
+                    full_version: String::new(),
+                    f_path: String::new(),
+                    install_checks: "data/plugins/php-8.4".to_string(),
+                    downloads: vec!["https://example.com/php-8.4.20.zip".to_string()],
+                    mirrors: Vec::new(),
+                },
+            ],
+        });
+
+        assert_eq!(variants.len(), 2);
+        assert_eq!(variants[0].version, "8.3.30");
+        assert_eq!(variants[0].install_checks, "data/plugins/php-8.3");
+        assert_eq!(variants[1].version, "8.4.20");
+        assert_eq!(variants[1].install_checks, "data/plugins/php-8.4");
+        assert_eq!(variants[1].versions.len(), 1);
+    }
+
+    #[test]
+    fn plugin_download_urls_include_primary_and_mirrors_without_duplicates() {
+        let urls = plugin_download_urls(&PluginVersionRaw {
+            version: "8.3.30".to_string(),
+            full_version: "8.3.30".to_string(),
+            f_path: "https://example.com/php-8.3.30.zip".to_string(),
+            install_checks: String::new(),
+            downloads: vec![
+                "https://example.com/php-8.3.30.zip".to_string(),
+                "https://cdn.example.com/php-8.3.30.zip".to_string(),
+            ],
+            mirrors: vec!["https://mirror.example.com/php-8.3.30.zip".to_string()],
+        });
+
+        assert_eq!(
+            urls,
+            vec![
+                "https://example.com/php-8.3.30.zip".to_string(),
+                "https://cdn.example.com/php-8.3.30.zip".to_string(),
+                "https://mirror.example.com/php-8.3.30.zip".to_string(),
+            ]
+        );
+    }
 
     struct TestDir {
         path: PathBuf,
