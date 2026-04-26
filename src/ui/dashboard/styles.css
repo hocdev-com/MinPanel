@@ -4736,8 +4736,13 @@ select {
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
+  padding: 4px;
+  border: 1px solid #dde6f0;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
 .software-recently-actions .software-recently-action {
@@ -4874,6 +4879,14 @@ select {
   cursor: default;
 }
 
+.software-refresh-icon-button.is-busy {
+  opacity: 1;
+  border-color: rgba(71, 85, 105, 0.38);
+  background: #eef3f8;
+  box-shadow: 0 0 0 2px rgba(100, 116, 139, 0.08);
+  animation: software-refresh-pulse 0.95s ease-in-out infinite;
+}
+
 .software-refresh-icon,
 .software-refresh-spinner {
   position: absolute;
@@ -4918,6 +4931,15 @@ select {
 
 .software-refresh-icon-button.is-busy .software-refresh-spinner::before {
   animation: software-status-spin 1s linear infinite;
+}
+
+@keyframes software-refresh-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.07);
+  }
 }
 
 .software-table-wrap {

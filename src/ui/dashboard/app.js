@@ -702,8 +702,10 @@ function renderSoftwareRecently() {
       >
         <span class="software-refresh-icon" aria-hidden="true">
           <svg viewBox="0 0 20 20" focusable="false">
-            <path d="M15.4 9.1a5.7 5.7 0 1 0 1 3.3"></path>
-            <path d="M15.6 5.7v3.9h-3.9"></path>
+            <path d="M14.9 7.2A5.6 5.6 0 0 0 5.9 6.4"></path>
+            <path d="M5.7 3.9v3.6h3.6"></path>
+            <path d="M5.1 12.8a5.6 5.6 0 0 0 9 0.8"></path>
+            <path d="M14.3 16.1v-3.6h-3.6"></path>
           </svg>
         </span>
         <span class="software-refresh-spinner" aria-hidden="true"></span>
@@ -1163,6 +1165,8 @@ function bindSoftwareControls() {
     const refreshButton = event.target.closest("#software-refresh-button");
     if (!refreshButton) return;
     if (hasBusySoftwareRecentlyActions()) return;
+    const refreshStartedAt = Date.now();
+    let refreshError = null;
     softwareState.refreshPending = true;
     renderSoftwareList();
     try {
@@ -1173,14 +1177,18 @@ function bindSoftwareControls() {
       }
       await refreshDashboard();
     } catch (error) {
-      softwareState.refreshPending = false;
-      renderSoftwareList();
-      if (error?.message) {
-        window.alert(error.message);
-      }
+      refreshError = error;
     } finally {
+      const elapsedMs = Date.now() - refreshStartedAt;
+      const remainingMs = Math.max(0, 850 - elapsedMs);
+      if (remainingMs > 0) {
+        await new Promise((resolve) => window.setTimeout(resolve, remainingMs));
+      }
       softwareState.refreshPending = false;
       renderSoftwareList();
+      if (refreshError?.message) {
+        window.alert(refreshError.message);
+      }
     }
   });
 
