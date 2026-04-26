@@ -1,4 +1,4 @@
-use axum::{response::IntoResponse, Json};
+use axum::{response::{Html, IntoResponse}, Json};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::hash_map::DefaultHasher,
@@ -158,7 +158,8 @@ pub async fn website_page() -> impl IntoResponse {
         Ok(layout) => layout,
         Err(error) => return dashboard::template_load_error_response(error),
     };
-    layout
+    Html(
+        layout
         .replace("{{TITLE}}", "MinPanel Website")
         .replace("{{TOPBAR}}", "")
         .replace(
@@ -169,8 +170,9 @@ pub async fn website_page() -> impl IntoResponse {
                 .replace("{{WEB_SERVER_ICON}}", &web_server.icon)
                 .replace("{{WEB_SERVER_LABEL}}", &web_server.label)
                 .replace("{{WEB_SERVER_TITLE}}", &web_server.title),
-        )
-        .into_response()
+        ),
+    )
+    .into_response()
 }
 
 struct InitialWebsiteWebServer {
