@@ -8,6 +8,7 @@ fn main() {
 
     println!("cargo:rerun-if-changed={icon_path}");
     println!("cargo:rerun-if-changed={data_path}");
+    emit_rerun_if_changed_recursive(&data_source);
 
     if !icon_source.exists() {
         panic!("Windows icon resource not found at {icon_path}");
@@ -37,6 +38,15 @@ fn sync_data_directory(source: &std::path::Path) {
         .nth(3)
         .expect("failed to resolve Cargo profile directory");
     let target_dir = profile_dir.join("data");
+
+    if target_dir.exists() {
+        std::fs::remove_dir_all(&target_dir).unwrap_or_else(|error| {
+            panic!(
+                "failed to clear target data directory {}: {error}",
+                target_dir.display()
+            )
+        });
+    }
 
     copy_dir_recursive(source, &target_dir);
 }
@@ -77,6 +87,30 @@ fn copy_dir_recursive(source: &std::path::Path, target: &std::path::Path) {
                     target_path.display()
                 )
             });
+        }
+    }
+}
+
+#[cfg(windows)]
+fn emit_rerun_if_changed_recursive(path: &std::path::Path) {
+    if !path.exists() {
+        return;
+    }
+
+    println!("cargo:rerun-if-changed={}", path.display());
+
+    if path.is_dir() {
+        let entries = std::fs::read_dir(path).unwrap_or_else(|error| {
+            panic!("failed to read directory {}: {error}", path.display())
+        });
+        for entry in entries {
+            let entry = entry.unwrap_or_else(|error| {
+                panic!(
+                    "failed to iterate directory {}: {error}",
+                    path.display()
+                )
+            });
+            emit_rerun_if_changed_recursive(&entry.path());
         }
     }
 }

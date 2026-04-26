@@ -1,3 +1,19 @@
+(() => {
+  const app = (window.MinPanel = window.MinPanel || {});
+  app.pageInitializers = app.pageInitializers || [];
+  app.pageInitializerRegistry = app.pageInitializerRegistry || {};
+  app.addPageInitializer = app.addPageInitializer || ((name, initializer) => {
+    if (typeof initializer !== "function") return;
+    const key = String(name || `initializer-${app.pageInitializers.length}`);
+    if (app.pageInitializerRegistry[key]) return;
+    app.pageInitializerRegistry[key] = true;
+    app.pageInitializers.push(initializer);
+  });
+  app.runPageInitializers = app.runPageInitializers || (() => {
+    app.pageInitializers.forEach((initializer) => initializer());
+  });
+})();
+
 let currentLogs = [];
 let currentLogSnapshot = "--";
 const DEFAULT_WEBSITE_DOMAIN_SUFFIX = ".test";
@@ -4168,105 +4184,6 @@ async function refreshDashboard() {
 
   return dashboardRefreshPromise;
 }
-
-document.addEventListener("DOMContentLoaded", () => {
-  syncDashboardRoute();
-  bindSoftwareControls();
-  renderDashboardSoftwareSummary();
-  renderSoftwareList();
-  bindDatabaseControls();
-  renderDatabaseTable();
-  bindWebsiteControls();
-  renderWebsiteTable();
-  renderLogModal();
-
-  document.querySelectorAll("[data-traffic-tab]").forEach((button) => {
-    button.addEventListener("click", () => setTrafficTab(button.dataset.trafficTab));
-  });
-  const trafficNetworkSelect = document.getElementById("traffic-network-select");
-  if (trafficNetworkSelect) {
-    trafficNetworkSelect.addEventListener("change", (event) => {
-      trafficState.currentSelection = event.target.value;
-      trafficState.labels = [];
-      trafficState.upload = [];
-      trafficState.download = [];
-      refreshDashboard();
-    });
-  }
-  const trafficUnitSelect = document.getElementById("traffic-unit-select");
-  if (trafficUnitSelect) {
-    trafficUnitSelect.addEventListener("change", (event) => {
-      trafficState.currentUnit = event.target.value;
-      drawTrafficChart();
-      const uploadSpeed = document.getElementById("upload-speed");
-      const downloadSpeed = document.getElementById("download-speed");
-      if (uploadSpeed) uploadSpeed.textContent = formatTrafficSpeed(trafficState.upload.at(-1) || 0);
-      if (downloadSpeed) downloadSpeed.textContent = formatTrafficSpeed(trafficState.download.at(-1) || 0);
-    });
-    setTrafficTab("traffic");
-  }
-
-  refreshDashboard();
-  setInterval(() => {
-    if (window.location.pathname === "/software" && hasPendingSoftwareActions()) {
-      return;
-    }
-    refreshDashboard();
-  }, 4000);
-
-  const sidebarLogButton = document.getElementById("sidebar-log-button");
-  const logModalClose = document.getElementById("log-modal-close");
-  const logBackdropClose = document.querySelector("[data-log-close]");
-  if (sidebarLogButton) sidebarLogButton.addEventListener("click", openLogModal);
-  if (logModalClose) logModalClose.addEventListener("click", closeLogModal);
-  if (logBackdropClose) logBackdropClose.addEventListener("click", closeLogModal);
-
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") {
-      closeSoftwareInstallModal();
-      closeSoftwareSettingsModal();
-      closeLogModal();
-      closeWebsiteCreateModal();
-      closeDatabaseCreateModal();
-      closePhpMyAdminModal();
-      closeMessagesModal();
-    }
-  });
-
-  initTaskManager();
-
-  // Shadow the original runSoftwareAction with a version that opens the Messages Box on install
-  const originalRunSoftwareAction = window.runSoftwareAction || runSoftwareAction;
-  
-  window.runSoftwareAction = async (id, action) => {
-    // Only intercept the "install" action specifically
-    if (action === "install") {
-        try {
-            const response = await fetch("/software/install", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ id }),
-            });
-            const result = await response.json().catch(() => ({ status: false }));
-            if (result.status && result.message) {
-                // message contains task_id for tracking
-                openMessagesModal(result.message);
-                renderSoftwareList();
-                return;
-            } else if (!result.status) {
-                throw new Error(result.message || "Failed to trigger installation");
-            }
-        } catch (e) {
-            console.error("Install trigger failed:", e);
-            window.alert("Installation failed: " + e.message);
-            return;
-        }
-    }
-    
-    // For all other actions (start, stop, uninstall), use the original logic
-    return originalRunSoftwareAction(id, action);
-  };
-});
 
 // --- Task Manager & Messages Box ---
 const taskState = {

@@ -16,7 +16,7 @@ use std::{
     hash::{Hash, Hasher},
     io::Write,
     net::{IpAddr, SocketAddr, UdpSocket},
-    path::{Path, PathBuf},
+    path::{Component, Path, PathBuf},
     process::{Command, Stdio},
     sync::{Mutex, OnceLock},
     thread,
@@ -34,6 +34,7 @@ use std::net::TcpStream;
 use std::os::windows::process::CommandExt;
 
 const SOFTWARE_CACHE_TTL: Duration = Duration::from_secs(3600);
+const DEFAULT_TEMPLATE_NAME: &str = "default";
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 static SOFTWARE_VIEW_CACHE: OnceLock<Mutex<Option<CachedSoftwareView>>> = OnceLock::new();
@@ -643,36 +644,125 @@ struct DownloadedPluginBundle {
     package_file: PathBuf,
 }
 
-fn render_page(title: &str, topbar: &str, content: &str) -> Html<String> {
-    let page = include_str!("ui/dashboard/layout.html")
+pub(crate) fn active_template_name() -> String {
+    env::var("MINPANEL_TEMPLATE")
+        .ok()
+        .map(|value| sanitize_path_segment(value.trim()))
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| DEFAULT_TEMPLATE_NAME.to_string())
+}
+
+pub(crate) fn resolve_template_root() -> Result<PathBuf, String> {
+    let templates_dir = resolve_templates_base_dir()?;
+    let requested_theme = active_template_name();
+    let requested_dir = templates_dir.join(&requested_theme);
+    if requested_dir.is_dir() {
+        return Ok(requested_dir);
+    }
+
+    if requested_theme != DEFAULT_TEMPLATE_NAME {
+        let fallback_dir = templates_dir.join(DEFAULT_TEMPLATE_NAME);
+        if fallback_dir.is_dir() {
+            return Ok(fallback_dir);
+        }
+    }
+
+    Err(format!(
+        "UI template '{}' was not found under {}",
+        requested_theme,
+        templates_dir.display()
+    ))
+}
+
+pub(crate) fn resolve_templates_base_dir() -> Result<PathBuf, String> {
+    let base_dir =
+        resolve_data_base_dir().ok_or_else(|| "Unable to resolve application directory".to_string())?;
+    Ok(base_dir.join("data").join("templates"))
+}
+
+fn normalize_template_relative_path(relative_path: &str) -> Result<PathBuf, String> {
+    let mut normalized = PathBuf::new();
+    for component in Path::new(relative_path).components() {
+        match component {
+            Component::Normal(segment) => normalized.push(segment),
+            Component::CurDir => {}
+            Component::ParentDir | Component::Prefix(_) | Component::RootDir => {
+                return Err(format!("Invalid template path: {relative_path}"));
+            }
+        }
+    }
+
+    if normalized.as_os_str().is_empty() {
+        return Err("Template path cannot be empty".to_string());
+    }
+
+    Ok(normalized)
+}
+
+pub(crate) fn load_template(relative_path: &str) -> Result<String, String> {
+    let template_root = resolve_template_root()?;
+    let normalized_path = normalize_template_relative_path(relative_path)?;
+    let file_path = template_root.join(normalized_path);
+    fs::read_to_string(&file_path)
+        .map_err(|error| format!("Failed to read {}: {error}", file_path.display()))
+}
+
+pub(crate) fn load_shared_template(relative_path: &str) -> Result<String, String> {
+    let shared_root = resolve_templates_base_dir()?.join("shared");
+    let normalized_path = normalize_template_relative_path(relative_path)?;
+    let file_path = shared_root.join(normalized_path);
+    fs::read_to_string(&file_path)
+        .map_err(|error| format!("Failed to read {}: {error}", file_path.display()))
+}
+
+pub(crate) fn template_load_error_response(error: String) -> Response {
+    (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        [(header::CONTENT_TYPE, "text/plain; charset=utf-8")],
+        format!("Failed to load UI template: {error}"),
+    )
+        .into_response()
+}
+
+fn render_page(title: &str, topbar_path: &str, content_path: &str) -> Result<Html<String>, String> {
+    let page = load_template("layout.html")?
         .replace("{{TITLE}}", title)
-        .replace("{{TOPBAR}}", topbar)
-        .replace("{{CONTENT}}", content);
-    Html(page)
+        .replace("{{TOPBAR}}", &load_template(topbar_path)?)
+        .replace("{{CONTENT}}", &load_template(content_path)?);
+    Ok(Html(page))
 }
 
-pub async fn page() -> Html<String> {
-    render_page(
+pub async fn page() -> impl IntoResponse {
+    match render_page(
         "MinPanel Dashboard",
-        include_str!("ui/dashboard/topbar.html"),
-        include_str!("ui/dashboard/index.html"),
-    )
+        "topbar.html",
+        "index.html",
+    ) {
+        Ok(page) => page.into_response(),
+        Err(error) => template_load_error_response(error),
+    }
 }
 
-pub async fn software_page() -> Html<String> {
-    render_page(
+pub async fn software_page() -> impl IntoResponse {
+    match render_page(
         "MinPanel App Store",
-        include_str!("ui/dashboard/topbar.html"),
-        include_str!("ui/dashboard/soft.html"),
-    )
+        "topbar.html",
+        "soft.html",
+    ) {
+        Ok(page) => page.into_response(),
+        Err(error) => template_load_error_response(error),
+    }
 }
 
-pub async fn database_page() -> Html<String> {
-    render_page(
+pub async fn database_page() -> impl IntoResponse {
+    match render_page(
         "MinPanel Database",
-        include_str!("ui/dashboard/topbar.html"),
-        include_str!("ui/dashboard/database.html"),
-    )
+        "topbar.html",
+        "database.html",
+    ) {
+        Ok(page) => page.into_response(),
+        Err(error) => template_load_error_response(error),
+    }
 }
 
 pub async fn data(Query(query): Query<DashboardDataQuery>) -> Json<DashboardData> {

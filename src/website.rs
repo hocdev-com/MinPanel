@@ -1,4 +1,4 @@
-use axum::{response::Html, Json};
+use axum::{response::IntoResponse, Json};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::hash_map::DefaultHasher,
@@ -148,19 +148,29 @@ struct SiteTrafficState {
     requests: u64,
 }
 
-pub async fn website_page() -> Html<String> {
+pub async fn website_page() -> impl IntoResponse {
     let web_server = initial_website_web_server();
-    let content = include_str!("ui/dashboard/website.html")
-        .replace("{{WEB_SERVER_KIND}}", &web_server.kind)
-        .replace("{{WEB_SERVER_STATUS}}", &web_server.status)
-        .replace("{{WEB_SERVER_ICON}}", &web_server.icon)
-        .replace("{{WEB_SERVER_LABEL}}", &web_server.label)
-        .replace("{{WEB_SERVER_TITLE}}", &web_server.title);
-    let page = include_str!("ui/dashboard/layout.html")
+    let content = match dashboard::load_template("website.html") {
+        Ok(content) => content,
+        Err(error) => return dashboard::template_load_error_response(error),
+    };
+    let layout = match dashboard::load_template("layout.html") {
+        Ok(layout) => layout,
+        Err(error) => return dashboard::template_load_error_response(error),
+    };
+    layout
         .replace("{{TITLE}}", "MinPanel Website")
         .replace("{{TOPBAR}}", "")
-        .replace("{{CONTENT}}", &content);
-    Html(page)
+        .replace(
+            "{{CONTENT}}",
+            &content
+                .replace("{{WEB_SERVER_KIND}}", &web_server.kind)
+                .replace("{{WEB_SERVER_STATUS}}", &web_server.status)
+                .replace("{{WEB_SERVER_ICON}}", &web_server.icon)
+                .replace("{{WEB_SERVER_LABEL}}", &web_server.label)
+                .replace("{{WEB_SERVER_TITLE}}", &web_server.title),
+        )
+        .into_response()
 }
 
 struct InitialWebsiteWebServer {
@@ -1585,7 +1595,7 @@ pub async fn apply_website_ssl_handler(
 
 /// Returns the directory where MinPanel stores SSL certificates.
 pub(crate) fn ssl_cert_dir() -> Option<PathBuf> {
-    dashboard::resolve_data_base_dir().map(|base| base.join("data").join("ssl"))
+    dashboard::resolve_data_base_dir().map(|base| base.join("data").join("bin").join("ssl"))
 }
 
 /// Returns `(cert_path, key_path)` for a given domain, or None if certs don't exist.
@@ -1796,6 +1806,13 @@ fn bundled_openssl_dir() -> Result<PathBuf, String> {
 }
 
 #[cfg(windows)]
+fn bundled_ssl_dir() -> Result<PathBuf, String> {
+    dashboard::resolve_data_base_dir()
+        .ok_or_else(|| "Unable to resolve SSL data directory".to_string())
+        .map(|base| base.join("data").join("bin").join("ssl"))
+}
+
+#[cfg(windows)]
 fn openssl_executable(openssl_dir: &Path) -> Result<PathBuf, String> {
     let openssl_exe = openssl_dir.join("openssl.exe");
     if openssl_exe.exists() {
@@ -1943,13 +1960,14 @@ DNS.3 = localhost\n"
 }
 
 #[cfg(windows)]
-fn ensure_local_ssl_ca_exists(openssl_dir: &Path) -> Result<(), String> {
-    let root_cert = openssl_dir.join("ca").join("rootCA.pem");
-    let root_key = openssl_dir.join("ca").join("rootCA-key.pem");
-    let root_serial = openssl_dir.join("ca").join("rootCA.srl");
-    let intermediate_cert = openssl_dir.join("ca").join("intermediateCA.pem");
-    let intermediate_key = openssl_dir.join("ca").join("intermediateCA-key.pem");
-    let intermediate_csr = openssl_dir.join("ca").join("intermediateCA.csr");
+fn ensure_local_ssl_ca_exists(openssl_dir: &Path, ssl_dir: &Path) -> Result<(), String> {
+    let ca_dir = ssl_dir.join("ca");
+    let root_cert = ca_dir.join("rootCA.pem");
+    let root_key = ca_dir.join("rootCA-key.pem");
+    let root_serial = ca_dir.join("rootCA.srl");
+    let intermediate_cert = ca_dir.join("intermediateCA.pem");
+    let intermediate_key = ca_dir.join("intermediateCA-key.pem");
+    let intermediate_csr = ca_dir.join("intermediateCA.csr");
     let openssl_exe = openssl_executable(openssl_dir)?;
 
     if root_cert.exists()
@@ -1960,7 +1978,7 @@ fn ensure_local_ssl_ca_exists(openssl_dir: &Path) -> Result<(), String> {
         return Ok(());
     }
 
-    fs::create_dir_all(openssl_dir.join("ca"))
+    fs::create_dir_all(&ca_dir)
         .map_err(|e| format!("Failed to create local CA directory: {e}"))?;
 
     let root_config_path = write_temp_ssl_file("root-ca", ".cnf", root_ca_openssl_config())?;
@@ -2069,7 +2087,7 @@ fn ensure_local_ssl_ca_exists(openssl_dir: &Path) -> Result<(), String> {
 }
 
 #[cfg(windows)]
-fn ensure_windows_ssl_root_installed(openssl_dir: &Path) -> Result<(), String> {
+fn ensure_windows_ssl_root_installed(openssl_dir: &Path, ssl_dir: &Path) -> Result<(), String> {
     use std::process::Command;
 
     let certutil = Path::new(&env::var("SystemRoot").unwrap_or_else(|_| "C:\\Windows".to_string()))
@@ -2082,7 +2100,7 @@ fn ensure_windows_ssl_root_installed(openssl_dir: &Path) -> Result<(), String> {
         ));
     }
 
-    let root_cert = openssl_dir.join("ca").join("rootCA.pem");
+    let root_cert = ssl_dir.join("ca").join("rootCA.pem");
     if !root_cert.exists() {
         return Err(format!(
             "HocDev root certificate not found at {}.",
@@ -2183,17 +2201,16 @@ fn ssl_cert_issued_by_local_ca(openssl_dir: &Path, cert_path: &Path) -> Result<b
 #[cfg(windows)]
 fn apply_ssl_for_domain(domain: &str) -> Result<(), String> {
     let openssl_dir = bundled_openssl_dir()?;
+    let ssl_dir = bundled_ssl_dir()?;
     let openssl_exe = openssl_executable(&openssl_dir)?;
-    ensure_local_ssl_ca_exists(&openssl_dir)?;
-    ensure_windows_ssl_root_installed(&openssl_dir)?;
+    ensure_local_ssl_ca_exists(&openssl_dir, &ssl_dir)?;
+    ensure_windows_ssl_root_installed(&openssl_dir, &ssl_dir)?;
 
-    let cert_dir =
-        ssl_cert_dir().ok_or_else(|| "Unable to resolve SSL certificate directory".to_string())?;
-    fs::create_dir_all(&cert_dir)
+    fs::create_dir_all(&ssl_dir)
         .map_err(|e| format!("Failed to create SSL cert directory: {e}"))?;
 
-    let cert_path = cert_dir.join(format!("{domain}.crt"));
-    let key_path = cert_dir.join(format!("{domain}.key"));
+    let cert_path = ssl_dir.join(format!("{domain}.crt"));
+    let key_path = ssl_dir.join(format!("{domain}.key"));
     if cert_path.exists() && key_path.exists() {
         if ssl_cert_issued_by_local_ca(&openssl_dir, &cert_path)? {
             return Ok(());
@@ -2202,16 +2219,16 @@ fn apply_ssl_for_domain(domain: &str) -> Result<(), String> {
         let _ = fs::remove_file(&key_path);
     }
 
-    let intermediate_cert = openssl_dir.join("ca").join("intermediateCA.pem");
-    let intermediate_key = openssl_dir.join("ca").join("intermediateCA-key.pem");
-    let intermediate_serial = openssl_dir.join("ca").join("intermediateCA.srl");
+    let intermediate_cert = ssl_dir.join("ca").join("intermediateCA.pem");
+    let intermediate_key = ssl_dir.join("ca").join("intermediateCA-key.pem");
+    let intermediate_serial = ssl_dir.join("ca").join("intermediateCA.srl");
     let site_config_path = write_temp_ssl_file(
         "site-cert",
         ".cnf",
         &site_certificate_openssl_config(domain),
     )?;
-    let csr_path = cert_dir.join(format!("{domain}.csr"));
-    let temp_cert_path = cert_dir.join(format!("{domain}-temp.crt"));
+    let csr_path = ssl_dir.join(format!("{domain}.csr"));
+    let temp_cert_path = ssl_dir.join(format!("{domain}-temp.crt"));
 
     let result = (|| -> Result<(), String> {
         let mut key_command = std::process::Command::new(&openssl_exe);

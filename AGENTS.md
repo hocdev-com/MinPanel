@@ -113,6 +113,7 @@ When modifying the dashboard layout, follow these synchronized responsive patter
 - Apache should only enable `Listen 443` and SSL modules when at least one managed site actually has SSL configured, to avoid startup failures from unrelated port `443` conflicts.
 - The default managed website root is `www` under the app base directory unless `MINPANEL_WEBSITE_ROOT` overrides it. Create that directory automatically during runtime resolution so Apache `DocumentRoot` never points to a missing folder.
 - Windows listener parsing belongs in Rust with unit tests in `src/dashboard.rs`; do not rely on one-off verification scripts under `scratch/` for runtime port detection behavior.
+- Bundled SSL assets now live under `data/bin/ssl/`. Keep the local CA in `data/bin/ssl/ca/` and store generated site certificates directly in `data/bin/ssl/`, while reserving `data/bin/openssl/` for the OpenSSL executable and DLLs only.
 
 ### 8. Footer Edge Layout
 - Dashboard footer/alert bars that need to sit at the bottom of the main content should use flex flow with `margin-top: auto`, not fixed positioning.
@@ -125,3 +126,10 @@ When modifying the dashboard layout, follow these synchronized responsive patter
 - Each `versions[]` item may override `install_checks` when the runtime hook path differs by branch or major/minor version.
 - Use `downloads[]` for package sources. The first URL is the primary download target and later URLs are ordered mirrors.
 - Legacy `f_path` manifests remain readable in Rust, but new edits should use the grouped `versions[]` plus `downloads[]` format.
+
+### 10. Frontend Template Packaging
+- Dashboard/login frontend files live on disk under `data/templates/<theme>/` instead of `src/ui/` so builds copy the active UI alongside the executable rather than embedding it into Rust with `include_str!`.
+- Keep `default` as the baseline theme folder and add new themes as siblings such as `data/templates/demo/`; runtime theme selection should resolve from `MINPANEL_TEMPLATE` and fall back to `default` if the requested theme is missing.
+- Keep each theme root flat: `layout.html`, `topbar.html`, `index.html`, `website.html`, `database.html`, `soft.html`, `login.html`, `styles.css`, `icons.css`, `favicon.svg`, and `app.js` should sit directly inside `data/templates/<theme>/` unless a later refactor introduces a documented asset layout.
+- Shared browser logic for all themes belongs under `data/templates/shared/`; keep `core.js` for reusable state/helpers, put page bootstrap shims in `data/templates/shared/pages/*.js`, and keep each theme's own `app.js` as a thin bootstrap/override layer.
+- When changing UI assets or HTML, update the files under `data/templates/...` directly and preserve the existing `/assets/dashboard/*`, `/dashboard`, `/website`, and `/login` routes so backend handlers can swap themes without changing URLs.

@@ -60,6 +60,23 @@ pub(crate) fn app_router() -> Router {
             "/assets/dashboard/app.js",
             axum::routing::get(dashboard_script),
         )
+        .route("/assets/shared/core.js", axum::routing::get(shared_core_script))
+        .route(
+            "/assets/shared/pages/dashboard.js",
+            axum::routing::get(shared_dashboard_page_script),
+        )
+        .route(
+            "/assets/shared/pages/software.js",
+            axum::routing::get(shared_software_page_script),
+        )
+        .route(
+            "/assets/shared/pages/database.js",
+            axum::routing::get(shared_database_page_script),
+        )
+        .route(
+            "/assets/shared/pages/website.js",
+            axum::routing::get(shared_website_page_script),
+        )
         .route("/favicon.ico", axum::routing::get(dashboard_favicon_ico))
         .route(
             "/assets/dashboard/favicon.png",
@@ -126,84 +143,209 @@ pub(crate) async fn stop_runtimes_on_shutdown() -> Result<(), String> {
 }
 
 async fn dashboard_styles() -> impl IntoResponse {
-    (
-        [
-            (
-                header::CONTENT_TYPE,
-                HeaderValue::from_static("text/css; charset=utf-8"),
-            ),
-            (
-                header::CACHE_CONTROL,
-                HeaderValue::from_static("public, max-age=3600"),
-            ),
-        ],
-        include_str!("ui/dashboard/styles.css"),
-    )
+    match dashboard::load_template("styles.css") {
+        Ok(styles) => (
+            [
+                (
+                    header::CONTENT_TYPE,
+                    HeaderValue::from_static("text/css; charset=utf-8"),
+                ),
+                (
+                    header::CACHE_CONTROL,
+                    HeaderValue::from_static("public, max-age=3600"),
+                ),
+            ],
+            styles,
+        )
+            .into_response(),
+        Err(error) => dashboard::template_load_error_response(error),
+    }
 }
 
 async fn dashboard_icons() -> impl IntoResponse {
-    (
-        [
-            (
-                header::CONTENT_TYPE,
-                HeaderValue::from_static("text/css; charset=utf-8"),
-            ),
-            (
-                header::CACHE_CONTROL,
-                HeaderValue::from_static("public, max-age=3600"),
-            ),
-        ],
-        include_str!("ui/dashboard/icons.css"),
-    )
+    match dashboard::load_template("icons.css") {
+        Ok(icons) => (
+            [
+                (
+                    header::CONTENT_TYPE,
+                    HeaderValue::from_static("text/css; charset=utf-8"),
+                ),
+                (
+                    header::CACHE_CONTROL,
+                    HeaderValue::from_static("public, max-age=3600"),
+                ),
+            ],
+            icons,
+        )
+            .into_response(),
+        Err(error) => dashboard::template_load_error_response(error),
+    }
 }
 
 async fn dashboard_script() -> impl IntoResponse {
-    (
-        StatusCode::OK,
-        [
-            (
-                header::CONTENT_TYPE,
-                HeaderValue::from_static("application/javascript; charset=utf-8"),
-            ),
-            (
-                header::CACHE_CONTROL,
-                HeaderValue::from_static("public, max-age=3600"),
-            ),
-        ],
-        include_str!("ui/dashboard/app.js"),
-    )
+    match dashboard::load_template("app.js") {
+        Ok(script) => (
+            StatusCode::OK,
+            [
+                (
+                    header::CONTENT_TYPE,
+                    HeaderValue::from_static("application/javascript; charset=utf-8"),
+                ),
+                (
+                    header::CACHE_CONTROL,
+                    HeaderValue::from_static("public, max-age=3600"),
+                ),
+            ],
+            script,
+        )
+            .into_response(),
+        Err(error) => dashboard::template_load_error_response(error),
+    }
+}
+
+async fn shared_core_script() -> impl IntoResponse {
+    match dashboard::load_shared_template("core.js") {
+        Ok(script) => (
+            StatusCode::OK,
+            [
+                (
+                    header::CONTENT_TYPE,
+                    HeaderValue::from_static("application/javascript; charset=utf-8"),
+                ),
+                (
+                    header::CACHE_CONTROL,
+                    HeaderValue::from_static("public, max-age=3600"),
+                ),
+            ],
+            script,
+        )
+            .into_response(),
+        Err(error) => dashboard::template_load_error_response(error),
+    }
+}
+
+async fn shared_dashboard_page_script() -> impl IntoResponse {
+    match dashboard::load_shared_template("pages/dashboard.js") {
+        Ok(script) => (
+            StatusCode::OK,
+            [
+                (
+                    header::CONTENT_TYPE,
+                    HeaderValue::from_static("application/javascript; charset=utf-8"),
+                ),
+                (
+                    header::CACHE_CONTROL,
+                    HeaderValue::from_static("public, max-age=3600"),
+                ),
+            ],
+            script,
+        )
+            .into_response(),
+        Err(error) => dashboard::template_load_error_response(error),
+    }
+}
+
+async fn shared_software_page_script() -> impl IntoResponse {
+    match dashboard::load_shared_template("pages/software.js") {
+        Ok(script) => (
+            StatusCode::OK,
+            [
+                (
+                    header::CONTENT_TYPE,
+                    HeaderValue::from_static("application/javascript; charset=utf-8"),
+                ),
+                (
+                    header::CACHE_CONTROL,
+                    HeaderValue::from_static("public, max-age=3600"),
+                ),
+            ],
+            script,
+        )
+            .into_response(),
+        Err(error) => dashboard::template_load_error_response(error),
+    }
+}
+
+async fn shared_database_page_script() -> impl IntoResponse {
+    match dashboard::load_shared_template("pages/database.js") {
+        Ok(script) => (
+            StatusCode::OK,
+            [
+                (
+                    header::CONTENT_TYPE,
+                    HeaderValue::from_static("application/javascript; charset=utf-8"),
+                ),
+                (
+                    header::CACHE_CONTROL,
+                    HeaderValue::from_static("public, max-age=3600"),
+                ),
+            ],
+            script,
+        )
+            .into_response(),
+        Err(error) => dashboard::template_load_error_response(error),
+    }
+}
+
+async fn shared_website_page_script() -> impl IntoResponse {
+    match dashboard::load_shared_template("pages/website.js") {
+        Ok(script) => (
+            StatusCode::OK,
+            [
+                (
+                    header::CONTENT_TYPE,
+                    HeaderValue::from_static("application/javascript; charset=utf-8"),
+                ),
+                (
+                    header::CACHE_CONTROL,
+                    HeaderValue::from_static("public, max-age=3600"),
+                ),
+            ],
+            script,
+        )
+            .into_response(),
+        Err(error) => dashboard::template_load_error_response(error),
+    }
 }
 
 async fn dashboard_favicon() -> impl IntoResponse {
-    (
-        [
-            (
-                header::CONTENT_TYPE,
-                HeaderValue::from_static("image/svg+xml"),
-            ),
-            (
-                header::CACHE_CONTROL,
-                HeaderValue::from_static("public, max-age=86400"),
-            ),
-        ],
-        include_str!("ui/dashboard/favicon.svg"),
-    )
+    match dashboard::load_template("favicon.svg") {
+        Ok(icon) => (
+            [
+                (
+                    header::CONTENT_TYPE,
+                    HeaderValue::from_static("image/svg+xml"),
+                ),
+                (
+                    header::CACHE_CONTROL,
+                    HeaderValue::from_static("public, max-age=86400"),
+                ),
+            ],
+            icon,
+        )
+            .into_response(),
+        Err(error) => dashboard::template_load_error_response(error),
+    }
 }
 
 async fn dashboard_favicon_ico() -> impl IntoResponse {
-    (
-        [
-            (
-                header::CONTENT_TYPE,
-                HeaderValue::from_static("image/svg+xml"),
-            ),
-            (
-                header::CACHE_CONTROL,
-                HeaderValue::from_static("public, max-age=86400"),
-            ),
-        ],
-        include_str!("ui/dashboard/favicon.svg"),
-    )
+    match dashboard::load_template("favicon.svg") {
+        Ok(icon) => (
+            [
+                (
+                    header::CONTENT_TYPE,
+                    HeaderValue::from_static("image/svg+xml"),
+                ),
+                (
+                    header::CACHE_CONTROL,
+                    HeaderValue::from_static("public, max-age=86400"),
+                ),
+            ],
+            icon,
+        )
+            .into_response(),
+        Err(error) => dashboard::template_load_error_response(error),
+    }
 }
 
 pub(crate) fn preferred_bind_address() -> [u8; 4] {
