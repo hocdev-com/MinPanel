@@ -132,6 +132,7 @@ const softwareState = {
 let dashboardRefreshPromise = null;
 let softwareSettingsModalControlsBound = false;
 let websiteRuntimePopoverHideTimer = null;
+let databaseRuntimePopoverHideTimer = null;
 
 function hasPendingSoftwareActions() {
   return Boolean(softwareState.batchPendingAction) || Object.keys(softwareState.pendingActions).length > 0;
@@ -1966,7 +1967,7 @@ function openDatabasePhpMyAdmin() {
 function getDatabasePasswordDisplayText(password, masked) {
   const actual = String(password || "");
   if (masked) return "**********";
-  if (actual.length <= 7) return actual;
+  if (actual.length <= 10) return actual;
   return `${actual.slice(0, 7)}...`;
 }
 
@@ -1974,6 +1975,7 @@ function renderDatabaseRuntimeStrip() {
   const toolbarRootPass = document.getElementById("database-root-password-button");
   const toolbarPhpMyAdmin = document.getElementById("database-phpmyadmin-button");
   const runtimeButton = document.getElementById("database-runtime-button");
+  const runtimePopover = document.getElementById("database-runtime-popover");
   const runtime = findDatabaseRuntime();
   const phpMyAdmin = findPhpMyAdminSoftwareItem();
   const mysqlRunning = Boolean(runtime && runtime.status === "running" && databaseState.engine === "mysql");
@@ -1984,18 +1986,121 @@ function renderDatabaseRuntimeStrip() {
     if (runtime) {
       const running = runtime.status === "running";
       runtimeButton.hidden = false;
+      runtimeButton.disabled = false;
       runtimeButton.dataset.status = running ? "running" : "stopped";
+      runtimeButton.dataset.runtimeKind = String(databaseState.engine || runtime.name || "").toLowerCase();
       runtimeButton.innerHTML = `
         <span class="database-runtime-button-icon" aria-hidden="true">${databaseEngineIcon(databaseState.engine, runtime)}</span>
         <span class="database-runtime-button-label">${escapeHtml(`${runtime.title} ${runtime.version}`.trim())}</span>
-        <span class="database-runtime-button-state">${running ? "Running" : "Stopped"}</span>
       `;
+      runtimeButton.setAttribute("aria-label", `${runtime.title} ${runtime.version} ${running ? "running" : "stopped"}`);
     } else {
       runtimeButton.hidden = true;
+      runtimeButton.disabled = true;
       runtimeButton.innerHTML = "";
       delete runtimeButton.dataset.status;
+      delete runtimeButton.dataset.runtimeKind;
     }
   }
+  if (runtimePopover && (!runtime || runtimeButton?.hidden)) {
+    runtimePopover.hidden = true;
+  }
+}
+
+async function openDatabaseRuntimeSettings() {
+  if (!document.getElementById("software-settings-modal")) return;
+  let item = findDatabaseRuntime();
+  if (!item) {
+    await refreshDashboard();
+    item = findDatabaseRuntime();
+  }
+  if (!item) return;
+  openSoftwareSettingsModal(item.title);
+}
+
+function getDatabaseRuntimePopoverItem() {
+  return findDatabaseRuntime();
+}
+
+function renderDatabaseRuntimePopover() {
+  const popover = document.getElementById("database-runtime-popover");
+  const item = getDatabaseRuntimePopoverItem();
+  if (!popover || !item) return false;
+
+  const pendingAction = softwareState.pendingActions[item.id] || "";
+  const running = item.status === "running";
+  const primaryAction = running ? "stop" : "start";
+  const disabled = Boolean(pendingAction);
+  popover.innerHTML = `
+    <button class="website-runtime-popover-action" type="button" role="menuitem" data-database-runtime-action="${primaryAction}" ${disabled ? "disabled" : ""}>
+      ${escapeHtml(pendingAction === primaryAction ? getSoftwarePendingActionLabel(primaryAction) : (running ? "Stop" : "Start"))}
+    </button>
+    <button class="website-runtime-popover-action" type="button" role="menuitem" data-database-runtime-action="restart" ${disabled ? "disabled" : ""}>
+      ${escapeHtml(pendingAction === "restart" ? "Restarting..." : "Restart")}
+    </button>
+    <button class="website-runtime-popover-action" type="button" role="menuitem" data-database-runtime-action="reload" ${disabled ? "disabled" : ""}>
+      ${escapeHtml(pendingAction === "reload" ? "Reloading..." : "Reload")}
+    </button>
+    <button class="website-runtime-popover-action" type="button" role="menuitem" data-database-runtime-action="settings">Alarm Setting</button>
+  `;
+  return true;
+}
+
+function positionDatabaseRuntimePopover() {
+  const button = document.getElementById("database-runtime-button");
+  const popover = document.getElementById("database-runtime-popover");
+  if (!button || !popover || popover.hidden) return;
+
+  const buttonRect = button.getBoundingClientRect();
+  const popoverRect = popover.getBoundingClientRect();
+  const margin = 10;
+  const centeredLeft = buttonRect.left + (buttonRect.width / 2) - (popoverRect.width / 2);
+  const left = Math.min(
+    Math.max(margin, centeredLeft),
+    Math.max(margin, window.innerWidth - popoverRect.width - margin),
+  );
+  const top = Math.max(margin, buttonRect.top - popoverRect.height - 10);
+  const arrowLeft = Math.min(
+    Math.max(16, buttonRect.left + (buttonRect.width / 2) - left),
+    Math.max(16, popoverRect.width - 16),
+  );
+  popover.style.left = `${left}px`;
+  popover.style.top = `${top}px`;
+  popover.style.setProperty("--runtime-popover-arrow-left", `${arrowLeft}px`);
+}
+
+function showDatabaseRuntimePopover() {
+  clearTimeout(databaseRuntimePopoverHideTimer);
+  const popover = document.getElementById("database-runtime-popover");
+  if (!popover) return;
+  if (!renderDatabaseRuntimePopover()) {
+    popover.hidden = true;
+    return;
+  }
+  popover.hidden = false;
+  positionDatabaseRuntimePopover();
+}
+
+function scheduleHideDatabaseRuntimePopover(delay = 120) {
+  clearTimeout(databaseRuntimePopoverHideTimer);
+  databaseRuntimePopoverHideTimer = setTimeout(() => {
+    const popover = document.getElementById("database-runtime-popover");
+    if (popover) popover.hidden = true;
+  }, delay);
+}
+
+async function runDatabaseRuntimePopoverAction(action) {
+  const item = getDatabaseRuntimePopoverItem();
+  if (!item) return;
+  if (action === "settings") {
+    scheduleHideDatabaseRuntimePopover(0);
+    openSoftwareSettingsModal(item.title);
+    return;
+  }
+  if (softwareState.pendingActions[item.id]) return;
+  await runSoftwareAction(item.id, action);
+  renderDatabaseRuntimePopover();
+  positionDatabaseRuntimePopover();
 }
 
 function renderDatabaseTable() {
@@ -2070,6 +2175,7 @@ function renderDatabaseTable() {
 
 function bindDatabaseControls() {
   if (!document.getElementById("database-table-body")) return;
+  bindSoftwareSettingsModalControls();
   const addButton = document.getElementById("database-add-button");
   const createModal = document.getElementById("database-create-modal");
   const createClose = document.getElementById("database-create-close");
@@ -2081,6 +2187,8 @@ function bindDatabaseControls() {
 
   const rootPasswordButton = document.getElementById("database-root-password-button");
   const phpMyAdminButton = document.getElementById("database-phpmyadmin-button");
+  const runtimeButton = document.getElementById("database-runtime-button");
+  const runtimePopover = document.getElementById("database-runtime-popover");
   const filterSelect = document.getElementById("database-filter-select");
   const rootPasswordModal = document.getElementById("database-root-password-modal");
   const rootPasswordClose = document.getElementById("database-root-password-close");
@@ -2138,6 +2246,24 @@ function bindDatabaseControls() {
     generateRootPassword.addEventListener("click", () => {
       const passwordInput = document.getElementById("database-root-password-input");
       if (passwordInput) passwordInput.value = randomDatabasePassword();
+    });
+  }
+  if (runtimeButton) {
+    runtimeButton.addEventListener("click", openDatabaseRuntimeSettings);
+    runtimeButton.addEventListener("mouseenter", showDatabaseRuntimePopover);
+    runtimeButton.addEventListener("focus", showDatabaseRuntimePopover);
+    runtimeButton.addEventListener("mouseleave", () => scheduleHideDatabaseRuntimePopover());
+    runtimeButton.addEventListener("blur", () => scheduleHideDatabaseRuntimePopover(180));
+  }
+  if (runtimePopover) {
+    runtimePopover.addEventListener("mouseenter", () => clearTimeout(databaseRuntimePopoverHideTimer));
+    runtimePopover.addEventListener("mouseleave", () => scheduleHideDatabaseRuntimePopover());
+    runtimePopover.addEventListener("focusin", () => clearTimeout(databaseRuntimePopoverHideTimer));
+    runtimePopover.addEventListener("focusout", () => scheduleHideDatabaseRuntimePopover(180));
+    runtimePopover.addEventListener("click", async (event) => {
+      const button = event.target.closest("[data-database-runtime-action]");
+      if (!button) return;
+      await runDatabaseRuntimePopoverAction(button.dataset.databaseRuntimeAction || "");
     });
   }
 
@@ -2245,6 +2371,7 @@ function bindDatabaseControls() {
   }
 
   window.addEventListener("resize", renderDatabaseTable);
+  window.addEventListener("resize", positionDatabaseRuntimePopover);
 }
 
 function getWebsiteView() {

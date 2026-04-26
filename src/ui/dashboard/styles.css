@@ -676,17 +676,63 @@ select {
 }
 
 .database-runtime-button {
+  min-width: 116px;
   height: 32px;
   padding: 0 12px;
-  border: 1px solid #d6deea;
-  border-radius: 10px;
+  border: 1px solid rgba(32, 165, 58, 0.28);
+  border-radius: 8px;
   background: #fff;
-  color: #334155;
+  color: #1f9d3a;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  gap: 6px;
   font-size: 12px;
-  cursor: default;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
+}
+
+.database-runtime-button:hover,
+.database-runtime-button:focus-visible {
+  border-color: rgba(32, 165, 58, 0.52);
+  box-shadow: 0 0 0 2px rgba(32, 165, 58, 0.08);
+  outline: none;
+}
+
+.database-runtime-button[data-status="stopped"] {
+  border-color: rgba(224, 81, 93, 0.34);
+  background: #fff0f2;
+  color: #d94a58;
+}
+
+.database-runtime-button[data-status="stopped"]:hover,
+.database-runtime-button[data-status="stopped"]:focus-visible {
+  border-color: rgba(224, 81, 93, 0.56);
+  box-shadow: 0 0 0 2px rgba(224, 81, 93, 0.08);
+}
+
+.database-runtime-button::after {
+  content: "";
+  width: 0;
+  height: 0;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-left: 6px solid currentColor;
+  flex: 0 0 auto;
+}
+
+.database-runtime-button[data-status="stopped"]::after {
+  width: 10px;
+  height: 10px;
+  border: 0;
+  border-radius: 0;
+  background: linear-gradient(
+    to right,
+    currentColor 0 3px,
+    transparent 3px 7px,
+    currentColor 7px 10px
+  );
 }
 
 .database-runtime-button[hidden] {
@@ -708,18 +754,10 @@ select {
 }
 
 .database-runtime-button-label {
-  color: #1f2937;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.database-runtime-button-state {
-  color: var(--accent);
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.database-runtime-button[data-status="stopped"] .database-runtime-button-state {
-  color: #ef4444;
 }
 
 .database-search {
@@ -887,23 +925,24 @@ select {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   color: #334155;
   font-size: 13px;
-  flex: 1 1 auto;
-  min-width: 0;
+  flex: 0 0 10ch;
+  width: 10ch;
+  min-width: 10ch;
+  max-width: 10ch;
   overflow: hidden;
-  text-overflow: ellipsis;
+  text-overflow: clip;
   white-space: nowrap;
+  font-variant-ligatures: none;
 }
 
 .database-password-mask.is-masked {
-  flex: 0 0 auto;
   overflow: visible;
   text-overflow: clip;
 }
 
 .database-password-mask.is-revealed {
-  flex: 1 1 auto;
   overflow: hidden;
-  text-overflow: ellipsis;
+  text-overflow: clip;
 }
 
 .database-password-action {
@@ -951,7 +990,7 @@ select {
 }
 
 .database-name-col {
-  width: 25%;
+  width: 21%;
 }
 
 .database-username-col,
@@ -971,7 +1010,7 @@ select {
 }
 
 .database-password-col {
-  width: 138px;
+  width: 156px;
 }
 
 .database-quota-col {
