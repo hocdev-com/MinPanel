@@ -100,15 +100,11 @@ fn emit_rerun_if_changed_recursive(path: &std::path::Path) {
     println!("cargo:rerun-if-changed={}", path.display());
 
     if path.is_dir() {
-        let entries = std::fs::read_dir(path).unwrap_or_else(|error| {
-            panic!("failed to read directory {}: {error}", path.display())
-        });
+        let entries = std::fs::read_dir(path)
+            .unwrap_or_else(|error| panic!("failed to read directory {}: {error}", path.display()));
         for entry in entries {
             let entry = entry.unwrap_or_else(|error| {
-                panic!(
-                    "failed to iterate directory {}: {error}",
-                    path.display()
-                )
+                panic!("failed to iterate directory {}: {error}", path.display())
             });
             emit_rerun_if_changed_recursive(&entry.path());
         }

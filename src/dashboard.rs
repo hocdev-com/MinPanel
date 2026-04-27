@@ -22,7 +22,7 @@ use std::{
     thread,
     time::{Duration, Instant, SystemTime},
 };
-use sysinfo::{Disks, Networks, ProcessRefreshKind, System};
+use sysinfo::{Disks, Networks, ProcessRefreshKind, System, MINIMUM_CPU_UPDATE_INTERVAL};
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 
@@ -40,6 +40,9 @@ const CREATE_NO_WINDOW: u32 = 0x08000000;
 static SOFTWARE_VIEW_CACHE: OnceLock<Mutex<Option<CachedSoftwareView>>> = OnceLock::new();
 static SOFTWARE_REFRESH_STATE: OnceLock<Mutex<SoftwareRefreshState>> = OnceLock::new();
 static TASK_MANAGER: OnceLock<Mutex<HashMap<String, TaskInfo>>> = OnceLock::new();
+static CPU_USAGE_MONITOR: OnceLock<Mutex<CpuUsageMonitorState>> = OnceLock::new();
+#[cfg(windows)]
+static LOAD_AVERAGE_STATE: OnceLock<Mutex<Option<LoadAverageEstimatorState>>> = OnceLock::new();
 
 #[derive(Serialize, Clone, Debug)]
 pub struct TaskInfo {
@@ -71,6 +74,95 @@ fn set_task_status(task_id: &str, status: &str) {
             task.status = status.to_string();
         }
     }
+}
+
+fn cpu_usage_monitor() -> &'static Mutex<CpuUsageMonitorState> {
+    CPU_USAGE_MONITOR.get_or_init(|| {
+        let mut system = System::new();
+        system.refresh_cpu_usage();
+        thread::sleep(MINIMUM_CPU_UPDATE_INTERVAL);
+        system.refresh_cpu_usage();
+        let last_usage = system.global_cpu_info().cpu_usage().clamp(0.0, 100.0);
+        Mutex::new(CpuUsageMonitorState {
+            system,
+            last_refresh: Instant::now(),
+            last_usage,
+        })
+    })
+}
+
+fn sample_dashboard_cpu_usage() -> f32 {
+    let now = Instant::now();
+    let Ok(mut monitor) = cpu_usage_monitor().lock() else {
+        return 0.0;
+    };
+
+    if now.saturating_duration_since(monitor.last_refresh) >= MINIMUM_CPU_UPDATE_INTERVAL {
+        monitor.system.refresh_cpu_usage();
+        monitor.last_usage = monitor.system.global_cpu_info().cpu_usage().clamp(0.0, 100.0);
+        monitor.last_refresh = now;
+    }
+
+    monitor.last_usage
+}
+
+#[cfg(windows)]
+fn load_average_state() -> &'static Mutex<Option<LoadAverageEstimatorState>> {
+    LOAD_AVERAGE_STATE.get_or_init(|| Mutex::new(None))
+}
+
+fn smoothed_load_average(cpu_usage: f32, logical_cpu_count: usize) -> (f64, f64, f64) {
+    #[cfg(windows)]
+    {
+        estimate_windows_load_average(cpu_usage, logical_cpu_count)
+    }
+
+    #[cfg(not(windows))]
+    {
+        let average = System::load_average();
+        (average.one, average.five, average.fifteen)
+    }
+}
+
+#[cfg(windows)]
+fn estimate_windows_load_average(cpu_usage: f32, logical_cpu_count: usize) -> (f64, f64, f64) {
+    let max_load = (logical_cpu_count.max(1) * 2) as f64;
+    let instant_load = (cpu_usage.clamp(0.0, 100.0) as f64 / 100.0) * max_load;
+    let now = Instant::now();
+    let Ok(mut state) = load_average_state().lock() else {
+        return (instant_load, instant_load, instant_load);
+    };
+
+    let next = match *state {
+        Some(previous) => {
+            let elapsed = now
+                .checked_duration_since(previous.last_sample)
+                .map(|value| value.as_secs_f64())
+                .unwrap_or(3.0)
+                .max(1.0);
+            LoadAverageEstimatorState {
+                one: ewma(previous.one, instant_load, elapsed, 60.0),
+                five: ewma(previous.five, instant_load, elapsed, 300.0),
+                fifteen: ewma(previous.fifteen, instant_load, elapsed, 900.0),
+                last_sample: now,
+            }
+        }
+        None => LoadAverageEstimatorState {
+            one: instant_load,
+            five: instant_load,
+            fifteen: instant_load,
+            last_sample: now,
+        },
+    };
+
+    *state = Some(next);
+    (next.one, next.five, next.fifteen)
+}
+
+#[cfg(windows)]
+fn ewma(previous: f64, current: f64, elapsed_seconds: f64, period_seconds: f64) -> f64 {
+    let alpha = 1.0 - (-elapsed_seconds / period_seconds).exp();
+    previous + ((current - previous) * alpha)
 }
 
 #[derive(Serialize)]
@@ -120,6 +212,21 @@ pub struct LoadAverageData {
     fifteen: f64,
     max: f64,
     safe: f64,
+}
+
+#[cfg(windows)]
+#[derive(Clone, Copy)]
+struct LoadAverageEstimatorState {
+    one: f64,
+    five: f64,
+    fifteen: f64,
+    last_sample: Instant,
+}
+
+struct CpuUsageMonitorState {
+    system: System,
+    last_refresh: Instant,
+    last_usage: f32,
 }
 
 #[derive(Serialize, Clone)]
@@ -589,6 +696,29 @@ pub struct OperationStatus {
     pub(crate) message: String,
 }
 
+#[derive(Serialize, Deserialize, Default)]
+struct UiSettings {
+    #[serde(default)]
+    active_template: String,
+}
+
+#[derive(Serialize)]
+pub struct TemplateThemeInfo {
+    id: String,
+    label: String,
+}
+
+#[derive(Serialize)]
+pub struct TemplateThemeListResponse {
+    active: String,
+    themes: Vec<TemplateThemeInfo>,
+}
+
+#[derive(Deserialize)]
+pub struct SetTemplateThemeRequest {
+    theme: String,
+}
+
 #[derive(Deserialize, Default)]
 pub struct DashboardDataQuery {
     #[serde(default)]
@@ -649,6 +779,15 @@ pub(crate) fn active_template_name() -> String {
         .ok()
         .map(|value| sanitize_path_segment(value.trim()))
         .filter(|value| !value.trim().is_empty())
+        .or_else(|| {
+            let settings = load_ui_settings().ok()?;
+            let theme = sanitize_path_segment(settings.active_template.trim());
+            if theme.is_empty() {
+                None
+            } else {
+                Some(theme)
+            }
+        })
         .unwrap_or_else(|| DEFAULT_TEMPLATE_NAME.to_string())
 }
 
@@ -678,6 +817,79 @@ pub(crate) fn resolve_templates_base_dir() -> Result<PathBuf, String> {
     let base_dir =
         resolve_data_base_dir().ok_or_else(|| "Unable to resolve application directory".to_string())?;
     Ok(base_dir.join("data").join("templates"))
+}
+
+fn ui_settings_path() -> Result<PathBuf, String> {
+    let base_dir =
+        resolve_data_base_dir().ok_or_else(|| "Unable to resolve application directory".to_string())?;
+    Ok(base_dir.join("data").join("registry").join("ui.json"))
+}
+
+fn load_ui_settings() -> Result<UiSettings, String> {
+    let path = ui_settings_path()?;
+    if !path.exists() {
+        return Ok(UiSettings::default());
+    }
+    let contents =
+        fs::read_to_string(&path).map_err(|error| format!("Failed to read UI settings: {error}"))?;
+    serde_json::from_str::<UiSettings>(&contents)
+        .map_err(|error| format!("Failed to parse UI settings: {error}"))
+}
+
+fn save_ui_settings(settings: &UiSettings) -> Result<(), String> {
+    let path = ui_settings_path()?;
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|error| format!("Failed to create UI settings directory: {error}"))?;
+    }
+    let contents = serde_json::to_string_pretty(settings)
+        .map_err(|error| format!("Failed to serialize UI settings: {error}"))?;
+    fs::write(&path, contents).map_err(|error| format!("Failed to write UI settings: {error}"))
+}
+
+fn available_template_themes() -> Result<Vec<TemplateThemeInfo>, String> {
+    let templates_dir = resolve_templates_base_dir()?;
+    let mut themes = Vec::new();
+    let entries = fs::read_dir(&templates_dir)
+        .map_err(|error| format!("Failed to read template directory: {error}"))?;
+    for entry in entries {
+        let entry = entry.map_err(|error| format!("Failed to read template entry: {error}"))?;
+        let file_type = entry
+            .file_type()
+            .map_err(|error| format!("Failed to inspect template entry: {error}"))?;
+        if !file_type.is_dir() {
+            continue;
+        }
+        let name = entry.file_name().to_string_lossy().trim().to_string();
+        if name.is_empty() || name == "shared" {
+            continue;
+        }
+        themes.push(TemplateThemeInfo {
+            label: humanize_template_theme_name(&name),
+            id: sanitize_path_segment(&name),
+        });
+    }
+    themes.sort_by(|left, right| left.label.cmp(&right.label));
+    Ok(themes)
+}
+
+fn humanize_template_theme_name(name: &str) -> String {
+    let normalized = name.replace(['-', '_'], " ");
+    let mut words = Vec::new();
+    for word in normalized.split_whitespace() {
+        let mut chars = word.chars();
+        let Some(first) = chars.next() else {
+            continue;
+        };
+        let mut title = first.to_uppercase().collect::<String>();
+        title.push_str(chars.as_str());
+        words.push(title);
+    }
+    if words.is_empty() {
+        DEFAULT_TEMPLATE_NAME.to_string()
+    } else {
+        words.join(" ")
+    }
 }
 
 fn normalize_template_relative_path(relative_path: &str) -> Result<PathBuf, String> {
@@ -777,14 +989,14 @@ pub async fn data(Query(query): Query<DashboardDataQuery>) -> Json<DashboardData
     } else {
         System::new()
     };
-    system.refresh_cpu_usage();
     system.refresh_memory();
     if include_process_snapshot {
         system.refresh_processes_specifics(ProcessRefreshKind::everything());
     }
 
-    let load_avg = System::load_average();
+    let cpu_usage = sample_dashboard_cpu_usage();
     let logical_cpu_count = system.cpus().len().max(1);
+    let (load_one, load_five, load_fifteen) = smoothed_load_average(cpu_usage, logical_cpu_count);
     let aa_panel_memory = read_aa_panel_memory_info()
         .unwrap_or_else(|| fallback_memory_info(system.total_memory(), system.used_memory()));
     let hostname = System::host_name().unwrap_or_else(|| "localhost".to_string());
@@ -833,7 +1045,7 @@ pub async fn data(Query(query): Query<DashboardDataQuery>) -> Json<DashboardData
         Vec::new()
     };
     let alerts = build_alerts(
-        system.global_cpu_info().cpu_usage(),
+        cpu_usage,
         aa_panel_memory.real_used,
         aa_panel_memory.total,
         &disks,
@@ -845,7 +1057,7 @@ pub async fn data(Query(query): Query<DashboardDataQuery>) -> Json<DashboardData
         os_name: System::name().unwrap_or_else(|| "Unknown OS".to_string()),
         kernel_version: System::kernel_version().unwrap_or_else(|| "Unknown".to_string()),
         uptime: System::uptime(),
-        cpu_usage: system.global_cpu_info().cpu_usage(),
+        cpu_usage,
         cpu_brand: system
             .cpus()
             .first()
@@ -867,9 +1079,9 @@ pub async fn data(Query(query): Query<DashboardDataQuery>) -> Json<DashboardData
         used_swap: system.used_swap(),
         app_disk,
         load_avg: LoadAverageData {
-            one: load_avg.one,
-            five: load_avg.five,
-            fifteen: load_avg.fifteen,
+            one: load_one,
+            five: load_five,
+            fifteen: load_fifteen,
             max: (logical_cpu_count * 2) as f64,
             safe: (logical_cpu_count as f64) * 1.5,
         },
@@ -902,6 +1114,61 @@ pub async fn refresh_software_store() -> Json<OperationStatus> {
         Ok(_) => Json(OperationStatus {
             status: true,
             message: "Software list updated!".to_string(),
+        }),
+        Err(error) => Json(OperationStatus {
+            status: false,
+            message: error,
+        }),
+    }
+}
+
+pub async fn list_template_themes() -> Json<TemplateThemeListResponse> {
+    let themes = available_template_themes().unwrap_or_else(|_| {
+        vec![TemplateThemeInfo {
+            id: DEFAULT_TEMPLATE_NAME.to_string(),
+            label: humanize_template_theme_name(DEFAULT_TEMPLATE_NAME),
+        }]
+    });
+    Json(TemplateThemeListResponse {
+        active: active_template_name(),
+        themes,
+    })
+}
+
+pub async fn set_template_theme(
+    Json(request): Json<SetTemplateThemeRequest>,
+) -> Json<OperationStatus> {
+    let requested = sanitize_path_segment(request.theme.trim());
+    if requested.is_empty() {
+        return Json(OperationStatus {
+            status: false,
+            message: "Theme name is required".to_string(),
+        });
+    }
+
+    let themes = match available_template_themes() {
+        Ok(themes) => themes,
+        Err(error) => {
+            return Json(OperationStatus {
+                status: false,
+                message: error,
+            })
+        }
+    };
+
+    if !themes.iter().any(|theme| theme.id == requested) {
+        return Json(OperationStatus {
+            status: false,
+            message: format!("Theme '{requested}' was not found"),
+        });
+    }
+
+    match save_ui_settings(&UiSettings {
+        active_template: requested.clone(),
+    }) {
+        Ok(()) => Json(OperationStatus {
+            status: true,
+            message: format!("Theme changed to {}", humanize_template_theme_name(&requested)),
         }),
         Err(error) => Json(OperationStatus {
             status: false,

@@ -16,15 +16,41 @@
   </div>
 
   <div class="top-actions">
-    <div class="top-actions-group">
-      <span class="top-plan">PRO</span>
-      <span class="top-meta">FREE</span>
-      <span class="top-meta">8.0.1</span>
+    <div class="top-actions-group top-status-group">
+      <span class="top-version-label">8.0.2</span>
+      <div class="top-theme-switcher">
+        <button
+          class="top-mini-button top-theme-button"
+          id="top-theme-button"
+          type="button"
+          aria-label="Change interface theme"
+          aria-haspopup="menu"
+          aria-expanded="false"
+        >
+          <span class="top-theme-button-icon" aria-hidden="true">
+            <span class="dashboard-icon icon-top-theme"></span>
+          </span>
+        </button>
+        <div class="top-theme-popover" id="top-theme-popover" role="menu" hidden>
+          <div class="top-theme-list" id="top-theme-list">
+            <button class="top-theme-option" type="button" disabled>Loading themes...</button>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="top-actions-group">
-      <a class="top-action-link" href="/software">Update</a>
-      <a class="top-action-link" href="/website">Fix</a>
-      <a class="top-action-link" href="/traffic">Restart</a>
+      <a class="top-action-link" href="/software">
+        <span class="dashboard-icon top-action-link-icon icon-top-update" aria-hidden="true"></span>
+        <span>Update</span>
+      </a>
+      <a class="top-action-link" href="/website">
+        <span class="dashboard-icon top-action-link-icon icon-top-fix" aria-hidden="true"></span>
+        <span>Fix</span>
+      </a>
+      <a class="top-action-link" href="/traffic">
+        <span class="dashboard-icon top-action-link-icon icon-top-restart" aria-hidden="true"></span>
+        <span>Restart</span>
+      </a>
     </div>
   </div>
 </section>

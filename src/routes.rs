@@ -22,6 +22,8 @@ pub fn routes() -> Router {
     // API routes: return 401 if not authenticated
     let protected_api = Router::new()
         .route("/dashboard/data", get(dashboard::data))
+        .route("/ui/templates", get(dashboard::list_template_themes))
+        .route("/ui/template", post(dashboard::set_template_theme))
         .route("/database/create", post(dashboard::create_database))
         .route(
             "/database/set-root-password",

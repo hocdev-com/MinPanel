@@ -60,7 +60,10 @@ pub(crate) fn app_router() -> Router {
             "/assets/dashboard/app.js",
             axum::routing::get(dashboard_script),
         )
-        .route("/assets/shared/core.js", axum::routing::get(shared_core_script))
+        .route(
+            "/assets/shared/core.js",
+            axum::routing::get(shared_core_script),
+        )
         .route(
             "/assets/shared/pages/dashboard.js",
             axum::routing::get(shared_dashboard_page_script),

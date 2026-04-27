@@ -74,6 +74,13 @@ const trafficState = {
   networks: [],
 };
 
+const themeState = {
+  open: false,
+  loading: false,
+  active: "default",
+  themes: [],
+};
+
 const websiteState = {
   items: [],
   project: "PHP Project",
@@ -301,12 +308,172 @@ function syncDashboardRoute() {
   const config = Object.values(sidebarNavConfig).find((entry) => entry.path === currentPath);
   if (!config || !config.section) return;
 
+  const shouldScrollToSection = currentPath === "/disks" || currentPath === "/processes";
+  if (!shouldScrollToSection) return;
+
   const target = document.getElementById(config.section);
   if (!target) return;
 
   requestAnimationFrame(() => {
     target.scrollIntoView({ block: "start" });
   });
+}
+
+function humanizeThemeName(value) {
+  return String(value || "default")
+    .replace(/[-_]+/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function renderThemePicker() {
+  const button = document.getElementById("top-theme-button");
+  const list = document.getElementById("top-theme-list");
+  if (!button || !list) return;
+
+  button.title = `Theme: ${humanizeThemeName(themeState.active)}`;
+
+  if (themeState.loading) {
+    list.innerHTML = '<button class="top-theme-option" type="button" disabled>Loading themes...</button>';
+    return;
+  }
+
+  if (!themeState.themes.length) {
+    list.innerHTML = '<button class="top-theme-option" type="button" disabled>No themes found</button>';
+    return;
+  }
+
+  list.innerHTML = themeState.themes
+    .map((theme) => {
+      const active = theme.id === themeState.active;
+      return `
+        <button
+          class="top-theme-option${active ? " is-active" : ""}"
+          type="button"
+          role="menuitemradio"
+          aria-checked="${active ? "true" : "false"}"
+          data-theme-id="${escapeHtml(theme.id)}"
+        >
+          <span class="top-theme-option-main">
+            <span class="top-theme-option-icon" aria-hidden="true">
+              <span class="dashboard-icon icon-top-theme"></span>
+            </span>
+            <span>${escapeHtml(theme.label || humanizeThemeName(theme.id))}</span>
+          </span>
+          <span class="top-theme-option-check">${active ? "✓" : ""}</span>
+        </button>
+      `;
+    })
+    .join("");
+}
+
+function closeThemePicker() {
+  const button = document.getElementById("top-theme-button");
+  const popover = document.getElementById("top-theme-popover");
+  if (button) button.setAttribute("aria-expanded", "false");
+  if (popover) popover.hidden = true;
+  themeState.open = false;
+}
+
+async function loadThemePickerOptions(force = false) {
+  if (themeState.loading) return;
+  if (!force && themeState.themes.length) {
+    renderThemePicker();
+    return;
+  }
+
+  themeState.loading = true;
+  renderThemePicker();
+  try {
+    const { response, body } = await fetchJsonWithTimeout("/ui/templates", { cache: "no-store" }, 10000);
+    if (!response.ok) {
+      throw new Error(body?.message || `HTTP ${response.status}`);
+    }
+    themeState.active = body.active || themeState.active;
+    themeState.themes = Array.isArray(body.themes) ? body.themes : [];
+  } catch (error) {
+    themeState.themes = [];
+    const list = document.getElementById("top-theme-list");
+    if (list) {
+      list.innerHTML = `<button class="top-theme-option" type="button" disabled>${escapeHtml(error?.message || "Failed to load themes")}</button>`;
+    }
+  } finally {
+    themeState.loading = false;
+    renderThemePicker();
+  }
+}
+
+async function applyThemeSelection(themeId) {
+  if (!themeId) return;
+  const list = document.getElementById("top-theme-list");
+  if (list) {
+    list.querySelectorAll("button").forEach((button) => {
+      button.disabled = true;
+    });
+  }
+  try {
+    const { response, body } = await fetchJsonWithTimeout(
+      "/ui/template",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ theme: themeId }),
+      },
+      10000,
+    );
+    if (!response.ok || !body.status) {
+      throw new Error(body.message || `HTTP ${response.status}`);
+    }
+    window.location.reload();
+  } catch (error) {
+    window.alert(error?.message || "Failed to change theme");
+    await loadThemePickerOptions(true);
+  }
+}
+
+function openThemePicker() {
+  const button = document.getElementById("top-theme-button");
+  const popover = document.getElementById("top-theme-popover");
+  if (!button || !popover) return;
+  themeState.open = true;
+  button.setAttribute("aria-expanded", "true");
+  popover.hidden = false;
+  loadThemePickerOptions();
+}
+
+function initThemePicker() {
+  const switcher = document.querySelector(".top-theme-switcher");
+  const button = document.getElementById("top-theme-button");
+  const shortcut = document.getElementById("top-theme-shortcut");
+  const list = document.getElementById("top-theme-list");
+  if (!switcher || !button || !list) return;
+
+  const togglePicker = () => {
+    if (themeState.open) {
+      closeThemePicker();
+    } else {
+      openThemePicker();
+    }
+  };
+
+  button.addEventListener("click", togglePicker);
+  if (shortcut) {
+    shortcut.addEventListener("click", togglePicker);
+  }
+
+  list.addEventListener("click", (event) => {
+    const option = event.target.closest("[data-theme-id]");
+    if (!option) return;
+    applyThemeSelection(option.getAttribute("data-theme-id"));
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!themeState.open) return;
+    if (!switcher.contains(event.target)) {
+      closeThemePicker();
+    }
+  });
+
+  loadThemePickerOptions();
 }
 
 function formatBytes(bytes) {
@@ -332,6 +499,12 @@ function getAaPanelStatus(percent) {
   return "Running smoothly";
 }
 
+function getAaPanelStatusColor(percent) {
+  if (percent >= 90) return "#dd2f00";
+  if (percent >= 80) return "#ff9900";
+  return "#20a53a";
+}
+
 function formatAaPanelUptime(seconds) {
   const totalSeconds = Math.max(0, Number(seconds) || 0);
   const days = Math.floor(totalSeconds / 86400);
@@ -342,10 +515,14 @@ function formatLogStamp(date) {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-function setMeter(id, value) {
+function setMeter(id, value, accentColor) {
   const safeValue = Math.max(0, Math.min(100, value));
   const meter = document.getElementById(id);
+  if (!meter) return;
   meter.style.setProperty("--progress", `${safeValue * 3.6}deg`);
+  if (accentColor) {
+    meter.style.setProperty("--accent-color", accentColor);
+  }
 }
 
 function getNonLoopbackNetworks(networks) {
@@ -3914,25 +4091,30 @@ function updateOverview(data) {
 
 function updateStatus(data) {
   if (!document.getElementById("load-meter")) return;
-  const loadPercent = Math.min(100, (data.load_avg.one / Math.max(data.cpu_cores || 1, 1)) * 100);
+  const loadMax = Math.max(Number(data.load_avg?.max) || ((data.cpu_cores || 1) * 2), 1);
+  const loadPercent = Math.max(0, Math.min(100, ((Number(data.load_avg?.one) || 0) / loadMax) * 100));
   const memoryPercent = data.total_memory ? (data.used_memory / data.total_memory) * 100 : 0;
   const disk = data.app_disk;
   const diskUsed = disk ? Math.max(disk.total_space - disk.available_space, 0) : 0;
   const diskPercent = disk && disk.total_space ? (diskUsed / disk.total_space) * 100 : 0;
-  const loadSummary = loadPercent < 60 ? "Smooth operation" : loadPercent < 85 ? "Moderate load" : "Busy";
+  const loadSummary = getAaPanelStatus(loadPercent);
+  const loadColor = getAaPanelStatusColor(loadPercent);
+  const cpuColor = getAaPanelStatusColor(data.cpu_usage);
+  const memoryColor = getAaPanelStatusColor(memoryPercent);
+  const diskColor = getAaPanelStatusColor(diskPercent);
 
-  setMeter("load-meter", loadPercent);
-  setMeter("cpu-meter", data.cpu_usage);
-  setMeter("memory-meter", memoryPercent);
-  setMeter("disk-meter", diskPercent);
+  setMeter("load-meter", loadPercent, loadColor);
+  setMeter("cpu-meter", data.cpu_usage, cpuColor);
+  setMeter("memory-meter", memoryPercent, memoryColor);
+  setMeter("disk-meter", diskPercent, diskColor);
 
   document.getElementById("load-meter-value").textContent = `${Math.round(loadPercent)}%`;
   document.getElementById("cpu-meter-value").textContent = `${Math.round(data.cpu_usage)}%`;
   document.getElementById("memory-meter-value").textContent = `${Math.round(memoryPercent)}%`;
   document.getElementById("disk-meter-value").textContent = `${Math.round(diskPercent)}%`;
 
-  document.getElementById("load-label").textContent = data.load_avg.one.toFixed(2);
-  document.getElementById("load-detail").textContent = `5m ${data.load_avg.five.toFixed(2)} - 15m ${data.load_avg.fifteen.toFixed(2)} - ${data.cpu_cores} cores`;
+  document.getElementById("load-label").textContent = (Number(data.load_avg?.one) || 0).toFixed(2);
+  document.getElementById("load-detail").textContent = `1m ${(Number(data.load_avg?.one) || 0).toFixed(2)} - 5m ${(Number(data.load_avg?.five) || 0).toFixed(2)} - 15m ${(Number(data.load_avg?.fifteen) || 0).toFixed(2)}`;
   document.getElementById("load-summary").textContent = loadSummary;
 
   document.getElementById("cpu-label").textContent = formatPercent(data.cpu_usage);

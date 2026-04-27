@@ -1,4 +1,7 @@
-use axum::{response::{Html, IntoResponse}, Json};
+use axum::{
+    response::{Html, IntoResponse},
+    Json,
+};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::hash_map::DefaultHasher,
@@ -160,17 +163,17 @@ pub async fn website_page() -> impl IntoResponse {
     };
     Html(
         layout
-        .replace("{{TITLE}}", "MinPanel Website")
-        .replace("{{TOPBAR}}", "")
-        .replace(
-            "{{CONTENT}}",
-            &content
-                .replace("{{WEB_SERVER_KIND}}", &web_server.kind)
-                .replace("{{WEB_SERVER_STATUS}}", &web_server.status)
-                .replace("{{WEB_SERVER_ICON}}", &web_server.icon)
-                .replace("{{WEB_SERVER_LABEL}}", &web_server.label)
-                .replace("{{WEB_SERVER_TITLE}}", &web_server.title),
-        ),
+            .replace("{{TITLE}}", "MinPanel Website")
+            .replace("{{TOPBAR}}", "")
+            .replace(
+                "{{CONTENT}}",
+                &content
+                    .replace("{{WEB_SERVER_KIND}}", &web_server.kind)
+                    .replace("{{WEB_SERVER_STATUS}}", &web_server.status)
+                    .replace("{{WEB_SERVER_ICON}}", &web_server.icon)
+                    .replace("{{WEB_SERVER_LABEL}}", &web_server.label)
+                    .replace("{{WEB_SERVER_TITLE}}", &web_server.title),
+            ),
     )
     .into_response()
 }
@@ -1980,8 +1983,7 @@ fn ensure_local_ssl_ca_exists(openssl_dir: &Path, ssl_dir: &Path) -> Result<(), 
         return Ok(());
     }
 
-    fs::create_dir_all(&ca_dir)
-        .map_err(|e| format!("Failed to create local CA directory: {e}"))?;
+    fs::create_dir_all(&ca_dir).map_err(|e| format!("Failed to create local CA directory: {e}"))?;
 
     let root_config_path = write_temp_ssl_file("root-ca", ".cnf", root_ca_openssl_config())?;
     let req_config_path = write_temp_ssl_file("ca-req", ".cnf", certificate_request_config())?;
