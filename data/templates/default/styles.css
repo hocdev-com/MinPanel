@@ -347,13 +347,17 @@ select {
 .top-theme-popover {
   position: absolute;
   top: calc(100% + 8px);
-  right: -6px;
-  width: 184px;
+  left: 50%;
+  right: auto;
+  width: max-content;
+  min-width: 92px;
+  max-width: calc(100vw - 48px);
   padding: 8px 0;
-  border-radius: 14px;
+  border-radius: 12px;
   border: 1px solid #e5ebf2;
   background: #fff;
   box-shadow: 0 14px 30px rgba(15, 23, 42, 0.14);
+  transform: translateX(-50%);
   z-index: 40;
 }
 
@@ -378,11 +382,12 @@ select {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 0 14px;
+  padding: 0 12px;
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
   transition: background 0.18s ease, color 0.18s ease;
+  white-space: nowrap;
 }
 
 .top-theme-option:hover,
@@ -6086,7 +6091,8 @@ select {
   }
 
   .top-theme-popover {
-    width: min(184px, calc(100vw - 48px));
+    width: max-content;
+    max-width: calc(100vw - 48px);
   }
 
   .status-grid {
