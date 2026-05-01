@@ -6,6 +6,7 @@ mod file;
 mod process;
 mod routes;
 mod system;
+mod ui_assets;
 mod website;
 #[cfg(windows)]
 mod windows_gui;
@@ -207,7 +208,7 @@ async fn dashboard_script() -> impl IntoResponse {
 }
 
 async fn shared_core_script() -> impl IntoResponse {
-    match dashboard::load_shared_template("core.js") {
+    match dashboard::load_shared_ui_asset("core.js") {
         Ok(script) => (
             StatusCode::OK,
             [
@@ -228,7 +229,7 @@ async fn shared_core_script() -> impl IntoResponse {
 }
 
 async fn shared_dashboard_page_script() -> impl IntoResponse {
-    match dashboard::load_shared_template("pages/dashboard.js") {
+    match dashboard::load_shared_ui_asset("pages/dashboard.js") {
         Ok(script) => (
             StatusCode::OK,
             [
@@ -249,7 +250,7 @@ async fn shared_dashboard_page_script() -> impl IntoResponse {
 }
 
 async fn shared_software_page_script() -> impl IntoResponse {
-    match dashboard::load_shared_template("pages/software.js") {
+    match dashboard::load_shared_ui_asset("pages/software.js") {
         Ok(script) => (
             StatusCode::OK,
             [
@@ -270,7 +271,7 @@ async fn shared_software_page_script() -> impl IntoResponse {
 }
 
 async fn shared_database_page_script() -> impl IntoResponse {
-    match dashboard::load_shared_template("pages/database.js") {
+    match dashboard::load_shared_ui_asset("pages/database.js") {
         Ok(script) => (
             StatusCode::OK,
             [
@@ -291,7 +292,7 @@ async fn shared_database_page_script() -> impl IntoResponse {
 }
 
 async fn shared_website_page_script() -> impl IntoResponse {
-    match dashboard::load_shared_template("pages/website.js") {
+    match dashboard::load_shared_ui_asset("pages/website.js") {
         Ok(script) => (
             StatusCode::OK,
             [

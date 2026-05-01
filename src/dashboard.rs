@@ -26,7 +26,7 @@ use sysinfo::{Disks, Networks, ProcessRefreshKind, System, MINIMUM_CPU_UPDATE_IN
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 
-use crate::website;
+use crate::{ui_assets, website};
 
 #[cfg(not(windows))]
 use std::net::TcpStream;
@@ -819,6 +819,12 @@ pub(crate) fn resolve_templates_base_dir() -> Result<PathBuf, String> {
     Ok(base_dir.join("data").join("templates"))
 }
 
+pub(crate) fn resolve_shared_ui_base_dir() -> Result<PathBuf, String> {
+    let base_dir =
+        resolve_data_base_dir().ok_or_else(|| "Unable to resolve application directory".to_string())?;
+    Ok(base_dir.join("data").join("ui").join("shared"))
+}
+
 fn ui_settings_path() -> Result<PathBuf, String> {
     let base_dir =
         resolve_data_base_dir().ok_or_else(|| "Unable to resolve application directory".to_string())?;
@@ -861,7 +867,7 @@ fn available_template_themes() -> Result<Vec<TemplateThemeInfo>, String> {
             continue;
         }
         let name = entry.file_name().to_string_lossy().trim().to_string();
-        if name.is_empty() || name == "shared" {
+        if name.is_empty() {
             continue;
         }
         themes.push(TemplateThemeInfo {
@@ -919,9 +925,14 @@ pub(crate) fn load_template(relative_path: &str) -> Result<String, String> {
         .map_err(|error| format!("Failed to read {}: {error}", file_path.display()))
 }
 
-pub(crate) fn load_shared_template(relative_path: &str) -> Result<String, String> {
-    let shared_root = resolve_templates_base_dir()?.join("shared");
+pub(crate) fn load_shared_ui_asset(relative_path: &str) -> Result<String, String> {
     let normalized_path = normalize_template_relative_path(relative_path)?;
+    let normalized_key = normalized_path.to_string_lossy().replace('\\', "/");
+    if let Some(asset) = ui_assets::get_shared_ui_asset(&normalized_key) {
+        return Ok(asset.to_string());
+    }
+
+    let shared_root = resolve_shared_ui_base_dir()?;
     let file_path = shared_root.join(normalized_path);
     fs::read_to_string(&file_path)
         .map_err(|error| format!("Failed to read {}: {error}", file_path.display()))
