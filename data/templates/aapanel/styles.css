@@ -7176,7 +7176,7 @@ body {
 
 .status-hover-panel {
   position: absolute;
-  top: calc(100% + 4px);
+  top: calc(100% - 28px);
   left: 50%;
   z-index: 30;
   width: min(380px, calc(100vw - 48px));
