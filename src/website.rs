@@ -164,6 +164,7 @@ pub async fn website_page() -> impl IntoResponse {
     Html(
         layout
             .replace("{{TITLE}}", "MinPanel Website")
+            .replace("{{ACTIVE_TEMPLATE}}", &dashboard::active_template_name())
             .replace("{{TOPBAR}}", "")
             .replace(
                 "{{CONTENT}}",

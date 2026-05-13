@@ -320,6 +320,7 @@ function syncDashboardRoute() {
 }
 
 function humanizeThemeName(value) {
+  if (String(value || "").toLowerCase() === "aapanel") return "aaPanel";
   return String(value || "default")
     .replace(/[-_]+/g, " ")
     .replace(/\b\w/g, (char) => char.toUpperCase());
@@ -4091,6 +4092,10 @@ function updateOverview(data) {
 
 function updateStatus(data) {
   if (!document.getElementById("load-meter")) return;
+  const setOptionalText = (id, value) => {
+    const element = document.getElementById(id);
+    if (element) element.textContent = value;
+  };
   const loadMax = Math.max(Number(data.load_avg?.max) || ((data.cpu_cores || 1) * 2), 1);
   const loadPercent = Math.max(0, Math.min(100, ((Number(data.load_avg?.one) || 0) / loadMax) * 100));
   const memoryPercent = data.total_memory ? (data.used_memory / data.total_memory) * 100 : 0;
@@ -4116,18 +4121,30 @@ function updateStatus(data) {
   document.getElementById("load-label").textContent = (Number(data.load_avg?.one) || 0).toFixed(2);
   document.getElementById("load-detail").textContent = `1m ${(Number(data.load_avg?.one) || 0).toFixed(2)} - 5m ${(Number(data.load_avg?.five) || 0).toFixed(2)} - 15m ${(Number(data.load_avg?.fifteen) || 0).toFixed(2)}`;
   document.getElementById("load-summary").textContent = loadSummary;
+  setOptionalText("load-hover-usage", `Usage ${Math.round(loadPercent)}%`);
+  setOptionalText("load-hover-basic", document.getElementById("load-detail").textContent);
+  setOptionalText("load-hover-core", loadSummary);
 
   document.getElementById("cpu-label").textContent = formatPercent(data.cpu_usage);
   document.getElementById("cpu-detail").textContent = `${data.cpu_brand} - ${data.cpu_frequency || "--"} MHz - ${data.process_count} processes`;
   document.getElementById("cpu-summary").textContent = `${data.cpu_cores} Core(s)`;
+  setOptionalText("cpu-hover-usage", `Usage ${Math.round(data.cpu_usage)}%`);
+  setOptionalText("cpu-hover-basic", data.cpu_brand || "CPU information unavailable");
+  setOptionalText("cpu-hover-core", `${data.cpu_cores} logical core(s), ${data.process_count} processes`);
 
   document.getElementById("memory-label").textContent = formatPercent(memoryPercent);
   document.getElementById("memory-detail").textContent = `${formatBytes(data.used_memory)} / ${formatBytes(data.total_memory)} RAM - Swap ${formatBytes(data.used_swap)} / ${formatBytes(data.total_swap)}`;
   document.getElementById("memory-summary").textContent = `${formatBytes(data.used_memory)} / ${formatBytes(data.total_memory)}`;
+  setOptionalText("memory-hover-usage", `Usage ${Math.round(memoryPercent)}%`);
+  setOptionalText("memory-hover-basic", document.getElementById("memory-detail").textContent);
+  setOptionalText("memory-hover-core", `${formatBytes(data.used_memory)} / ${formatBytes(data.total_memory)}`);
 
   document.getElementById("disk-label").textContent = formatPercent(diskPercent);
   document.getElementById("disk-detail").textContent = disk ? `${formatBytes(diskUsed)} / ${formatBytes(disk.total_space)} - ${disk.mount_point}` : "Disk information unavailable";
   document.getElementById("disk-summary").textContent = disk ? `${formatBytes(diskUsed)} / ${formatBytes(disk.total_space)}` : "Disk unavailable";
+  setOptionalText("disk-hover-usage", `Usage ${Math.round(diskPercent)}%`);
+  setOptionalText("disk-hover-basic", document.getElementById("disk-detail").textContent);
+  setOptionalText("disk-hover-core", disk?.mount_point || "--");
 }
 
 function updateAlerts(data) {

@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MinPanel — Login</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.ico">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #0f1117;
+            color: #e4e4e7;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .login-card {
+            background: #1a1b23;
+            border: 1px solid #2a2b35;
+            border-radius: 16px;
+            padding: 40px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+
+        .login-logo {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .login-logo svg {
+            width: 48px;
+            height: 48px;
+        }
+
+        .login-logo h1 {
+            font-size: 22px;
+            font-weight: 600;
+            margin-top: 12px;
+            color: #fff;
+        }
+
+        .login-logo p {
+            font-size: 13px;
+            color: #71717a;
+            margin-top: 4px;
+        }
+
+        .form-group {
+            margin-bottom: 18px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: #a1a1aa;
+            margin-bottom: 6px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 10px 14px;
+            font-size: 14px;
+            font-family: inherit;
+            background: #0f1117;
+            border: 1px solid #2a2b35;
+            border-radius: 8px;
+            color: #e4e4e7;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus {
+            border-color: #20a53a;
+            box-shadow: 0 0 0 3px rgba(32,165,58,0.15);
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 11px;
+            font-size: 14px;
+            font-weight: 600;
+            font-family: inherit;
+            background: #20a53a;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+            margin-top: 6px;
+        }
+
+        .login-btn:hover { background: #1a8a30; }
+        .login-btn:active { transform: scale(0.98); }
+        .login-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .error-msg {
+            background: rgba(239,68,68,0.1);
+            border: 1px solid rgba(239,68,68,0.25);
+            color: #f87171;
+            font-size: 13px;
+            padding: 10px 14px;
+            border-radius: 8px;
+            margin-bottom: 18px;
+            display: none;
+        }
+
+        .error-msg.visible { display: block; }
+
+        .change-pw-section {
+            margin-top: 24px;
+            padding-top: 20px;
+            border-top: 1px solid #2a2b35;
+            display: none;
+        }
+
+        .change-pw-section.visible { display: block; }
+
+        .change-pw-section h3 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #fbbf24;
+            margin-bottom: 4px;
+        }
+
+        .change-pw-section p {
+            font-size: 12px;
+            color: #71717a;
+            margin-bottom: 14px;
+        }
+
+        .success-msg {
+            background: rgba(32,165,58,0.1);
+            border: 1px solid rgba(32,165,58,0.25);
+            color: #4ade80;
+            font-size: 13px;
+            padding: 10px 14px;
+            border-radius: 8px;
+            margin-bottom: 14px;
+            display: none;
+        }
+
+        .success-msg.visible { display: block; }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <div class="login-logo">
+            <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M6 26V6H10L16 12L22 6H26V26H22V12L16 18L10 12V26H6Z" fill="#20a53a"/>
+            </svg>
+            <h1>MinPanel</h1>
+            <p>Sign in to your control panel</p>
+        </div>
+
+        <div id="errorMsg" class="error-msg"></div>
+
+        <form id="loginForm" autocomplete="on">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" autocomplete="username" required autofocus>
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" autocomplete="current-password" required>
+            </div>
+            <button type="submit" class="login-btn" id="loginBtn">Sign in</button>
+        </form>
+
+        <div id="changePwSection" class="change-pw-section">
+            <h3>⚠ Change Default Password</h3>
+            <p>You are using the default password. Please change it now.</p>
+
+            <div id="changePwSuccess" class="success-msg"></div>
+            <div id="changePwError" class="error-msg"></div>
+
+            <form id="changePwForm">
+                <div class="form-group">
+                    <label for="newPassword">New Password</label>
+                    <input type="password" id="newPassword" name="new_password" autocomplete="new-password" required minlength="6" placeholder="At least 6 characters">
+                </div>
+                <div class="form-group">
+                    <label for="confirmPassword">Confirm Password</label>
+                    <input type="password" id="confirmPassword" autocomplete="new-password" required minlength="6">
+                </div>
+                <button type="submit" class="login-btn" id="changePwBtn">Change Password</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const loginForm = document.getElementById('loginForm');
+        const errorMsg = document.getElementById('errorMsg');
+        const changePwSection = document.getElementById('changePwSection');
+        let currentPassword = '';
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('loginBtn');
+            btn.disabled = true;
+            btn.textContent = 'Signing in...';
+            errorMsg.classList.remove('visible');
+
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                const resp = await fetch('/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password }),
+                });
+                const data = await resp.json();
+
+                if (!data.status) {
+                    errorMsg.textContent = data.message || 'Login failed';
+                    errorMsg.classList.add('visible');
+                    btn.disabled = false;
+                    btn.textContent = 'Sign in';
+                    return;
+                }
+
+                if (data.must_change_password) {
+                    currentPassword = password;
+                    loginForm.style.display = 'none';
+                    changePwSection.classList.add('visible');
+                    document.getElementById('newPassword').focus();
+                    return;
+                }
+
+                window.location.href = '/dashboard';
+            } catch (err) {
+                errorMsg.textContent = 'Connection error. Is the server running?';
+                errorMsg.classList.add('visible');
+                btn.disabled = false;
+                btn.textContent = 'Sign in';
+            }
+        });
+
+        const changePwForm = document.getElementById('changePwForm');
+        changePwForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('changePwBtn');
+            const errEl = document.getElementById('changePwError');
+            const okEl = document.getElementById('changePwSuccess');
+            errEl.classList.remove('visible');
+            okEl.classList.remove('visible');
+
+            const newPw = document.getElementById('newPassword').value;
+            const confirmPw = document.getElementById('confirmPassword').value;
+
+            if (newPw !== confirmPw) {
+                errEl.textContent = 'Passwords do not match';
+                errEl.classList.add('visible');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Changing...';
+
+            try {
+                const resp = await fetch('/auth/change-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        current_password: currentPassword,
+                        new_password: newPw,
+                    }),
+                });
+                const data = await resp.json();
+
+                if (data.status) {
+                    okEl.textContent = 'Password changed! Redirecting...';
+                    okEl.classList.add('visible');
+                    changePwForm.style.display = 'none';
+
+                    // Re-login with new password
+                    const username = document.getElementById('username').value;
+                    await fetch('/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password: newPw }),
+                    });
+
+                    setTimeout(() => { window.location.href = '/dashboard'; }, 1000);
+                } else {
+                    errEl.textContent = data.message || 'Failed to change password';
+                    errEl.classList.add('visible');
+                    btn.disabled = false;
+                    btn.textContent = 'Change Password';
+                }
+            } catch (err) {
+                errEl.textContent = 'Connection error';
+                errEl.classList.add('visible');
+                btn.disabled = false;
+                btn.textContent = 'Change Password';
+            }
+        });
+    </script>
+</body>
+</html>

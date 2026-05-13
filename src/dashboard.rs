@@ -880,6 +880,10 @@ fn available_template_themes() -> Result<Vec<TemplateThemeInfo>, String> {
 }
 
 fn humanize_template_theme_name(name: &str) -> String {
+    if name.eq_ignore_ascii_case("aapanel") {
+        return "aaPanel".to_string();
+    }
+
     let normalized = name.replace(['-', '_'], " ");
     let mut words = Vec::new();
     for word in normalized.split_whitespace() {
@@ -950,6 +954,7 @@ pub(crate) fn template_load_error_response(error: String) -> Response {
 fn render_page(title: &str, topbar_path: &str, content_path: &str) -> Result<Html<String>, String> {
     let page = load_template("layout.html")?
         .replace("{{TITLE}}", title)
+        .replace("{{ACTIVE_TEMPLATE}}", &active_template_name())
         .replace("{{TOPBAR}}", &load_template(topbar_path)?)
         .replace("{{CONTENT}}", &load_template(content_path)?);
     Ok(Html(page))
