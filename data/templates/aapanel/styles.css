@@ -7156,6 +7156,7 @@ body {
   grid-row: 1;
   position: static;
   width: auto;
+  min-width: 0;
   max-width: none;
   padding: 0;
   border: 0;
@@ -7167,15 +7168,21 @@ body {
   pointer-events: auto;
 }
 
+.status-card:hover .status-copy,
+.status-card:focus-within .status-copy {
+  opacity: 1;
+  transform: none;
+}
+
 .status-hover-panel {
   position: absolute;
-  top: calc(100% - 22px);
+  top: calc(100% + 4px);
   left: 50%;
   z-index: 30;
   width: min(380px, calc(100vw - 48px));
   padding: 22px 20px 18px;
   border: 1px solid #e7eaee;
-  border-radius: 3px;
+  border-radius: 4px;
   background: #ffffff;
   box-shadow: 0 8px 24px rgba(16, 24, 40, 0.14);
   color: #3f4a59;
@@ -7263,6 +7270,10 @@ body {
   font-weight: 800;
   letter-spacing: 0;
   text-transform: none;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .status-copy p {
@@ -7270,11 +7281,14 @@ body {
   color: #111827;
   font-size: 26px;
   font-weight: 800;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .status-copy small {
-  margin-top: 8px;
-  color: var(--muted);
+  display: none;
 }
 
 .overview-card {
