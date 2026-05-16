@@ -7626,6 +7626,37 @@ body {
   font-weight: 700;
 }
 
+.topbar-uptime-item {
+  display: inline-flex;
+  align-items: center;
+  color: #5f6873;
+  font-size: 12px;
+  line-height: 24px;
+}
+
+.topbar-uptime-item strong {
+  color: #111827;
+  font-weight: 600;
+}
+
+.topbar-system-item {
+  display: inline-flex;
+  align-items: center;
+  color: #1f2933;
+  font-size: 12px;
+  line-height: 24px;
+}
+
+.topbar-system-item .topbar-text {
+  display: inline;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.topbar-system-item .topbar-os-icon {
+  flex: 0 0 16px;
+}
+
 @media (min-width: 1101px) {
   .status-grid {
     grid-template-columns: repeat(5, minmax(0, 1fr));
