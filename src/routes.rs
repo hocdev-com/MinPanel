@@ -102,6 +102,8 @@ pub fn routes() -> Router {
         .route("/overview", get(overview_redirect))
         .route("/traffic", get(traffic_redirect))
         .route("/login", get(auth::login_page).post(auth::login))
+        .route("/login/ui/templates", get(dashboard::list_template_themes))
+        .route("/login/ui/template", post(dashboard::set_template_theme))
         .merge(protected_api)
         .merge(protected_pages)
 }

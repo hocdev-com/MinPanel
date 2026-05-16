@@ -347,7 +347,7 @@ pub async fn require_auth_page(request: Request<axum::body::Body>, next: Next) -
 
 /// GET /login — serves the login page HTML.
 pub async fn login_page() -> impl IntoResponse {
-    match dashboard::load_template("login.html") {
+    match dashboard::load_shared_ui_asset("login.html") {
         Ok(page) => (
             [(
                 header::CONTENT_TYPE,

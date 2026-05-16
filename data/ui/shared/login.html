@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MinPanel - Login</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.ico">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            min-height: 100vh;
+            font-family: "Microsoft YaHei", "Segoe UI", Arial, sans-serif;
+            background: #444443;
+            color: #162033;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 62px 20px;
+        }
+
+        .login-shell {
+            width: min(440px, 100%);
+        }
+
+        .login-logo {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 14px;
+        }
+
+        .login-logo svg {
+            width: 94px;
+            height: 88px;
+            display: block;
+        }
+
+        .login-card {
+            position: relative;
+            width: 100%;
+            min-height: 430px;
+            padding: 66px 40px 38px;
+            background: #f7f8fa;
+            border-radius: 14px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+        }
+
+        .login-switch {
+            position: absolute;
+            top: 16px;
+            right: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .login-switch-pill {
+            height: 28px;
+            padding: 0 18px;
+            border: 0;
+            border-radius: 4px;
+            background: #d8f0df;
+            color: #20a53a;
+            font-size: 12px;
+            line-height: 28px;
+        }
+
+        .login-qr {
+            width: 22px;
+            height: 22px;
+            background:
+                linear-gradient(#707781 0 0) 0 0 / 7px 7px no-repeat,
+                linear-gradient(#707781 0 0) 15px 0 / 7px 7px no-repeat,
+                linear-gradient(#707781 0 0) 0 15px / 7px 7px no-repeat,
+                linear-gradient(#707781 0 0) 15px 15px / 7px 7px no-repeat,
+                linear-gradient(#707781 0 0) 10px 10px / 4px 4px no-repeat,
+                linear-gradient(#707781 0 0) 15px 9px / 3px 3px no-repeat,
+                linear-gradient(#707781 0 0) 9px 15px / 3px 3px no-repeat;
+        }
+
+        .login-title {
+            margin: 0 0 28px;
+            color: #162033;
+            font-size: 28px;
+            font-weight: 400;
+            line-height: 1;
+            text-align: center;
+        }
+
+        .error-msg,
+        .success-msg {
+            display: none;
+            margin-bottom: 14px;
+            padding: 10px 14px;
+            border-radius: 4px;
+            font-size: 13px;
+            line-height: 1.35;
+        }
+
+        .error-msg {
+            background: #fff1f0;
+            border: 1px solid #ffccc7;
+            color: #cf1322;
+        }
+
+        .success-msg {
+            background: #edf9f0;
+            border: 1px solid #bde9c6;
+            color: #168a30;
+        }
+
+        .error-msg.visible,
+        .success-msg.visible {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 22px;
+        }
+
+        .form-control,
+        .theme-select {
+            width: 100%;
+            height: 40px;
+            padding: 0 16px;
+            border: 1px solid #c5cad1;
+            border-radius: 6px;
+            background: #f7f8fa;
+            color: #384252;
+            font: inherit;
+            font-size: 13px;
+            outline: none;
+            transition: border-color 0.16s ease, box-shadow 0.16s ease;
+        }
+
+        .form-control:focus,
+        .theme-select:focus {
+            border-color: #20a53a;
+            box-shadow: 0 0 0 3px rgba(32, 165, 58, 0.12);
+        }
+
+        .theme-row {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 22px;
+        }
+
+        .theme-select-wrap {
+            position: relative;
+            width: 230px;
+            max-width: calc(100% - 46px);
+        }
+
+        .theme-select {
+            appearance: none;
+            padding-right: 42px;
+            cursor: pointer;
+        }
+
+        .theme-select-wrap::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            right: 15px;
+            width: 9px;
+            height: 9px;
+            border-right: 1px solid #b8bec7;
+            border-bottom: 1px solid #b8bec7;
+            transform: translateY(-65%) rotate(45deg);
+            pointer-events: none;
+        }
+
+        .theme-help {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #ff7626;
+            color: #fff;
+            display: grid;
+            place-items: center;
+            font-size: 12px;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .login-btn {
+            width: 100%;
+            height: 38px;
+            border: 0;
+            border-radius: 6px;
+            background: #20a53a;
+            color: #fff;
+            cursor: pointer;
+            font: inherit;
+            font-size: 14px;
+            font-weight: 600;
+            transition: background 0.16s ease, transform 0.08s ease;
+        }
+
+        .login-btn:hover {
+            background: #1b9132;
+        }
+
+        .login-btn:active {
+            transform: translateY(1px);
+        }
+
+        .login-btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.65;
+        }
+
+        .login-links {
+            display: flex;
+            justify-content: flex-end;
+            gap: 14px;
+            margin-top: 22px;
+            font-size: 12px;
+        }
+
+        .login-links a {
+            color: #20a53a;
+            text-decoration: none;
+        }
+
+        .login-links a:hover {
+            text-decoration: underline;
+        }
+
+        .change-pw-section {
+            display: none;
+            margin-top: 24px;
+            padding-top: 20px;
+            border-top: 1px solid #e2e5e9;
+        }
+
+        .change-pw-section.visible {
+            display: block;
+        }
+
+        .change-pw-section h3 {
+            margin-bottom: 6px;
+            color: #162033;
+            font-size: 15px;
+            font-weight: 700;
+        }
+
+        .change-pw-section p {
+            margin-bottom: 14px;
+            color: #7a8492;
+            font-size: 12px;
+            line-height: 1.45;
+        }
+
+        @media (max-width: 520px) {
+            body {
+                padding: 38px 14px;
+            }
+
+            .login-card {
+                padding: 66px 28px 34px;
+            }
+
+            .theme-select-wrap {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="login-shell">
+        <div class="login-logo" aria-hidden="true">
+            <svg viewBox="0 0 112 104" xmlns="http://www.w3.org/2000/svg">
+                <path d="M56 6 99 22 94 31 56 18 18 31 13 22 56 6Z" fill="#20a53a"/>
+                <path d="M23 35 56 24 89 35v23c0 21-13 35-33 43-20-8-33-22-33-43V35Z" fill="#20a53a"/>
+                <path d="M56 24v77c20-8 33-22 33-43V35L56 24Z" fill="#169b33"/>
+                <path d="M34 39v9M45 36v10M67 36v10M78 39v9" stroke="#0f7d29" stroke-width="4" stroke-linecap="round"/>
+            </svg>
+        </div>
+
+        <section class="login-card">
+            <div class="login-switch" aria-hidden="true">
+                <span class="login-switch-pill">Switch QR login</span>
+                <span class="login-qr"></span>
+            </div>
+
+            <h1 class="login-title">MinPanel</h1>
+            <div id="errorMsg" class="error-msg"></div>
+
+            <form id="loginForm" autocomplete="on">
+                <div class="form-group">
+                    <input class="form-control" type="text" id="username" name="username" autocomplete="username" placeholder="Username" required autofocus>
+                </div>
+                <div class="form-group">
+                    <input class="form-control" type="password" id="password" name="password" autocomplete="current-password" placeholder="Password" required>
+                </div>
+                <div class="theme-row">
+                    <div class="theme-select-wrap">
+                        <select class="theme-select" id="loginThemeSelect" aria-label="Select interface">
+                            <option value="">Loading interfaces...</option>
+                        </select>
+                    </div>
+                    <span class="theme-help" title="Choose the dashboard interface">?</span>
+                </div>
+                <button type="submit" class="login-btn" id="loginBtn">Login</button>
+                <div class="login-links">
+                    <a href="#" tabindex="-1">Unable to login?</a>
+                    <a href="#" tabindex="-1">Contact support</a>
+                    <a href="#" tabindex="-1">Forgot password</a>
+                </div>
+            </form>
+
+            <div id="changePwSection" class="change-pw-section">
+                <h3>Change Default Password</h3>
+                <p>You are using the default password. Please change it now.</p>
+
+                <div id="changePwSuccess" class="success-msg"></div>
+                <div id="changePwError" class="error-msg"></div>
+
+                <form id="changePwForm">
+                    <div class="form-group">
+                        <input class="form-control" type="password" id="newPassword" name="new_password" autocomplete="new-password" required minlength="6" placeholder="New password">
+                    </div>
+                    <div class="form-group">
+                        <input class="form-control" type="password" id="confirmPassword" autocomplete="new-password" required minlength="6" placeholder="Confirm password">
+                    </div>
+                    <button type="submit" class="login-btn" id="changePwBtn">Change Password</button>
+                </form>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const loginForm = document.getElementById("loginForm");
+        const errorMsg = document.getElementById("errorMsg");
+        const changePwSection = document.getElementById("changePwSection");
+        const themeSelect = document.getElementById("loginThemeSelect");
+        let currentPassword = "";
+
+        function humanizeThemeName(name) {
+            return String(name || "")
+                .split(/[-_]+/)
+                .filter(Boolean)
+                .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+                .join(" ") || "Default";
+        }
+
+        function escapeHtml(value) {
+            return String(value || "")
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;");
+        }
+
+        async function loadLoginThemes() {
+            if (!themeSelect) return;
+            try {
+                const resp = await fetch("/login/ui/templates", { cache: "no-store" });
+                const data = await resp.json();
+                const themes = Array.isArray(data.themes) ? data.themes : [];
+                if (!themes.length) {
+                    themeSelect.innerHTML = '<option value="">No interfaces found</option>';
+                    themeSelect.disabled = true;
+                    return;
+                }
+                themeSelect.innerHTML = themes
+                    .map((theme) => {
+                        const id = String(theme.id || "");
+                        const label = String(theme.label || humanizeThemeName(id));
+                        const selected = id === data.active ? " selected" : "";
+                        return `<option value="${escapeHtml(id)}"${selected}>Interface: ${escapeHtml(label)}</option>`;
+                    })
+                    .join("");
+            } catch (error) {
+                themeSelect.innerHTML = '<option value="">Interface unavailable</option>';
+                themeSelect.disabled = true;
+            }
+        }
+
+        async function applyLoginTheme(themeId) {
+            if (!themeId) return;
+            themeSelect.disabled = true;
+            try {
+                const resp = await fetch("/login/ui/template", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ theme: themeId }),
+                });
+                const data = await resp.json();
+                if (!data.status) throw new Error(data.message || "Failed to change interface");
+                window.location.reload();
+            } catch (error) {
+                errorMsg.textContent = error.message || "Failed to change interface";
+                errorMsg.classList.add("visible");
+                themeSelect.disabled = false;
+            }
+        }
+
+        themeSelect.addEventListener("change", (event) => {
+            applyLoginTheme(event.target.value);
+        });
+
+        loginForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById("loginBtn");
+            btn.disabled = true;
+            btn.textContent = "Logging in...";
+            errorMsg.classList.remove("visible");
+
+            const username = document.getElementById("username").value;
+            const password = document.getElementById("password").value;
+
+            try {
+                const resp = await fetch("/login", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ username, password }),
+                });
+                const data = await resp.json();
+
+                if (!data.status) {
+                    errorMsg.textContent = data.message || "Login failed";
+                    errorMsg.classList.add("visible");
+                    btn.disabled = false;
+                    btn.textContent = "Login";
+                    return;
+                }
+
+                if (data.must_change_password) {
+                    currentPassword = password;
+                    loginForm.style.display = "none";
+                    changePwSection.classList.add("visible");
+                    document.getElementById("newPassword").focus();
+                    return;
+                }
+
+                window.location.href = "/dashboard";
+            } catch (err) {
+                errorMsg.textContent = "Connection error. Is the server running?";
+                errorMsg.classList.add("visible");
+                btn.disabled = false;
+                btn.textContent = "Login";
+            }
+        });
+
+        const changePwForm = document.getElementById("changePwForm");
+        changePwForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById("changePwBtn");
+            const errEl = document.getElementById("changePwError");
+            const okEl = document.getElementById("changePwSuccess");
+            errEl.classList.remove("visible");
+            okEl.classList.remove("visible");
+
+            const newPw = document.getElementById("newPassword").value;
+            const confirmPw = document.getElementById("confirmPassword").value;
+
+            if (newPw !== confirmPw) {
+                errEl.textContent = "Passwords do not match";
+                errEl.classList.add("visible");
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = "Changing...";
+
+            try {
+                const resp = await fetch("/auth/change-password", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        current_password: currentPassword,
+                        new_password: newPw,
+                    }),
+                });
+                const data = await resp.json();
+
+                if (data.status) {
+                    okEl.textContent = "Password changed. Redirecting...";
+                    okEl.classList.add("visible");
+                    changePwForm.style.display = "none";
+
+                    const username = document.getElementById("username").value;
+                    await fetch("/login", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ username, password: newPw }),
+                    });
+
+                    setTimeout(() => { window.location.href = "/dashboard"; }, 1000);
+                } else {
+                    errEl.textContent = data.message || "Failed to change password";
+                    errEl.classList.add("visible");
+                    btn.disabled = false;
+                    btn.textContent = "Change Password";
+                }
+            } catch (err) {
+                errEl.textContent = "Connection error";
+                errEl.classList.add("visible");
+                btn.disabled = false;
+                btn.textContent = "Change Password";
+            }
+        });
+
+        loadLoginThemes();
+    </script>
+</body>
+</html>
