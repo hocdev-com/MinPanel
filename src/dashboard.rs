@@ -1220,6 +1220,18 @@ pub async fn install_software_package(
     // Create task entry
     {
         if let Ok(mut tasks) = get_task_manager().lock() {
+            // Evict oldest completed tasks if limit reached
+            if tasks.len() >= 100 {
+                let mut completed: Vec<(String, u64)> = tasks
+                    .iter()
+                    .filter(|(_, t)| t.status != "running")
+                    .map(|(k, t)| (k.clone(), t.created_at))
+                    .collect();
+                completed.sort_by_key(|(_, ts)| *ts);
+                for (key, _) in completed.iter().take(tasks.len().saturating_sub(80)) {
+                    tasks.remove(key);
+                }
+            }
             tasks.insert(
                 task_id.clone(),
                 TaskInfo {
@@ -3070,6 +3082,11 @@ fn uninstall_native_windows_runtime(entry: &InstalledRuntime) -> Result<String, 
     .unwrap_or_else(|| Ok(format!("No runtime uninstaller for {}", entry.runtime_kind)))
 }
 
+#[cfg(not(windows))]
+fn uninstall_native_windows_runtime(_entry: &InstalledRuntime) -> Result<String, String> {
+    Ok("No runtime uninstaller on this platform".to_string())
+}
+
 fn extract_plugin_package_archive(
     package_path: &Path,
     install_dir: &Path,
@@ -3273,7 +3290,9 @@ async fn install_plugin_package(plugin_id: &str, task_id: &str) -> Result<String
                             .join("data")
                             .join("trash")
                             .join(uuid::Uuid::new_v4().to_string());
-                        let _ = fs::create_dir_all(trash_dir.parent().unwrap());
+                        if let Some(parent) = trash_dir.parent() {
+                            let _ = fs::create_dir_all(parent);
+                        }
                         if fs::rename(&install_root, &trash_dir).is_ok() {
                             let _ = fs::remove_dir_all(&trash_dir);
                             deleted = true;
@@ -5099,6 +5118,13 @@ pub(crate) fn is_runtime_entry_ready(entry: &InstalledRuntime) -> bool {
 }
 
 fn find_file_recursive(root: &Path, file_name: &str) -> Option<PathBuf> {
+    find_file_recursive_bounded(root, file_name, 5)
+}
+
+fn find_file_recursive_bounded(root: &Path, file_name: &str, max_depth: usize) -> Option<PathBuf> {
+    if max_depth == 0 {
+        return None;
+    }
     let entries = fs::read_dir(root).ok()?;
     for entry in entries.flatten() {
         let path = entry.path();
@@ -5112,7 +5138,7 @@ fn find_file_recursive(root: &Path, file_name: &str) -> Option<PathBuf> {
             return Some(path);
         }
         if path.is_dir() {
-            if let Some(found) = find_file_recursive(&path, file_name) {
+            if let Some(found) = find_file_recursive_bounded(&path, file_name, max_depth - 1) {
                 return Some(found);
             }
         }

@@ -7,12 +7,13 @@ use axum::{
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::hash_map::DefaultHasher,
+    collections::{hash_map::DefaultHasher, HashMap},
+    env,
     fs,
     hash::{Hash, Hasher},
     path::PathBuf,
-    sync::OnceLock,
-    time::{SystemTime, UNIX_EPOCH},
+    sync::{Mutex, OnceLock},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 use crate::dashboard;
@@ -206,10 +207,20 @@ fn extract_session_token(headers: &HeaderMap) -> Option<String> {
 }
 
 fn session_cookie(token: &str) -> HeaderValue {
+    let secure_flag = if should_use_secure_cookie() {
+        "; Secure"
+    } else {
+        ""
+    };
     HeaderValue::from_str(&format!(
-        "mp_session={token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=86400"
+        "mp_session={token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=86400{secure_flag}"
     ))
     .unwrap_or_else(|_| HeaderValue::from_static(""))
+}
+
+fn should_use_secure_cookie() -> bool {
+    let bind = env::var("MINI_PANEL_BIND").unwrap_or_else(|_| "127.0.0.1".to_string());
+    bind.trim() == "0.0.0.0" || bind.contains("::") || bind.trim() != "127.0.0.1"
 }
 
 fn clear_session_cookie() -> HeaderValue {
@@ -226,11 +237,22 @@ pub fn is_authenticated(headers: &HeaderMap) -> bool {
 
 // ─── Handlers ───────────────────────────────────────────────────────────────
 
-pub async fn login(Json(payload): Json<LoginRequest>) -> impl IntoResponse {
+pub async fn login(
+    headers: HeaderMap,
+    Json(payload): Json<LoginRequest>,
+) -> impl IntoResponse {
+    let client_ip = extract_client_ip(&headers);
+
+    // Rate limiting: reject if too many failed attempts
+    if let Some(lockout_response) = check_login_rate_limit(&client_ip) {
+        return lockout_response;
+    }
+
     let config = ensure_config();
     let password_hash = hash_password(&payload.password, &config.salt);
 
     if payload.username != config.username || password_hash != config.password_hash {
+        record_failed_login(&client_ip);
         return (
             StatusCode::UNAUTHORIZED,
             [(header::SET_COOKIE, clear_session_cookie())],
@@ -241,6 +263,8 @@ pub async fn login(Json(payload): Json<LoginRequest>) -> impl IntoResponse {
             }),
         );
     }
+
+    clear_login_attempts(&client_ip);
 
     match create_token(&payload.username) {
         Ok(token) => (
@@ -262,6 +286,106 @@ pub async fn login(Json(payload): Json<LoginRequest>) -> impl IntoResponse {
             }),
         ),
     }
+}
+
+// ─── Login Rate Limiting ────────────────────────────────────────────────────
+
+const MAX_LOGIN_ATTEMPTS: u32 = 5;
+const RATE_LIMIT_WINDOW: Duration = Duration::from_secs(15 * 60); // 15 minutes
+
+static LOGIN_RATE_LIMITER: OnceLock<Mutex<HashMap<String, LoginAttemptRecord>>> = OnceLock::new();
+
+struct LoginAttemptRecord {
+    count: u32,
+    first_attempt: Instant,
+}
+
+fn login_rate_limiter() -> &'static Mutex<HashMap<String, LoginAttemptRecord>> {
+    LOGIN_RATE_LIMITER.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn check_login_rate_limit(
+    client_ip: &str,
+) -> Option<(
+    StatusCode,
+    [(header::HeaderName, HeaderValue); 1],
+    Json<LoginResponse>,
+)> {
+    let limiter = login_rate_limiter();
+    let Ok(attempts) = limiter.lock() else {
+        return None;
+    };
+    let record = attempts.get(client_ip)?;
+    if record.first_attempt.elapsed() > RATE_LIMIT_WINDOW {
+        return None; // Window expired
+    }
+    if record.count < MAX_LOGIN_ATTEMPTS {
+        return None;
+    }
+    let remaining_secs = RATE_LIMIT_WINDOW
+        .checked_sub(record.first_attempt.elapsed())
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    Some((
+        StatusCode::TOO_MANY_REQUESTS,
+        [(header::SET_COOKIE, clear_session_cookie())],
+        Json(LoginResponse {
+            status: false,
+            message: format!(
+                "Too many login attempts. Try again in {} minute(s).",
+                (remaining_secs / 60).max(1)
+            ),
+            must_change_password: None,
+        }),
+    ))
+}
+
+fn record_failed_login(client_ip: &str) {
+    let limiter = login_rate_limiter();
+    let Ok(mut attempts) = limiter.lock() else {
+        return;
+    };
+    let now = Instant::now();
+    let record = attempts
+        .entry(client_ip.to_string())
+        .or_insert(LoginAttemptRecord {
+            count: 0,
+            first_attempt: now,
+        });
+    if record.first_attempt.elapsed() > RATE_LIMIT_WINDOW {
+        // Reset window
+        record.count = 1;
+        record.first_attempt = now;
+    } else {
+        record.count += 1;
+    }
+    // Evict stale entries to prevent unbounded growth
+    if attempts.len() > 1000 {
+        attempts.retain(|_, r| r.first_attempt.elapsed() <= RATE_LIMIT_WINDOW);
+    }
+}
+
+fn clear_login_attempts(client_ip: &str) {
+    let limiter = login_rate_limiter();
+    if let Ok(mut attempts) = limiter.lock() {
+        attempts.remove(client_ip);
+    }
+}
+
+fn extract_client_ip(headers: &HeaderMap) -> String {
+    // Check X-Forwarded-For first, then X-Real-IP, then fallback
+    headers
+        .get("x-forwarded-for")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.split(',').next())
+        .map(|v| v.trim().to_string())
+        .or_else(|| {
+            headers
+                .get("x-real-ip")
+                .and_then(|v| v.to_str().ok())
+                .map(|v| v.trim().to_string())
+        })
+        .unwrap_or_else(|| "unknown".to_string())
 }
 
 pub async fn change_password(Json(payload): Json<ChangePasswordRequest>) -> impl IntoResponse {
