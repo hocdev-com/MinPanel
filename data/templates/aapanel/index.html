@@ -11,7 +11,7 @@
         </div>
         <div class="status-summary" id="load-summary">Preparing...</div>
         <div class="status-copy">
-          <h3>Load Status</h3>
+          <h3>Load status</h3>
           <p id="load-label">0.00</p>
           <small id="load-detail">1 min average / normal</small>
           <div class="status-hover-panel" role="tooltip">
@@ -44,7 +44,7 @@
         </div>
         <div class="status-summary" id="cpu-summary">Preparing...</div>
         <div class="status-copy">
-          <h3>CPU Usage</h3>
+          <h3>CPU</h3>
           <p id="cpu-label">0%</p>
           <small id="cpu-detail">Preparing processor telemetry...</small>
           <div class="status-hover-panel" role="tooltip">
@@ -78,7 +78,7 @@
         </div>
         <div class="status-summary" id="memory-summary">Preparing...</div>
         <div class="status-copy">
-          <h3>Memory Usage</h3>
+          <h3>Memory</h3>
           <p id="memory-label">0%</p>
           <small id="memory-detail">Preparing memory telemetry...</small>
           <div class="status-hover-panel" role="tooltip">
@@ -111,7 +111,7 @@
         </div>
         <div class="status-summary" id="disk-summary">Preparing...</div>
         <div class="status-copy">
-          <h3>Disk Usage</h3>
+          <h3 id="disk-title">/</h3>
           <p id="disk-label">0%</p>
           <small id="disk-detail">Preparing disk telemetry...</small>
           <div class="status-hover-panel" role="tooltip">
@@ -135,6 +135,39 @@
         </div>
       </div>
     </article>
+
+    <article class="card status-card" tabindex="0">
+      <div class="meter-wrap">
+        <div class="status-title">Disk usage</div>
+        <div class="meter" id="disk-extra-meter" style="--accent-color: #20a53a">
+          <strong id="disk-extra-meter-value">0%</strong>
+        </div>
+        <div class="status-summary" id="disk-extra-summary">Preparing...</div>
+        <div class="status-copy">
+          <h3 id="disk-extra-title">Disk</h3>
+          <p id="disk-extra-label">0%</p>
+          <small id="disk-extra-detail">Preparing disk telemetry...</small>
+          <div class="status-hover-panel" role="tooltip">
+            <div class="status-hover-arrow" aria-hidden="true"></div>
+            <div class="status-hover-row status-hover-head">
+              <span>Detected current disk usage</span>
+              <strong id="disk-extra-hover-usage">Usage 0%</strong>
+            </div>
+            <div class="status-hover-section">Basic information</div>
+            <div class="status-hover-line" id="disk-extra-hover-basic">Preparing disk telemetry...</div>
+            <div class="status-hover-divider"></div>
+            <div class="status-hover-row">
+              <span>Mount point</span>
+              <strong id="disk-extra-hover-core">--</strong>
+            </div>
+            <div class="status-hover-section status-hover-footer">
+              <span>Top disk process information</span>
+              <strong>Expand ></strong>
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
   </div>
 </section>
 
@@ -144,23 +177,24 @@
   </div>
   <div class="overview-grid">
     <article class="overview-item">
-      <span>Site</span>
+      <span>Website</span>
       <strong class="overview-value is-good" id="overview-site-count">0</strong>
+      <i aria-hidden="true"></i>
     </article>
     <article class="overview-item">
-      <span>FTP</span>
-      <strong class="overview-value is-good" id="overview-ftp-count">0</strong>
-    </article>
-    <article class="overview-item">
-      <span>DB</span>
+      <span>Database</span>
       <strong class="overview-value is-good" id="overview-db-count">0</strong>
+      <i aria-hidden="true"></i>
     </article>
     <article class="overview-item">
-      <span>Security</span>
+      <span>Security Risk</span>
       <strong class="overview-value is-danger" id="overview-security-count">0</strong>
+      <i aria-hidden="true"></i>
     </article>
-    <div class="overview-spacer" aria-hidden="true"></div>
-    <div class="overview-spacer" aria-hidden="true"></div>
+    <article class="overview-item">
+      <span>Backup record</span>
+      <small>Current content is empty, click to edit</small>
+    </article>
   </div>
 </section>
 

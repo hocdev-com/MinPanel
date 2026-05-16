@@ -1,0 +1,11 @@
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100"  height="100" ><path class="el-progress-circle__track" d="
+          M 50 50
+          m 0 -46
+          a 46 46 0 1 1 0 92
+          a 46 46 0 1 1 0 -92
+          " stroke="#EEEEEE" stroke-linecap="round" stroke-width="8px" fill="none" style="stroke-dasharray: 289.027px, 289.027px; stroke-dashoffset: 0px;"></path><path class="el-progress-circle__path" d="
+          M 50 50
+          m 0 -46
+          a 46 46 0 1 1 0 92
+          a 46 46 0 1 1 0 -92
+          " stroke="#20A53A" fill="none" opacity="1" stroke-linecap="round" stroke-width="8px" style="stroke-dasharray: 72.2566px, 289.027px; stroke-dashoffset: 0px; transition: stroke-dasharray 0.6s, stroke 0.6s, opacity 0.6s;"></path></svg>

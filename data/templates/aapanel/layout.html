@@ -19,36 +19,33 @@
     <div class="shell">
       <aside class="sidebar" id="sidebar">
         <div class="server-pill">
-          <span class="server-pill-icon" aria-hidden="true">
-            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="2.5" y="3.5" width="15" height="10" rx="1.8"></rect>
-              <path d="M8 16.5h4"></path>
-              <path d="M10 13.5v3"></path>
-            </svg>
-          </span>
+          <span class="server-pill-icon dashboard-icon icon-bt-logo" aria-hidden="true"></span>
           <div class="server-pill-value" id="sidebar-host">Loading...</div>
           <button class="server-pill-badge" id="sidebar-log-button" type="button" aria-haspopup="dialog" aria-controls="log-modal" aria-label="Open logs">0</button>
         </div>
 
-        <div class="menu-group">
-          <div class="menu-title">Panel</div>
+        <nav class="menu-group" aria-label="aaPanel navigation">
           <ul class="menu">
-            <li><a href="/dashboard" data-menu="Dashboard"><span class="menu-icon dashboard-icon icon-dashboard" aria-hidden="true"></span><span>Dashboard</span></a></li>
+            <li><a href="/dashboard" data-menu="Home"><span class="menu-icon dashboard-icon icon-dashboard" aria-hidden="true"></span><span>Home</span></a></li>
             <li><a href="/website" data-menu="Website"><span class="menu-icon dashboard-icon icon-website" aria-hidden="true"></span><span>Website</span></a></li>
             <li><a href="/database" data-menu="Database"><span class="menu-icon dashboard-icon icon-database" aria-hidden="true"></span><span>Database</span></a></li>
+            <li><a href="/dashboard#monitor" data-menu="Monitor"><span class="menu-icon dashboard-icon icon-monitor" aria-hidden="true"></span><span>Monitor</span></a></li>
+            <li><a href="/dashboard#security" data-menu="Security"><span class="menu-icon dashboard-icon icon-security" aria-hidden="true"></span><span>Security</span></a></li>
+            <li><a href="/dashboard#waf" data-menu="WAF"><span class="menu-icon dashboard-icon icon-waf" aria-hidden="true"></span><span>WAF</span></a></li>
+            <li><a href="/dashboard#files" data-menu="Files"><span class="menu-icon dashboard-icon icon-files" aria-hidden="true"></span><span>Files</span></a></li>
+            <li><a href="/dashboard#logs" data-menu="Logs"><span class="menu-icon dashboard-icon icon-logs" aria-hidden="true"></span><span>Logs</span></a></li>
+            <li><a href="/dashboard#terminal" data-menu="Terminal"><span class="menu-icon dashboard-icon icon-terminal" aria-hidden="true"></span><span>Terminal</span></a></li>
+            <li><a href="/dashboard#node" data-menu="Node management"><span class="menu-icon dashboard-icon icon-node" aria-hidden="true"></span><span>Node management</span></a></li>
+            <li><a href="/dashboard#crontab" data-menu="Cron"><span class="menu-icon dashboard-icon icon-crontab" aria-hidden="true"></span><span>Cron</span></a></li>
             <li><a href="/software" data-menu="App Store"><span class="menu-icon dashboard-icon icon-app-store" aria-hidden="true"></span><span>App Store</span></a></li>
-            <li><a href="/disks" data-menu="Disk"><span class="menu-icon dashboard-icon icon-disk" aria-hidden="true"></span><span>Disk</span></a></li>
-            <li><a href="/processes" data-menu="Process"><span class="menu-icon dashboard-icon icon-process" aria-hidden="true"></span><span>Process</span></a></li>
+            <li><a href="/dashboard#settings" data-menu="Settings"><span class="menu-icon dashboard-icon icon-settings" aria-hidden="true"></span><span>Settings</span></a></li>
+            <li><a href="/login" data-menu="Logout"><span class="menu-icon dashboard-icon icon-logout" aria-hidden="true"></span><span>Logout</span></a></li>
           </ul>
-        </div>
+        </nav>
 
-        <div class="menu-group">
-          <div class="menu-title">Management</div>
-          <ul class="menu">
-            <li><a href="/system" data-menu="System API"><span class="menu-icon dashboard-icon icon-system-api" aria-hidden="true"></span><span>System API</span></a></li>
-            <li><a href="/process" data-menu="Process API"><span class="menu-icon dashboard-icon icon-process-api" aria-hidden="true"></span><span>Process API</span></a></li>
-            <li><a href="/login" data-menu="Login API"><span class="menu-icon dashboard-icon icon-login-api" aria-hidden="true"></span><span>Login API</span></a></li>
-          </ul>
+        <div class="sidebar-tools" aria-hidden="true">
+          <span></span>
+          <span></span>
         </div>
       </aside>
 

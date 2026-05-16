@@ -4040,7 +4040,11 @@ function updateOverview(data) {
     }
     topbarOsIcon.className = iconClass;
   }
-  if (topbarSystem) topbarSystem.textContent = `System: ${data.os_name} (${data.kernel_version})`;
+  if (topbarSystem) {
+    topbarSystem.textContent = topbarSystem.dataset.systemShort === "true"
+      ? (data.os_name || "System")
+      : `System: ${data.os_name} (${data.kernel_version})`;
+  }
   if (topbarUptime) topbarUptime.textContent = formatAaPanelUptime(data.uptime);
   renderOverviewStats(data);
   softwareState.categories = Array.isArray(data.software_types) ? data.software_types : [];
@@ -4096,55 +4100,65 @@ function updateStatus(data) {
     const element = document.getElementById(id);
     if (element) element.textContent = value;
   };
+  const updateDiskStatusCard = (prefix, diskData) => {
+    const meterId = prefix === "disk" ? "disk-meter" : `${prefix}-meter`;
+    const titleId = prefix === "disk" ? "disk-title" : `${prefix}-title`;
+    const used = diskData ? Math.max(diskData.total_space - diskData.available_space, 0) : 0;
+    const percent = diskData && diskData.total_space ? (used / diskData.total_space) * 100 : 0;
+    const color = getAaPanelStatusColor(percent);
+    setMeter(meterId, percent, color);
+    setOptionalText(`${prefix}-meter-value`, `${Math.round(percent)}%`);
+    setOptionalText(titleId, diskData?.mount_point || "Disk");
+    setOptionalText(`${prefix}-label`, diskData ? `${formatBytes(used)} / ${formatBytes(diskData.total_space)}` : "Unavailable");
+    setOptionalText(`${prefix}-detail`, diskData ? `${formatBytes(used)} / ${formatBytes(diskData.total_space)} - ${diskData.mount_point}` : "Disk information unavailable");
+    setOptionalText(`${prefix}-summary`, diskData ? `${formatBytes(used)} / ${formatBytes(diskData.total_space)}` : "Disk unavailable");
+    setOptionalText(`${prefix}-hover-usage`, `Usage ${Math.round(percent)}%`);
+    setOptionalText(`${prefix}-hover-basic`, diskData ? `${formatBytes(used)} / ${formatBytes(diskData.total_space)} - ${diskData.mount_point}` : "Disk information unavailable");
+    setOptionalText(`${prefix}-hover-core`, diskData?.mount_point || "--");
+  };
   const loadMax = Math.max(Number(data.load_avg?.max) || ((data.cpu_cores || 1) * 2), 1);
   const loadPercent = Math.max(0, Math.min(100, ((Number(data.load_avg?.one) || 0) / loadMax) * 100));
   const memoryPercent = data.total_memory ? (data.used_memory / data.total_memory) * 100 : 0;
   const disk = data.app_disk;
-  const diskUsed = disk ? Math.max(disk.total_space - disk.available_space, 0) : 0;
-  const diskPercent = disk && disk.total_space ? (diskUsed / disk.total_space) * 100 : 0;
+  const secondaryDisk = Array.isArray(data.disks)
+    ? (data.disks.find((item) => item?.mount_point && item.mount_point !== disk?.mount_point) || data.disks[0])
+    : null;
   const loadSummary = getAaPanelStatus(loadPercent);
   const loadColor = getAaPanelStatusColor(loadPercent);
   const cpuColor = getAaPanelStatusColor(data.cpu_usage);
   const memoryColor = getAaPanelStatusColor(memoryPercent);
-  const diskColor = getAaPanelStatusColor(diskPercent);
 
   setMeter("load-meter", loadPercent, loadColor);
   setMeter("cpu-meter", data.cpu_usage, cpuColor);
   setMeter("memory-meter", memoryPercent, memoryColor);
-  setMeter("disk-meter", diskPercent, diskColor);
 
   document.getElementById("load-meter-value").textContent = `${Math.round(loadPercent)}%`;
   document.getElementById("cpu-meter-value").textContent = `${Math.round(data.cpu_usage)}%`;
   document.getElementById("memory-meter-value").textContent = `${Math.round(memoryPercent)}%`;
-  document.getElementById("disk-meter-value").textContent = `${Math.round(diskPercent)}%`;
 
-  document.getElementById("load-label").textContent = (Number(data.load_avg?.one) || 0).toFixed(2);
+  document.getElementById("load-label").textContent = loadSummary;
   document.getElementById("load-detail").textContent = `1m ${(Number(data.load_avg?.one) || 0).toFixed(2)} - 5m ${(Number(data.load_avg?.five) || 0).toFixed(2)} - 15m ${(Number(data.load_avg?.fifteen) || 0).toFixed(2)}`;
   document.getElementById("load-summary").textContent = loadSummary;
   setOptionalText("load-hover-usage", `Usage ${Math.round(loadPercent)}%`);
   setOptionalText("load-hover-basic", document.getElementById("load-detail").textContent);
   setOptionalText("load-hover-core", loadSummary);
 
-  document.getElementById("cpu-label").textContent = formatPercent(data.cpu_usage);
+  document.getElementById("cpu-label").textContent = `${data.cpu_cores} Core(s)`;
   document.getElementById("cpu-detail").textContent = `${data.cpu_brand} - ${data.cpu_frequency || "--"} MHz - ${data.process_count} processes`;
   document.getElementById("cpu-summary").textContent = `${data.cpu_cores} Core(s)`;
   setOptionalText("cpu-hover-usage", `Usage ${Math.round(data.cpu_usage)}%`);
   setOptionalText("cpu-hover-basic", data.cpu_brand || "CPU information unavailable");
   setOptionalText("cpu-hover-core", `${data.cpu_cores} logical core(s), ${data.process_count} processes`);
 
-  document.getElementById("memory-label").textContent = formatPercent(memoryPercent);
+  document.getElementById("memory-label").textContent = `${formatBytes(data.used_memory)} / ${formatBytes(data.total_memory)}`;
   document.getElementById("memory-detail").textContent = `${formatBytes(data.used_memory)} / ${formatBytes(data.total_memory)} RAM - Swap ${formatBytes(data.used_swap)} / ${formatBytes(data.total_swap)}`;
   document.getElementById("memory-summary").textContent = `${formatBytes(data.used_memory)} / ${formatBytes(data.total_memory)}`;
   setOptionalText("memory-hover-usage", `Usage ${Math.round(memoryPercent)}%`);
   setOptionalText("memory-hover-basic", document.getElementById("memory-detail").textContent);
   setOptionalText("memory-hover-core", `${formatBytes(data.used_memory)} / ${formatBytes(data.total_memory)}`);
 
-  document.getElementById("disk-label").textContent = formatPercent(diskPercent);
-  document.getElementById("disk-detail").textContent = disk ? `${formatBytes(diskUsed)} / ${formatBytes(disk.total_space)} - ${disk.mount_point}` : "Disk information unavailable";
-  document.getElementById("disk-summary").textContent = disk ? `${formatBytes(diskUsed)} / ${formatBytes(disk.total_space)}` : "Disk unavailable";
-  setOptionalText("disk-hover-usage", `Usage ${Math.round(diskPercent)}%`);
-  setOptionalText("disk-hover-basic", document.getElementById("disk-detail").textContent);
-  setOptionalText("disk-hover-core", disk?.mount_point || "--");
+  updateDiskStatusCard("disk", disk);
+  updateDiskStatusCard("disk-extra", secondaryDisk);
 }
 
 function updateAlerts(data) {
