@@ -17,6 +17,7 @@
 let currentLogs = [];
 let currentLogSnapshot = "--";
 const DEFAULT_WEBSITE_DOMAIN_SUFFIX = ".test";
+const DEFAULT_PANEL_VERSION = "v11.1.0";
 const WEBSITE_BATCH_OPTIONS = {
   "": "Please choose",
   backup: "Create backup",
@@ -4016,7 +4017,11 @@ function updateOverview(data) {
   const topbarOsIcon = document.getElementById("topbar-os-icon");
   const topbarSystem = document.getElementById("topbar-system");
   const topbarUptime = document.getElementById("topbar-uptime");
+  const panelVersion = data.panel_version || DEFAULT_PANEL_VERSION;
   if (sidebarHost) sidebarHost.textContent = data.primary_ip;
+  document.querySelectorAll(".top-version-label").forEach((element) => {
+    element.textContent = panelVersion;
+  });
 
   if (topbarOsIcon) {
     const os = (data.os_name || "").toLowerCase();

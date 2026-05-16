@@ -35,6 +35,7 @@ use std::os::windows::process::CommandExt;
 
 const SOFTWARE_CACHE_TTL: Duration = Duration::from_secs(3600);
 const DEFAULT_TEMPLATE_NAME: &str = "default";
+const DEFAULT_PANEL_VERSION: &str = "v11.1.0";
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 static SOFTWARE_VIEW_CACHE: OnceLock<Mutex<Option<CachedSoftwareView>>> = OnceLock::new();
@@ -169,6 +170,7 @@ fn ewma(previous: f64, current: f64, elapsed_seconds: f64, period_seconds: f64) 
 pub struct DashboardData {
     hostname: String,
     primary_ip: String,
+    panel_version: String,
     os_name: String,
     kernel_version: String,
     uptime: u64,
@@ -1070,6 +1072,7 @@ pub async fn data(Query(query): Query<DashboardDataQuery>) -> Json<DashboardData
     Json(DashboardData {
         hostname,
         primary_ip,
+        panel_version: DEFAULT_PANEL_VERSION.to_string(),
         os_name: System::name().unwrap_or_else(|| "Unknown OS".to_string()),
         kernel_version: System::kernel_version().unwrap_or_else(|| "Unknown".to_string()),
         uptime: System::uptime(),
