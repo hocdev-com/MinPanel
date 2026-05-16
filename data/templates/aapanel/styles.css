@@ -7849,3 +7849,206 @@ body {
     padding-inline: 8px;
   }
 }
+
+html[data-color-mode="dark"] {
+  --bg: #101722;
+  --panel: #182232;
+  --panel-2: #121b29;
+  --border: #2b384a;
+  --text: #e5edf6;
+  --muted: #94a3b8;
+  --sidebar: #0f1722;
+  --accent-soft: rgba(32, 165, 58, 0.2);
+  --shadow: 0 16px 36px rgba(0, 0, 0, 0.3);
+  color-scheme: dark;
+}
+
+html[data-color-mode="dark"] body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+html[data-color-mode="dark"] .topbar,
+html[data-color-mode="dark"] .card,
+html[data-color-mode="dark"] .overview-item,
+html[data-color-mode="dark"] .software-card,
+html[data-color-mode="dark"] .traffic-card,
+html[data-color-mode="dark"] .software-table-card,
+html[data-color-mode="dark"] .website-table-shell,
+html[data-color-mode="dark"] .database-table-shell,
+html[data-color-mode="dark"] .software-install-panel,
+html[data-color-mode="dark"] .software-settings-panel,
+html[data-color-mode="dark"] .website-create-panel,
+html[data-color-mode="dark"] .database-modal-panel,
+html[data-color-mode="dark"] .messages-modal-panel {
+  background: var(--panel);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+html[data-color-mode="dark"] input,
+html[data-color-mode="dark"] select,
+html[data-color-mode="dark"] textarea {
+  background: #111827;
+  border-color: #334155;
+  color: var(--text);
+}
+
+html[data-color-mode="dark"] .topbar-item,
+html[data-color-mode="dark"] .topbar-item strong,
+html[data-color-mode="dark"] .top-version-label,
+html[data-color-mode="dark"] .topbar-system-item,
+html[data-color-mode="dark"] .topbar-uptime-item,
+html[data-color-mode="dark"] .topbar-uptime-item strong,
+html[data-color-mode="dark"] .status-card .status-copy h3,
+html[data-color-mode="dark"] .status-card .status-copy p,
+html[data-color-mode="dark"] .task-name {
+  color: var(--text);
+}
+
+html[data-color-mode="dark"] .top-icon-button,
+html[data-color-mode="dark"] .top-mini-button,
+html[data-color-mode="dark"] .top-action-link {
+  background: #243044;
+  border-color: #334155;
+  color: #dbe5f0;
+  box-shadow: none;
+}
+
+html[data-color-mode="dark"] .top-icon-button:hover,
+html[data-color-mode="dark"] .top-mini-button:hover,
+html[data-color-mode="dark"] .top-action-link:hover,
+html[data-color-mode="dark"] .top-action-link:focus-visible {
+  background: #2d3a50;
+  color: #ffffff;
+}
+
+html[data-color-mode="dark"] .top-actions-divider {
+  background: #334155;
+}
+
+html[data-color-mode="dark"] .top-theme-popover,
+html[data-color-mode="dark"] .status-copy,
+html[data-color-mode="dark"] .status-copy::before,
+html[data-color-mode="dark"] .messages-content-pane,
+html[data-color-mode="dark"] .messages-tip-row {
+  background: #182232;
+  border-color: var(--border);
+}
+
+html[data-color-mode="dark"] .meter,
+html[data-color-mode="dark"] .status-card .meter {
+  background: conic-gradient(var(--accent-color) var(--progress), #334155 0deg);
+}
+
+html[data-color-mode="dark"] .meter::after,
+html[data-color-mode="dark"] .status-card .meter::after {
+  background: var(--panel);
+}
+
+html[data-color-mode="dark"] table th,
+html[data-color-mode="dark"] table td {
+  border-color: var(--border);
+}
+
+html[data-color-mode="dark"] table th {
+  background: var(--panel-2);
+  color: #cbd5e1;
+}
+
+html[data-color-mode="dark"] table tbody tr:hover {
+  background: rgba(148, 163, 184, 0.08);
+}
+
+html[data-color-mode="dark"] .traffic-meta-item {
+  background: #202c3e;
+  color: var(--text);
+  box-shadow: none;
+}
+
+html[data-color-mode="dark"] .traffic-meta-item span,
+html[data-color-mode="dark"] .traffic-tab {
+  color: #9aa9bc;
+}
+
+html[data-color-mode="dark"] .traffic-tab.active {
+  color: var(--accent);
+}
+
+html[data-color-mode="dark"] #traffic-chart {
+  background: #182232;
+}
+
+html[data-color-mode="dark"] .status-hover-panel {
+  background: #1f2a3a;
+  border-color: #344256;
+  color: #d7e1ee;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.34);
+}
+
+html[data-color-mode="dark"] .status-hover-arrow {
+  background: #1f2a3a;
+  border-color: #344256;
+}
+
+html[data-color-mode="dark"] .status-hover-section,
+html[data-color-mode="dark"] .status-hover-footer {
+  background: #172233;
+  color: #d7e1ee;
+}
+
+html[data-color-mode="dark"] .status-hover-line {
+  color: #b8c5d6;
+}
+
+html[data-color-mode="dark"] .status-hover-divider {
+  background: #344256;
+}
+
+html[data-color-mode="dark"] .status-hover-head strong {
+  border-color: rgba(32, 165, 58, 0.4);
+  background: rgba(32, 165, 58, 0.16);
+  color: #48d166;
+}
+
+.traffic-card {
+  padding-bottom: 28px;
+}
+
+.traffic-panel {
+  padding-bottom: 20px;
+}
+
+.traffic-meta {
+  padding-top: 14px;
+}
+
+.traffic-chart-wrap,
+.chart-wrap {
+  padding-top: 14px;
+  padding-bottom: 18px;
+}
+
+.dashboard-split-grid {
+  margin-bottom: 24px;
+}
+
+.status-grid {
+  overflow: visible;
+}
+
+.status-card {
+  position: relative;
+}
+
+.status-card:hover,
+.status-card:focus-within {
+  z-index: 80;
+}
+
+.status-card:hover .status-copy,
+.status-card:focus-within .status-copy,
+.status-card:hover .status-hover-panel,
+.status-card:focus-within .status-hover-panel {
+  z-index: 90;
+}

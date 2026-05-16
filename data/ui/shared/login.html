@@ -337,6 +337,7 @@
         const changePwSection = document.getElementById("changePwSection");
         const themeSelect = document.getElementById("loginThemeSelect");
         let currentPassword = "";
+        let activeLoginTheme = "";
 
         function humanizeThemeName(name) {
             return String(name || "")
@@ -373,6 +374,7 @@
                         return `<option value="${escapeHtml(id)}"${selected}>Interface: ${escapeHtml(label)}</option>`;
                     })
                     .join("");
+                activeLoginTheme = String(data.active || themeSelect.value || "");
             } catch (error) {
                 themeSelect.innerHTML = '<option value="">Interface unavailable</option>';
                 themeSelect.disabled = true;
@@ -381,6 +383,7 @@
 
         async function applyLoginTheme(themeId) {
             if (!themeId) return;
+            if (themeId === activeLoginTheme) return;
             themeSelect.disabled = true;
             try {
                 const resp = await fetch("/login/ui/template", {
@@ -390,11 +393,14 @@
                 });
                 const data = await resp.json();
                 if (!data.status) throw new Error(data.message || "Failed to change interface");
-                window.location.reload();
+                activeLoginTheme = themeId;
+                themeSelect.value = themeId;
+                themeSelect.disabled = false;
             } catch (error) {
                 errorMsg.textContent = error.message || "Failed to change interface";
                 errorMsg.classList.add("visible");
                 themeSelect.disabled = false;
+                if (activeLoginTheme) themeSelect.value = activeLoginTheme;
             }
         }
 

@@ -107,6 +107,7 @@
     initTrafficControls();
     initLogModalControls();
     initThemePicker();
+    initColorModeToggle();
     initEscapeShortcuts();
     initTaskManager();
     interceptSoftwareInstallActions();

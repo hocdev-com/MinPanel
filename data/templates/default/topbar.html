@@ -17,7 +17,17 @@
 
   <div class="top-actions">
     <div class="top-actions-group top-status-group">
-      <span class="top-version-label">v11.1.0</span>
+      <button
+        class="top-mini-button top-color-mode-button"
+        id="top-color-mode-button"
+        type="button"
+        aria-label="Switch to dark mode"
+        aria-pressed="false"
+      >
+        <span class="top-theme-button-icon" aria-hidden="true">
+          <span class="dashboard-icon icon-top-brightness"></span>
+        </span>
+      </button>
       <div class="top-theme-switcher">
         <button
           class="top-mini-button top-theme-button"
@@ -37,6 +47,7 @@
           </div>
         </div>
       </div>
+      <span class="top-version-label">v11.1.0</span>
     </div>
     <div class="top-actions-group">
       <a class="top-action-link" href="/software">

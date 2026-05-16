@@ -18,6 +18,8 @@ let currentLogs = [];
 let currentLogSnapshot = "--";
 const DEFAULT_WEBSITE_DOMAIN_SUFFIX = ".test";
 const DEFAULT_PANEL_VERSION = "v11.1.0";
+const COLOR_MODE_STORAGE_KEY = "minpanel.colorMode";
+const DEFAULT_COLOR_MODE = "light";
 const WEBSITE_BATCH_OPTIONS = {
   "": "Please choose",
   backup: "Create backup",
@@ -374,6 +376,59 @@ function closeThemePicker() {
   if (button) button.setAttribute("aria-expanded", "false");
   if (popover) popover.hidden = true;
   themeState.open = false;
+}
+
+function normalizeColorMode(mode) {
+  return mode === "dark" ? "dark" : DEFAULT_COLOR_MODE;
+}
+
+function getStoredColorMode() {
+  try {
+    return normalizeColorMode(window.localStorage?.getItem(COLOR_MODE_STORAGE_KEY));
+  } catch (error) {
+    return DEFAULT_COLOR_MODE;
+  }
+}
+
+function applyColorMode(mode) {
+  const normalized = normalizeColorMode(mode);
+  document.documentElement.dataset.colorMode = normalized;
+  document.documentElement.style.colorScheme = normalized;
+
+  const isDark = normalized === "dark";
+  const label = isDark ? "Switch to light mode" : "Switch to dark mode";
+  const button = document.getElementById("top-color-mode-button");
+  if (button) {
+    button.setAttribute("aria-pressed", String(isDark));
+    button.setAttribute("aria-label", label);
+    button.title = label;
+  }
+
+  document.querySelectorAll(".icon-top-brightness").forEach((icon) => {
+    icon.classList.toggle("is-dark-mode", isDark);
+  });
+
+  if (typeof drawTrafficChart === "function") {
+    drawTrafficChart();
+  }
+}
+
+function initColorModeToggle() {
+  applyColorMode(getStoredColorMode());
+
+  const button = document.getElementById("top-color-mode-button");
+  if (!button || button.dataset.colorModeBound === "true") return;
+  button.dataset.colorModeBound = "true";
+  button.addEventListener("click", () => {
+    const current = normalizeColorMode(document.documentElement.dataset.colorMode);
+    const next = current === "dark" ? "light" : "dark";
+    try {
+      window.localStorage?.setItem(COLOR_MODE_STORAGE_KEY, next);
+    } catch (error) {
+      // Ignore storage failures; the current page can still switch mode.
+    }
+    applyColorMode(next);
+  });
 }
 
 async function loadThemePickerOptions(force = false) {
@@ -4272,9 +4327,27 @@ function drawTrafficChart() {
   const padding = { top: 12, right: 18, bottom: 28, left: 48 };
   const fixedMaxValue = 120;
   const gridSteps = 6;
+  const isDark = document.documentElement.dataset.colorMode === "dark";
+  const chartColors = isDark
+    ? {
+        background: "#182232",
+        grid: "#2f3d50",
+        label: "#8fa1b6",
+        downloadFill: "rgba(77, 151, 235, 0.5)",
+        downloadLine: "#60a5fa",
+        uploadLine: "#f0ad2f",
+      }
+    : {
+        background: "#ffffff",
+        grid: "#d5e0ee",
+        label: "#94a3b8",
+        downloadFill: "rgba(104, 171, 243, 0.72)",
+        downloadLine: "#f8fbff",
+        uploadLine: "#f0ad2f",
+      };
   ctx.clearRect(0, 0, width, height);
 
-  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = chartColors.background;
   ctx.fillRect(0, 0, width, height);
 
   const divisor = getTrafficUnitDivisor(trafficState.currentUnit);
@@ -4285,7 +4358,7 @@ function drawTrafficChart() {
   const plotHeight = height - padding.top - padding.bottom;
   const points = Math.max(trafficState.labels.length - 1, 1);
 
-  ctx.strokeStyle = "#d5e0ee";
+  ctx.strokeStyle = chartColors.grid;
   ctx.lineWidth = 1;
   for (let row = 0; row <= gridSteps; row += 1) {
     const y = padding.top + (plotHeight / gridSteps) * row;
@@ -4295,7 +4368,7 @@ function drawTrafficChart() {
     ctx.stroke();
   }
 
-  ctx.fillStyle = "#94a3b8";
+  ctx.fillStyle = chartColors.label;
   ctx.font = "12px Segoe UI";
   ctx.textAlign = "right";
   for (let row = 0; row <= gridSteps; row += 1) {
@@ -4356,11 +4429,11 @@ function drawTrafficChart() {
     ctx.stroke();
   }
 
-  drawFilledSeries(downloadSeries, "rgba(104, 171, 243, 0.72)", "#f8fbff");
-  drawLineSeries(uploadSeries, "#f0ad2f");
+  drawFilledSeries(downloadSeries, chartColors.downloadFill, chartColors.downloadLine);
+  drawLineSeries(uploadSeries, chartColors.uploadLine);
 
   ctx.textAlign = "center";
-  ctx.fillStyle = "#94a3b8";
+  ctx.fillStyle = chartColors.label;
   const desiredTicks = 9;
   const tickCount = Math.min(desiredTicks, trafficState.labels.length);
   for (let tickIndex = 0; tickIndex < tickCount; tickIndex += 1) {
