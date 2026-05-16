@@ -7546,7 +7546,7 @@ body {
 
 /* Final aaPanel screenshot parity overrides */
 .shell {
-  grid-template-columns: 176px 1fr;
+  grid-template-columns: 204px 1fr;
 }
 
 .sidebar {
@@ -7558,6 +7558,12 @@ body {
   margin: 0 -10px 14px;
   padding: 12px 10px 8px;
   grid-template-columns: 19px minmax(0, 1fr) 24px;
+}
+
+.server-pill-value {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
 }
 
 .server-pill-icon {
