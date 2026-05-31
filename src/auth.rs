@@ -472,14 +472,21 @@ pub async fn require_auth_page(request: Request<axum::body::Body>, next: Next) -
 /// GET /login — serves the login page HTML.
 pub async fn login_page() -> impl IntoResponse {
     match dashboard::load_shared_ui_asset("login.html") {
-        Ok(page) => (
-            [(
-                header::CONTENT_TYPE,
-                HeaderValue::from_static("text/html; charset=utf-8"),
-            )],
-            page,
-        )
-            .into_response(),
+        Ok(mut page) => {
+            let config = ensure_config();
+            if config.must_change_password {
+                page = page.replace("id=\"username\" name=\"username\"", "id=\"username\" name=\"username\" value=\"admin\"");
+                page = page.replace("id=\"password\" name=\"password\"", "id=\"password\" name=\"password\" value=\"admin\"");
+            }
+            (
+                [(
+                    header::CONTENT_TYPE,
+                    HeaderValue::from_static("text/html; charset=utf-8"),
+                )],
+                page,
+            )
+                .into_response()
+        }
         Err(error) => dashboard::template_load_error_response(error),
     }
 }
