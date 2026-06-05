@@ -8,8 +8,7 @@ use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation}
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{hash_map::DefaultHasher, HashMap},
-    env,
-    fs,
+    env, fs,
     hash::{Hash, Hasher},
     path::PathBuf,
     sync::{Mutex, OnceLock},
@@ -237,10 +236,7 @@ pub fn is_authenticated(headers: &HeaderMap) -> bool {
 
 // ─── Handlers ───────────────────────────────────────────────────────────────
 
-pub async fn login(
-    headers: HeaderMap,
-    Json(payload): Json<LoginRequest>,
-) -> impl IntoResponse {
+pub async fn login(headers: HeaderMap, Json(payload): Json<LoginRequest>) -> impl IntoResponse {
     let client_ip = extract_client_ip(&headers);
 
     // Rate limiting: reject if too many failed attempts
@@ -475,8 +471,14 @@ pub async fn login_page() -> impl IntoResponse {
         Ok(mut page) => {
             let config = ensure_config();
             if config.must_change_password {
-                page = page.replace("id=\"username\" name=\"username\"", "id=\"username\" name=\"username\" value=\"admin\"");
-                page = page.replace("id=\"password\" name=\"password\"", "id=\"password\" name=\"password\" value=\"admin\"");
+                let credentials = serde_json::json!({
+                    "username": config.username,
+                    "password": "admin",
+                });
+                page = page.replace(
+                    "const defaultLoginCredentials = null;",
+                    &format!("const defaultLoginCredentials = {credentials};"),
+                );
             }
             (
                 [(

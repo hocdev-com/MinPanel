@@ -338,6 +338,15 @@
         const themeSelect = document.getElementById("loginThemeSelect");
         let currentPassword = "";
         let activeLoginTheme = "";
+        const defaultLoginCredentials = null;
+
+        function applyDefaultLoginCredentials() {
+            if (!defaultLoginCredentials) return;
+            const usernameInput = document.getElementById("username");
+            const passwordInput = document.getElementById("password");
+            if (usernameInput) usernameInput.value = defaultLoginCredentials.username || "";
+            if (passwordInput) passwordInput.value = defaultLoginCredentials.password || "";
+        }
 
         function humanizeThemeName(name) {
             return String(name || "")
@@ -407,6 +416,8 @@
         themeSelect.addEventListener("change", (event) => {
             applyLoginTheme(event.target.value);
         });
+
+        applyDefaultLoginCredentials();
 
         loginForm.addEventListener("submit", async (e) => {
             e.preventDefault();
