@@ -48,11 +48,15 @@ fn sync_data_directory(source: &std::path::Path) {
         });
     }
 
-    copy_dir_recursive(source, &target_dir);
+    copy_dir_recursive(source, &target_dir, source);
 }
 
 #[cfg(windows)]
-fn copy_dir_recursive(source: &std::path::Path, target: &std::path::Path) {
+fn copy_dir_recursive(
+    source: &std::path::Path,
+    target: &std::path::Path,
+    data_root: &std::path::Path,
+) {
     std::fs::create_dir_all(target).unwrap_or_else(|error| {
         panic!(
             "failed to create target directory {}: {error}",
@@ -77,8 +81,12 @@ fn copy_dir_recursive(source: &std::path::Path, target: &std::path::Path) {
         let entry_path = entry.path();
         let target_path = target.join(entry.file_name());
 
+        if is_embedded_shared_ui_path(data_root, &entry_path) {
+            continue;
+        }
+
         if entry_path.is_dir() {
-            copy_dir_recursive(&entry_path, &target_path);
+            copy_dir_recursive(&entry_path, &target_path, data_root);
         } else {
             std::fs::copy(&entry_path, &target_path).unwrap_or_else(|error| {
                 panic!(
@@ -89,6 +97,14 @@ fn copy_dir_recursive(source: &std::path::Path, target: &std::path::Path) {
             });
         }
     }
+}
+
+#[cfg(windows)]
+fn is_embedded_shared_ui_path(data_root: &std::path::Path, path: &std::path::Path) -> bool {
+    path.strip_prefix(data_root)
+        .ok()
+        .and_then(|relative| relative.components().next())
+        .is_some_and(|component| component.as_os_str() == std::ffi::OsStr::new("ui"))
 }
 
 #[cfg(windows)]

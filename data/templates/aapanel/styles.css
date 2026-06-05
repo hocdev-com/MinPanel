@@ -7176,7 +7176,7 @@ body {
 
 .status-hover-panel {
   position: absolute;
-  top: calc(100% - 28px);
+  top: calc(100% + 14px);
   left: 50%;
   z-index: 30;
   width: min(380px, calc(100vw - 48px));
@@ -7715,7 +7715,7 @@ body {
   margin: 0 0 4px;
   color: #0f1720;
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 400;
   letter-spacing: 0;
   line-height: 1.2;
   text-transform: none;
@@ -7724,7 +7724,7 @@ body {
 .status-card .status-copy p {
   margin: 0;
   color: #111827;
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 800;
   line-height: 1.05;
   overflow-wrap: normal;
@@ -7748,7 +7748,7 @@ body {
 #disk-label,
 #disk-extra-label {
   color: #20a53a;
-  font-size: 16px;
+  font-size: 15px;
   white-space: nowrap;
 }
 
