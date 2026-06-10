@@ -91,6 +91,14 @@ When modifying the dashboard layout, follow these synchronized responsive patter
 - **Runtime Pill Parity**: The Database toolbar runtime button should mirror the Website runtime pill pattern: compact aaPanel-style runtime pill, green when running, light red when stopped, click-to-open settings, and hover/focus quick-action popover with `Start`/`Stop`, `Restart`, `Reload`, and `Alarm Setting`.
 - **phpMyAdmin Access Modal**: The Database toolbar and runtime strip should expose a `phpMyAdmin` button. It opens an aaPanel-style modal with left navigation (`Service`, `PHP version`, `Security configuration`), a public-access toggle, and `Password-free access`/`Public access` buttons. Public access must open on the current MinPanel origin, e.g. `http://localhost:8080/phpmyadmin/`, and the Rust `/phpmyadmin/*` proxy should forward to Apache's managed local alias so the browser stays on the panel port.
 
+### 5.2. Files Page Responsive Pattern
+- **aaPanel File Manager Shape**: Keep the Files page as an aaPanel-style file manager: tab strip, breadcrumb path bar, toolbar actions, search, real table header, footer summary, pagination controls, and right-side support links.
+- **English Labels**: Use English UI copy for all File Manager labels, even when matching bt.cn/aaPanel layout.
+- **Route And Menu**: The sidebar `Files` entry must route to `/files`, not a dashboard hash, and should stay above Terminal in the aaPanel-style information hierarchy.
+- **Backend Boundaries**: File listing, read, write, and directory creation must stay inside the managed website root or approved panel data paths. Do not expose arbitrary system paths through the file manager.
+- **Table Column Shedding**: Preserve a real table header. Hide `Enterprise anti-tamper` and `Remark` first, then `Permission/Owner` and `Size`, then `Modified time` on the smallest breakpoint. Keep `File name` and `Operate` visible.
+- **Unsupported Actions**: Toolbar actions that do not have backend endpoints yet may be visible for visual parity but must remain disabled until real handlers exist.
+
 ### 6. Shared Close Button Pattern
 - **Universal `X` Button**: Any dashboard/modal/dialog close button must use the shared circular close-button pattern, not a plain text `×`.
 - **Base Look**: Render it as a gray circular button with a white `X` built from CSS lines, matching aaPanel-style floating closes.
@@ -114,6 +122,8 @@ When modifying the dashboard layout, follow these synchronized responsive patter
 - The default managed website root is `www` under the app base directory unless `MINPANEL_WEBSITE_ROOT` overrides it. Create that directory automatically during runtime resolution so Apache `DocumentRoot` never points to a missing folder.
 - Windows listener parsing belongs in Rust with unit tests in `src/dashboard.rs`; do not rely on one-off verification scripts under `scratch/` for runtime port detection behavior.
 - Bundled SSL assets now live under `data/bin/ssl/`. Keep the local CA in `data/bin/ssl/ca/` and store generated site certificates directly in `data/bin/ssl/`, while reserving `data/bin/openssl/` for the OpenSSL executable and DLLs only.
+- Local website SSL certificates should be signed directly by `data/bin/ssl/ca/rootCA.pem` and `rootCA-key.pem`; do not introduce an intermediate CA, because imported/mkcert-style roots may have path length constraints that make browser validation fail.
+- Windows hosts elevation must use the Rust `update-hosts` helper binary (`src/bin/update-hosts.rs`) built by Cargo/build.rs into `data/bin/update-hosts.exe`; do not ship or call `data/bin/update-hosts.bat` in release builds.
 
 ### 8. Footer Edge Layout
 - Dashboard footer/alert bars that need to sit at the bottom of the main content should use flex flow with `margin-top: auto`, not fixed positioning.
@@ -142,3 +152,6 @@ When modifying the dashboard layout, follow these synchronized responsive patter
 - Release builds must not copy or ship `data/ui/`; the shared UI is embedded in the executable, while `data/templates/*` remains on disk as the editable theme surface.
 - Theme-specific dashboard asset URLs must include the active template as a cache key (for example `t={{ACTIVE_TEMPLATE}}`) so selecting a different interface reloads the matching CSS/JS immediately instead of reusing the previous theme from browser cache.
 - When changing themed UI assets or HTML, update the files under `data/templates/...` directly; when changing login, update `data/ui/shared/login.html`. Preserve the existing `/assets/dashboard/*`, `/dashboard`, `/website`, and `/login` routes so backend handlers can swap themes without changing URLs.
+- Shared language packs live under `data/lang/`, not inside individual theme folders, and are copied to `target/<profile>/data/lang` during Windows builds with the rest of runtime `data/`. Do not maintain a physical `data/lang/index.json`; `/assets/lang/index.json` is generated dynamically by scanning `data/lang/*.json`. Use `data/lang/<locale>.json` for flat `messages` keys plus `meta.locale`, `meta.label`, and `meta.nativeName`, and shared browser logic in `data/ui/shared/core.js` to load them through `/assets/lang/<locale>.json` so every theme consumes the same translations.
+- Static text and translatable attributes in theme HTML should carry explicit `data-i18n` and `data-i18n-attr` keys whenever practical. `data-i18n-auto` is only a fallback for broad/runtime coverage; release template files should still expose concrete keys for visible labels so packaged HTML is auditable.
+- Do not duplicate translated copy inside keyed theme markup. Prefer empty keyed elements such as `<h3 data-i18n="dashboard.load_status"></h3>` and empty translatable attributes such as `placeholder="" data-i18n-attr="placeholder:database.search"`; the shared language loader fills the visible text and attributes from `data/lang`.

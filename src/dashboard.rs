@@ -35,6 +35,7 @@ use std::os::windows::process::CommandExt;
 
 const SOFTWARE_CACHE_TTL: Duration = Duration::from_secs(3600);
 const DEFAULT_TEMPLATE_NAME: &str = "default";
+const DEFAULT_LANGUAGE_NAME: &str = "en";
 const DEFAULT_PANEL_VERSION: &str = "v11.1.0";
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x08000000;
@@ -100,7 +101,11 @@ fn sample_dashboard_cpu_usage() -> f32 {
 
     if now.saturating_duration_since(monitor.last_refresh) >= MINIMUM_CPU_UPDATE_INTERVAL {
         monitor.system.refresh_cpu_usage();
-        monitor.last_usage = monitor.system.global_cpu_info().cpu_usage().clamp(0.0, 100.0);
+        monitor.last_usage = monitor
+            .system
+            .global_cpu_info()
+            .cpu_usage()
+            .clamp(0.0, 100.0);
         monitor.last_refresh = now;
     }
 
@@ -816,20 +821,26 @@ pub(crate) fn resolve_template_root() -> Result<PathBuf, String> {
 }
 
 pub(crate) fn resolve_templates_base_dir() -> Result<PathBuf, String> {
-    let base_dir =
-        resolve_data_base_dir().ok_or_else(|| "Unable to resolve application directory".to_string())?;
+    let base_dir = resolve_data_base_dir()
+        .ok_or_else(|| "Unable to resolve application directory".to_string())?;
     Ok(base_dir.join("data").join("templates"))
 }
 
 pub(crate) fn resolve_shared_ui_base_dir() -> Result<PathBuf, String> {
-    let base_dir =
-        resolve_data_base_dir().ok_or_else(|| "Unable to resolve application directory".to_string())?;
+    let base_dir = resolve_data_base_dir()
+        .ok_or_else(|| "Unable to resolve application directory".to_string())?;
     Ok(base_dir.join("data").join("ui").join("shared"))
 }
 
+pub(crate) fn resolve_language_base_dir() -> Result<PathBuf, String> {
+    let base_dir = resolve_data_base_dir()
+        .ok_or_else(|| "Unable to resolve application directory".to_string())?;
+    Ok(base_dir.join("data").join("lang"))
+}
+
 fn ui_settings_path() -> Result<PathBuf, String> {
-    let base_dir =
-        resolve_data_base_dir().ok_or_else(|| "Unable to resolve application directory".to_string())?;
+    let base_dir = resolve_data_base_dir()
+        .ok_or_else(|| "Unable to resolve application directory".to_string())?;
     Ok(base_dir.join("data").join("registry").join("ui.json"))
 }
 
@@ -838,8 +849,8 @@ fn load_ui_settings() -> Result<UiSettings, String> {
     if !path.exists() {
         return Ok(UiSettings::default());
     }
-    let contents =
-        fs::read_to_string(&path).map_err(|error| format!("Failed to read UI settings: {error}"))?;
+    let contents = fs::read_to_string(&path)
+        .map_err(|error| format!("Failed to read UI settings: {error}"))?;
     serde_json::from_str::<UiSettings>(&contents)
         .map_err(|error| format!("Failed to parse UI settings: {error}"))
 }
@@ -944,6 +955,294 @@ pub(crate) fn load_shared_ui_asset(relative_path: &str) -> Result<String, String
         .map_err(|error| format!("Failed to read {}: {error}", file_path.display()))
 }
 
+pub(crate) fn load_language_pack(locale: &str) -> Result<String, String> {
+    let trimmed = locale.trim().trim_end_matches(".json");
+    if trimmed == "index" {
+        return build_language_pack_index();
+    }
+
+    let normalized = sanitize_language_locale(trimmed);
+
+    if normalized.is_empty() {
+        return Err("Language locale is required".to_string());
+    }
+
+    let file_path = resolve_language_base_dir()?.join(format!("{normalized}.json"));
+    fs::read_to_string(&file_path)
+        .map_err(|error| format!("Failed to read {}: {error}", file_path.display()))
+}
+
+fn build_language_pack_index() -> Result<String, String> {
+    let lang_dir = resolve_language_base_dir()?;
+    let mut languages = Vec::new();
+    let entries = fs::read_dir(&lang_dir)
+        .map_err(|error| format!("Failed to read language directory: {error}"))?;
+
+    for entry in entries {
+        let entry = entry.map_err(|error| format!("Failed to read language entry: {error}"))?;
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        if path.extension().and_then(|value| value.to_str()) != Some("json") {
+            continue;
+        }
+
+        let Some(stem) = path.file_stem().and_then(|value| value.to_str()) else {
+            continue;
+        };
+        let locale = sanitize_language_locale(stem);
+        if locale.is_empty() || locale == "index" {
+            continue;
+        }
+
+        let contents = fs::read_to_string(&path)
+            .map_err(|error| format!("Failed to read {}: {error}", path.display()))?;
+        let parsed = serde_json::from_str::<Value>(&contents)
+            .map_err(|error| format!("Failed to parse {}: {error}", path.display()))?;
+        let meta = parsed.get("meta").and_then(Value::as_object);
+        let label = meta
+            .and_then(|item| item.get("label"))
+            .and_then(Value::as_str)
+            .unwrap_or(&locale)
+            .to_string();
+        let native_name = meta
+            .and_then(|item| item.get("nativeName"))
+            .and_then(Value::as_str)
+            .unwrap_or(&label)
+            .to_string();
+        let id = meta
+            .and_then(|item| item.get("locale"))
+            .and_then(Value::as_str)
+            .map(sanitize_language_locale)
+            .filter(|value| !value.is_empty())
+            .unwrap_or(locale);
+
+        languages.push(json!({
+            "id": id,
+            "label": label,
+            "nativeName": native_name,
+        }));
+    }
+
+    languages.sort_by(|left, right| {
+        left.get("label")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .cmp(
+                right
+                    .get("label")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default(),
+            )
+    });
+
+    serde_json::to_string(&json!({
+        "default": DEFAULT_LANGUAGE_NAME,
+        "languages": languages,
+    }))
+    .map_err(|error| format!("Failed to serialize language index: {error}"))
+}
+
+fn sanitize_language_locale(value: &str) -> String {
+    value
+        .chars()
+        .map(|ch| match ch {
+            'a'..='z' | 'A'..='Z' | '0'..='9' | '-' | '_' => ch.to_ascii_lowercase(),
+            _ => '-',
+        })
+        .collect::<String>()
+        .trim_matches('-')
+        .to_string()
+}
+
+fn default_language_messages() -> Result<HashMap<String, String>, String> {
+    let contents = load_language_pack(DEFAULT_LANGUAGE_NAME)?;
+    let parsed = serde_json::from_str::<Value>(&contents)
+        .map_err(|error| format!("Failed to parse default language pack: {error}"))?;
+    let Some(messages) = parsed.get("messages").and_then(Value::as_object) else {
+        return Err("Default language pack is missing messages".to_string());
+    };
+
+    Ok(messages
+        .iter()
+        .filter_map(|(key, value)| value.as_str().map(|text| (key.clone(), text.to_string())))
+        .collect())
+}
+
+fn escape_html_text(value: &str) -> String {
+    value
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+}
+
+fn escape_html_attr(value: &str) -> String {
+    escape_html_text(value).replace('"', "&quot;")
+}
+
+fn extract_opening_tag_name(open_tag: &str) -> Option<String> {
+    let trimmed = open_tag.trim_start_matches('<').trim_start();
+    let tag_name = trimmed
+        .chars()
+        .take_while(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | ':'))
+        .collect::<String>();
+    if tag_name.is_empty() {
+        None
+    } else {
+        Some(tag_name)
+    }
+}
+
+fn fill_empty_i18n_elements(html: &str, messages: &HashMap<String, String>) -> String {
+    let mut rendered = html.to_string();
+    let mut search_from = 0;
+    let marker = "data-i18n=\"";
+
+    while search_from < rendered.len() {
+        let Some(attr_offset) = rendered[search_from..].find(marker) else {
+            break;
+        };
+        let attr_start = search_from + attr_offset;
+        let Some(tag_start) = rendered[..attr_start].rfind('<') else {
+            search_from = attr_start + marker.len();
+            continue;
+        };
+        let Some(tag_end_offset) = rendered[attr_start..].find('>') else {
+            break;
+        };
+        let tag_end = attr_start + tag_end_offset;
+        let key_start = attr_start + marker.len();
+        let Some(key_end_offset) = rendered[key_start..].find('"') else {
+            search_from = key_start;
+            continue;
+        };
+        let key_end = key_start + key_end_offset;
+        let key = rendered[key_start..key_end].to_string();
+        let opening_tag = &rendered[tag_start..=tag_end];
+
+        if opening_tag.trim_end().ends_with("/>") {
+            search_from = tag_end + 1;
+            continue;
+        }
+
+        let Some(tag_name) = extract_opening_tag_name(opening_tag) else {
+            search_from = tag_end + 1;
+            continue;
+        };
+        let close_marker = format!("</{tag_name}>");
+        let content_start = tag_end + 1;
+        let Some(close_offset) = rendered[content_start..].find(&close_marker) else {
+            search_from = tag_end + 1;
+            continue;
+        };
+        let content_end = content_start + close_offset;
+
+        if !rendered[content_start..content_end].trim().is_empty() {
+            search_from = tag_end + 1;
+            continue;
+        }
+
+        let Some(message) = messages.get(&key) else {
+            search_from = tag_end + 1;
+            continue;
+        };
+        let escaped = escape_html_text(message);
+        rendered.replace_range(content_start..content_end, &escaped);
+        search_from = content_start + escaped.len() + close_marker.len();
+    }
+
+    rendered
+}
+
+fn replace_html_attr_value(open_tag: &str, attr: &str, value: &str) -> String {
+    let mut updated = open_tag.to_string();
+    let mut search_from = 0;
+    let escaped = escape_html_attr(value);
+
+    while search_from < updated.len() {
+        let Some(attr_offset) = updated[search_from..].find(attr) else {
+            break;
+        };
+        let attr_start = search_from + attr_offset;
+        let before = updated[..attr_start].chars().next_back();
+        if !matches!(before, Some(ch) if ch.is_ascii_whitespace() || ch == '<') {
+            search_from = attr_start + attr.len();
+            continue;
+        }
+
+        let value_marker_start = attr_start + attr.len();
+        if !updated[value_marker_start..].starts_with("=\"") {
+            search_from = value_marker_start;
+            continue;
+        }
+
+        let value_start = value_marker_start + 2;
+        let Some(value_end_offset) = updated[value_start..].find('"') else {
+            break;
+        };
+        let value_end = value_start + value_end_offset;
+        updated.replace_range(value_start..value_end, &escaped);
+        search_from = value_start + escaped.len() + 1;
+    }
+
+    updated
+}
+
+fn fill_i18n_attributes(html: &str, messages: &HashMap<String, String>) -> String {
+    let mut rendered = html.to_string();
+    let mut search_from = 0;
+    let marker = "data-i18n-attr=\"";
+
+    while search_from < rendered.len() {
+        let Some(attr_offset) = rendered[search_from..].find(marker) else {
+            break;
+        };
+        let attr_start = search_from + attr_offset;
+        let Some(tag_start) = rendered[..attr_start].rfind('<') else {
+            search_from = attr_start + marker.len();
+            continue;
+        };
+        let Some(tag_end_offset) = rendered[attr_start..].find('>') else {
+            break;
+        };
+        let tag_end = attr_start + tag_end_offset;
+        let spec_start = attr_start + marker.len();
+        let Some(spec_end_offset) = rendered[spec_start..].find('"') else {
+            search_from = spec_start;
+            continue;
+        };
+        let spec_end = spec_start + spec_end_offset;
+        let spec = rendered[spec_start..spec_end].to_string();
+        let mut opening_tag = rendered[tag_start..=tag_end].to_string();
+
+        for entry in spec.split(';') {
+            let Some((attr, key)) = entry.split_once(':') else {
+                continue;
+            };
+            let attr = attr.trim();
+            let key = key.trim();
+            if attr.is_empty() || key.is_empty() {
+                continue;
+            }
+            if let Some(message) = messages.get(key) {
+                opening_tag = replace_html_attr_value(&opening_tag, attr, message);
+            }
+        }
+
+        rendered.replace_range(tag_start..=tag_end, &opening_tag);
+        search_from = tag_start + opening_tag.len();
+    }
+
+    rendered
+}
+
+pub(crate) fn render_default_i18n_fallbacks(page: &str) -> Result<String, String> {
+    let messages = default_language_messages()?;
+    let page = fill_empty_i18n_elements(page, &messages);
+    Ok(fill_i18n_attributes(&page, &messages))
+}
+
 pub(crate) fn template_load_error_response(error: String) -> Response {
     (
         StatusCode::INTERNAL_SERVER_ERROR,
@@ -954,42 +1253,43 @@ pub(crate) fn template_load_error_response(error: String) -> Response {
 }
 
 fn render_page(title: &str, topbar_path: &str, content_path: &str) -> Result<Html<String>, String> {
+    let topbar = if topbar_path.is_empty() {
+        String::new()
+    } else {
+        load_template(topbar_path)?
+    };
     let page = load_template("layout.html")?
         .replace("{{TITLE}}", title)
         .replace("{{ACTIVE_TEMPLATE}}", &active_template_name())
-        .replace("{{TOPBAR}}", &load_template(topbar_path)?)
+        .replace("{{TOPBAR}}", &topbar)
         .replace("{{CONTENT}}", &load_template(content_path)?);
+    let page = render_default_i18n_fallbacks(&page)?;
     Ok(Html(page))
 }
 
 pub async fn page() -> impl IntoResponse {
-    match render_page(
-        "MinPanel Dashboard",
-        "topbar.html",
-        "index.html",
-    ) {
+    match render_page("MinPanel Dashboard", "topbar.html", "index.html") {
         Ok(page) => page.into_response(),
         Err(error) => template_load_error_response(error),
     }
 }
 
 pub async fn software_page() -> impl IntoResponse {
-    match render_page(
-        "MinPanel App Store",
-        "topbar.html",
-        "soft.html",
-    ) {
+    match render_page("MinPanel App Store", "topbar.html", "soft.html") {
         Ok(page) => page.into_response(),
         Err(error) => template_load_error_response(error),
     }
 }
 
 pub async fn database_page() -> impl IntoResponse {
-    match render_page(
-        "MinPanel Database",
-        "topbar.html",
-        "database.html",
-    ) {
+    match render_page("MinPanel Database", "topbar.html", "database.html") {
+        Ok(page) => page.into_response(),
+        Err(error) => template_load_error_response(error),
+    }
+}
+
+pub async fn files_page() -> impl IntoResponse {
+    match render_page("MinPanel Files", "", "files.html") {
         Ok(page) => page.into_response(),
         Err(error) => template_load_error_response(error),
     }
@@ -1187,7 +1487,10 @@ pub async fn set_template_theme(
     }) {
         Ok(()) => Json(OperationStatus {
             status: true,
-            message: format!("Theme changed to {}", humanize_template_theme_name(&requested)),
+            message: format!(
+                "Theme changed to {}",
+                humanize_template_theme_name(&requested)
+            ),
         }),
         Err(error) => Json(OperationStatus {
             status: false,

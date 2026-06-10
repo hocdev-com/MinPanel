@@ -1,9 +1,9 @@
-<section class="card website-project-bar" aria-label="Project navigation">
-  <div class="website-project-tabs" role="tablist" aria-label="Project type">
-    <button class="website-project-tab active" type="button" data-project-tab="PHP Project" aria-selected="true">PHP Project</button>
-    <button class="website-project-tab" type="button" data-project-tab="Node Project" aria-selected="false">Node Project</button>
-    <button class="website-project-tab" type="button" data-project-tab="Proxy Project" aria-selected="false">Proxy Project</button>
-    <button class="website-project-tab" type="button" data-project-tab="Python Project" aria-selected="false">Python Project</button>
+<section class="card website-project-bar" aria-label="" data-i18n-auto data-i18n-attr="aria-label:website.project_navigation">
+  <div class="website-project-tabs" role="tablist" aria-label="" data-i18n-attr="aria-label:website.project_type">
+    <button class="website-project-tab active" type="button" data-project-tab="PHP Project" aria-selected="true" data-i18n="website.php_project"></button>
+    <button class="website-project-tab" type="button" data-project-tab="Node Project" aria-selected="false" data-i18n="website.node_project"></button>
+    <button class="website-project-tab" type="button" data-project-tab="Proxy Project" aria-selected="false" data-i18n="website.proxy_project"></button>
+    <button class="website-project-tab" type="button" data-project-tab="Python Project" aria-selected="false" data-i18n="website.python_project"></button>
   </div>
 </section>
 
@@ -11,37 +11,37 @@
   <div class="website-shell">
     <div class="website-toolbar">
       <div class="website-toolbar-left">
-        <button class="website-primary-button" id="website-add-site-button" type="button">Add site</button>
+        <button class="website-primary-button" id="website-add-site-button" type="button" data-i18n="website.add_site"></button>
         <button class="website-toolbar-button" type="button">
-          <span>Advanced Setup</span>
+          <span data-i18n="website.advanced_setup"></span>
           <svg viewBox="0 0 20 20" aria-hidden="true">
             <path d="M6 8l4 4 4-4"></path>
           </svg>
         </button>
-        <button class="website-toolbar-button" type="button">Statistics</button>
+        <button class="website-toolbar-button" type="button" data-i18n="website.statistics"></button>
         <button class="website-runtime-button" id="website-web-server-button" data-web-server="{{WEB_SERVER_KIND}}" data-web-server-status="{{WEB_SERVER_STATUS}}" data-web-server-title="{{WEB_SERVER_TITLE}}" type="button">
           <span class="website-runtime-icon" id="website-web-server-icon" aria-hidden="true">
             {{WEB_SERVER_ICON}}
           </span>
           <span class="website-runtime-label" id="website-web-server-label">{{WEB_SERVER_LABEL}}</span>
         </button>
-        <div class="website-runtime-popover" id="website-runtime-popover" role="menu" aria-label="Web server quick actions" hidden></div>
+        <div class="website-runtime-popover" id="website-runtime-popover" role="menu" aria-label="" hidden data-i18n-attr="aria-label:website.runtime_actions"></div>
       </div>
 
       <div class="website-toolbar-right">
         <label class="website-select">
-          <span class="sr-only">Category filter</span>
-          <select id="website-category-select" aria-label="Category filter">
+          <span class="sr-only" data-i18n="website.category_filter"></span>
+          <select id="website-category-select" aria-label="" data-i18n-attr="aria-label:website.category_filter">
             <option value="all">All categories</option>
             <option value="running">Running</option>
             <option value="stopped">Stopped</option>
-            <option value="expired">Expired SSL</option>
+            <option value="expired" data-i18n="website.expired_ssl"></option>
           </select>
         </label>
 
         <label class="website-search">
-          <span class="sr-only">Search websites</span>
-          <input id="website-search-input" type="search" placeholder="Domain or Remarks" aria-label="Search websites" />
+          <span class="sr-only" data-i18n="website.search_websites"></span>
+          <input id="website-search-input" type="search" placeholder="" aria-label="" data-i18n-attr="placeholder:website.search_placeholder;aria-label:website.search_websites" />
           <span class="website-search-icon" aria-hidden="true">
             <svg viewBox="0 0 20 20">
               <circle cx="9" cy="9" r="5.5"></circle>
@@ -50,7 +50,7 @@
           </span>
         </label>
 
-        <button class="website-icon-button" id="website-settings-button" type="button" aria-label="Website settings">
+        <button class="website-icon-button" id="website-settings-button" type="button" aria-label="" data-i18n-attr="aria-label:website.website_settings">
           <svg viewBox="0 0 20 20" aria-hidden="true">
             <path d="M10 3.2 11 3.6l.75 1.82c.5.12.97.32 1.4.58l1.84-.7.89.89-.7 1.84c.26.43.46.9.58 1.4l1.82.75v1.06l-1.82.75a5 5 0 0 1-.58 1.4l.7 1.84-.89.89-1.84-.7a5 5 0 0 1-1.4.58L11 16.8l-1 .4-1-.4-.75-1.82a5 5 0 0 1-1.4-.58l-1.84.7-.89-.89.7-1.84a5 5 0 0 1-.58-1.4l-1.82-.75V9.12l1.82-.75c.12-.5.32-.97.58-1.4l-.7-1.84.89-.89 1.84.7c.43-.26.9-.46 1.4-.58L9 3.6z"></path>
             <circle cx="10" cy="10" r="2.25"></circle>
@@ -64,17 +64,17 @@
         <thead>
           <tr>
             <th class="website-check-col">
-              <input id="website-check-all" type="checkbox" aria-label="Select all websites on page" />
+              <input id="website-check-all" type="checkbox" aria-label="" data-i18n-attr="aria-label:website.select_all" />
             </th>
-            <th class="website-site-col">Site name</th>
-            <th class="website-status-col">Status</th>
-            <th class="website-backup-col">Backup</th>
-            <th class="website-quick-col">Quick action</th>
-            <th class="website-expiration-col">Expiration</th>
+            <th class="website-site-col" data-i18n="website.site_name"></th>
+            <th class="website-status-col" data-i18n="shared.status"></th>
+            <th class="website-backup-col" data-i18n="database.backup"></th>
+            <th class="website-quick-col" data-i18n="website.quick_action"></th>
+            <th class="website-expiration-col" data-i18n="website.expiration"></th>
             <th class="website-ssl-col">SSL</th>
-            <th class="website-requests-col">Requests</th>
+            <th class="website-requests-col" data-i18n="website.requests"></th>
             <th class="website-waf-col">WAF</th>
-            <th class="website-operate-col">Operate</th>
+            <th class="website-operate-col" data-i18n="shared.operate"></th>
           </tr>
         </thead>
         <tbody id="website-table-body"></tbody>
@@ -85,7 +85,7 @@
     <div class="website-footer">
       <div class="website-batch-actions">
         <div class="website-select website-select-batch website-batch-dropdown">
-          <span class="sr-only">Batch action</span>
+          <span class="sr-only" data-i18n="database.batch_action"></span>
           <button
             id="website-batch-trigger"
             class="website-batch-trigger"
@@ -93,35 +93,35 @@
             aria-haspopup="listbox"
             aria-expanded="false"
           >
-            <span id="website-batch-label">Please choose</span>
+            <span id="website-batch-label" data-i18n="shared.please_choose"></span>
           </button>
           <div id="website-batch-menu" class="website-batch-menu" role="listbox" hidden>
-            <button class="website-batch-option is-placeholder" type="button" data-website-batch-action="">Please choose</button>
+            <button class="website-batch-option is-placeholder" type="button" data-website-batch-action="" data-i18n="shared.please_choose"></button>
             <button class="website-batch-option" type="button" data-website-batch-action="backup">Create backup</button>
-            <button class="website-batch-option" type="button" data-website-batch-action="ssl">Check SSL</button>
-            <button class="website-batch-option" type="button" data-website-batch-action="waf">Enable WAF</button>
-            <button class="website-batch-option is-danger" type="button" data-website-batch-action="delete">Delete site</button>
+            <button class="website-batch-option" type="button" data-website-batch-action="ssl" data-i18n="website.check_ssl"></button>
+            <button class="website-batch-option" type="button" data-website-batch-action="waf" data-i18n="website.enable_waf"></button>
+            <button class="website-batch-option is-danger" type="button" data-website-batch-action="delete" data-i18n="website.delete_site"></button>
           </div>
         </div>
-        <button class="website-execute-button" id="website-batch-execute" type="button" disabled>Execute</button>
+        <button class="website-execute-button" id="website-batch-execute" type="button" disabled data-i18n="shared.execute"></button>
       </div>
 
       <div class="website-pagination">
-        <button class="website-page-nav" id="website-prev-page" type="button" aria-label="Previous page">
+        <button class="website-page-nav" id="website-prev-page" type="button" aria-label="" data-i18n-attr="aria-label:shared.previous_page">
           <svg viewBox="0 0 20 20" aria-hidden="true">
             <path d="m12 5-5 5 5 5"></path>
           </svg>
         </button>
         <span class="website-page-current" id="website-page-current">1</span>
-        <button class="website-page-nav" id="website-next-page" type="button" aria-label="Next page">
+        <button class="website-page-nav" id="website-next-page" type="button" aria-label="" data-i18n-attr="aria-label:shared.next_page">
           <svg viewBox="0 0 20 20" aria-hidden="true">
             <path d="m8 5 5 5-5 5"></path>
           </svg>
         </button>
 
         <label class="website-select website-page-size">
-          <span class="sr-only">Rows per page</span>
-          <select id="website-page-size" aria-label="Rows per page">
+          <span class="sr-only" data-i18n="shared.rows_per_page"></span>
+          <select id="website-page-size" aria-label="" data-i18n-attr="aria-label:shared.rows_per_page">
             <option value="10">10 / page</option>
             <option value="20">20 / page</option>
             <option value="50">50 / page</option>
@@ -129,11 +129,11 @@
         </label>
 
         <label class="website-goto">
-          <span>Goto</span>
+          <span data-i18n="shared.goto"></span>
           <input id="website-page-input" type="number" min="1" value="1" inputmode="numeric" />
         </label>
 
-        <span class="website-total" id="website-total-count">Total 0</span>
+        <span class="website-total" id="website-total-count" data-i18n="shared.page_total_zero"></span>
       </div>
     </div>
   </div>
@@ -142,9 +142,9 @@
 <section class="software-settings-modal" id="software-settings-modal" hidden>
   <div class="software-settings-backdrop" data-software-settings-close></div>
   <div class="software-settings-panel" role="dialog" aria-modal="true" aria-labelledby="software-settings-title">
-    <button class="panel-close-button panel-close-button--floating software-settings-close" id="software-settings-close" type="button" aria-label="Close settings window"></button>
+    <button class="panel-close-button panel-close-button--floating software-settings-close" id="software-settings-close" type="button" aria-label="" data-i18n-attr="aria-label:software.close_settings"></button>
     <div class="software-settings-head">
-      <h3 class="software-settings-title" id="software-settings-title">Settings</h3>
+      <h3 class="software-settings-title" id="software-settings-title" data-i18n="nav.settings"></h3>
     </div>
     <div class="software-settings-shell">
       <aside class="software-settings-sidebar">
@@ -160,55 +160,55 @@
 <section class="website-create-modal" id="website-create-modal" hidden>
   <div class="website-create-backdrop" data-website-create-close></div>
   <div class="website-create-panel" role="dialog" aria-modal="true" aria-labelledby="website-create-title">
-    <button class="panel-close-button panel-close-button--floating website-create-close" id="website-create-close" type="button" aria-label="Close add site form"></button>
+    <button class="panel-close-button panel-close-button--floating website-create-close" id="website-create-close" type="button" aria-label="" data-i18n-attr="aria-label:website.close_add"></button>
     <div class="website-create-head">
       <div>
-        <h3 id="website-create-title">Add site - Support batch site building</h3>
+        <h3 id="website-create-title" data-i18n="website.add_title"></h3>
       </div>
     </div>
 
     <div class="website-create-tabs" role="tablist" aria-label="Create mode">
-      <button class="website-create-tab active" type="button" aria-selected="true">Create site</button>
-      <button class="website-create-tab" type="button" aria-selected="false" disabled>Create for Git</button>
-      <button class="website-create-tab" type="button" aria-selected="false" disabled>Batch create</button>
+      <button class="website-create-tab active" type="button" aria-selected="true" data-i18n="website.create_site"></button>
+      <button class="website-create-tab" type="button" aria-selected="false" disabled data-i18n="website.create_git"></button>
+      <button class="website-create-tab" type="button" aria-selected="false" disabled data-i18n="website.batch_create"></button>
     </div>
 
     <form class="website-create-form" id="website-create-form">
       <div class="website-create-grid">
         <div class="website-create-row website-create-resolve">
-          <span class="website-create-label">Resolve Domain</span>
+          <span class="website-create-label" data-i18n="website.resolve_domain"></span>
           <label class="website-create-radio active">
             <input type="radio" name="website-resolve-mode" value="manual" checked />
-            <span>Manual Add Record</span>
+            <span data-i18n="website.manual_add_record"></span>
           </label>
           <label class="website-create-radio is-disabled">
             <input type="radio" name="website-resolve-mode" value="automatic" disabled />
-            <span>Automatic Add Record</span>
+            <span data-i18n="website.auto_add_record"></span>
           </label>
           <label class="website-create-check">
             <input id="website-create-ssl" type="checkbox" checked />
-            <span>Apply for SSL</span>
+            <span data-i18n="website.apply_ssl"></span>
           </label>
         </div>
 
         <label class="website-create-field website-create-field-wide">
-          <span class="website-create-label">Domain name</span>
+          <span class="website-create-label" data-i18n="website.domain_name"></span>
           <div class="website-create-domain-wrapper">
-                <textarea id="website-create-domain" rows="4" placeholder="Enter a local domain like demo.test&#10;If you type only demo, MinPanel will use demo.test"></textarea>
+                <textarea id="website-create-domain" rows="4" placeholder="" data-i18n-attr="placeholder:website.domain_placeholder"></textarea>
             <div id="website-create-domain-ghost" class="website-create-domain-ghost" aria-hidden="true"></div>
           </div>
-                <span class="website-create-hint">MinPanel will map local domains to 127.0.0.1 in the Windows hosts file, like MinPanel.</span>
+                <span class="website-create-hint" data-i18n="website.domain_hint"></span>
         </label>
 
         <label class="website-create-field website-create-field-wide">
-          <span class="website-create-label">Description</span>
-          <input id="website-create-description" type="text" placeholder="Optional note for this site" />
+          <span class="website-create-label" data-i18n="website.description"></span>
+          <input id="website-create-description" type="text" placeholder="" data-i18n-attr="placeholder:website.description_placeholder" />
         </label>
 
         <label class="website-create-field website-create-field-wide">
-          <span class="website-create-label">Website Path</span>
+          <span class="website-create-label" data-i18n="website.web_path"></span>
           <span class="website-create-path">
-            <input id="website-create-path" type="text" placeholder="Website root path" />
+            <input id="website-create-path" type="text" placeholder="" data-i18n-attr="placeholder:website.web_path_placeholder" />
             <button class="website-create-path-button" id="website-create-path-reset" type="button" aria-label="Reset website path">
               <svg viewBox="0 0 20 20" aria-hidden="true">
                 <path d="M2.8 6.5h4l1.4 1.7h8.9v5.8a1.5 1.5 0 0 1-1.5 1.5H4.3a1.5 1.5 0 0 1-1.5-1.5z"></path>
@@ -219,33 +219,33 @@
         </label>
 
         <label class="website-create-field">
-          <span class="website-create-label">FTP</span>
+          <span class="website-create-label" data-i18n="dashboard.ftp"></span>
           <select disabled>
-            <option>Not create</option>
+            <option data-i18n="website.not_create"></option>
           </select>
         </label>
 
         <label class="website-create-field">
-          <span class="website-create-label">Database</span>
+          <span class="website-create-label" data-i18n="nav.database"></span>
           <select disabled>
-            <option>Not create</option>
+            <option data-i18n="website.not_create"></option>
           </select>
         </label>
 
         <label class="website-create-field">
-          <span class="website-create-label">PHP version</span>
+          <span class="website-create-label" data-i18n="website.php_version"></span>
           <select id="website-create-php-version"></select>
         </label>
 
         <label class="website-create-field">
-          <span class="website-create-label">Site category</span>
+          <span class="website-create-label" data-i18n="website.site_category"></span>
           <select id="website-create-category" disabled>
-            <option>Default category</option>
+            <option data-i18n="website.default_category"></option>
           </select>
         </label>
 
         <label class="website-create-switch">
-          <span class="website-create-label">Create index.php</span>
+          <span class="website-create-label" data-i18n="website.create_index"></span>
           <span class="website-create-toggle">
             <input id="website-create-html" type="checkbox" checked />
             <span class="website-create-toggle-ui"></span>
@@ -254,8 +254,8 @@
       </div>
 
       <div class="website-create-actions">
-        <button class="website-create-cancel" id="website-create-cancel" type="button">Cancel</button>
-        <button class="website-create-confirm" id="website-create-confirm" type="submit">Confirm</button>
+        <button class="website-create-cancel" id="website-create-cancel" type="button" data-i18n="shared.cancel"></button>
+        <button class="website-create-confirm" id="website-create-confirm" type="submit" data-i18n="shared.confirm"></button>
       </div>
     </form>
   </div>
@@ -264,26 +264,26 @@
 <section class="website-directory-modal" id="website-directory-modal" hidden>
   <div class="website-directory-backdrop" data-website-directory-close></div>
   <div class="website-directory-panel" role="dialog" aria-modal="true" aria-labelledby="website-directory-title">
-    <button class="panel-close-button panel-close-button--floating website-directory-close" id="website-directory-close" type="button" aria-label="Close directory selector"></button>
+    <button class="panel-close-button panel-close-button--floating website-directory-close" id="website-directory-close" type="button" aria-label="" data-i18n-attr="aria-label:website.close_directory"></button>
     <div class="website-directory-head">
-      <h3 id="website-directory-title">Select directory</h3>
+      <h3 id="website-directory-title" data-i18n="website.select_directory"></h3>
     </div>
     <div class="website-directory-toolbar">
-      <button class="website-directory-nav" id="website-directory-back" type="button" aria-label="Back to parent directory">
+      <button class="website-directory-nav" id="website-directory-back" type="button" aria-label="" data-i18n-attr="aria-label:website.back_parent">
         <svg viewBox="0 0 20 20" aria-hidden="true">
           <path d="M12.5 5.5 8 10l4.5 4.5"></path>
         </svg>
       </button>
       <div class="website-directory-breadcrumbs" id="website-directory-breadcrumbs"></div>
-      <button class="website-directory-refresh" id="website-directory-refresh" type="button" aria-label="Refresh directory">
+      <button class="website-directory-refresh" id="website-directory-refresh" type="button" aria-label="" data-i18n-attr="aria-label:files.refresh_directory">
         <svg viewBox="0 0 20 20" aria-hidden="true">
           <path d="M15.5 9.2a5.5 5.5 0 1 0-1.4 4.1"></path>
           <path d="M15.5 5.5v3.7h-3.7"></path>
         </svg>
       </button>
       <label class="website-directory-search">
-        <span class="sr-only">Search file or directory</span>
-        <input id="website-directory-search" type="search" placeholder="Search file/directory" />
+        <span class="sr-only" data-i18n="website.search_directory"></span>
+        <input id="website-directory-search" type="search" placeholder="" data-i18n-attr="placeholder:files.search_placeholder" />
         <svg viewBox="0 0 20 20" aria-hidden="true">
           <circle cx="9" cy="9" r="5.5"></circle>
           <path d="M13 13l3.5 3.5"></path>
@@ -291,8 +291,8 @@
       </label>
     </div>
     <div class="website-directory-actions">
-      <button class="website-directory-secondary" type="button" disabled>New File</button>
-      <button class="website-directory-secondary" id="website-directory-new-folder" type="button">New Directory</button>
+      <button class="website-directory-secondary" type="button" disabled data-i18n="files.new_file"></button>
+      <button class="website-directory-secondary" id="website-directory-new-folder" type="button" data-i18n="website.new_directory"></button>
     </div>
     <div class="website-directory-body">
       <aside class="website-directory-side">
@@ -305,7 +305,7 @@
         <table class="website-directory-table">
           <thead>
             <tr>
-              <th>Name</th>
+              <th data-i18n="website.directory_name"></th>
               <th>Modification time</th>
               <th>Permissions/Owner</th>
             </tr>
@@ -316,12 +316,12 @@
     </div>
     <div class="website-directory-foot">
       <label class="website-directory-current">
-        <span>Current selection:</span>
+        <span data-i18n="shared.current_selection"></span>
         <input id="website-directory-selection" type="text" readonly />
       </label>
       <div class="website-directory-foot-actions">
-        <button class="website-directory-cancel" id="website-directory-cancel" type="button">Cancel</button>
-        <button class="website-directory-confirm" id="website-directory-confirm" type="button">Confirm</button>
+        <button class="website-directory-cancel" id="website-directory-cancel" type="button" data-i18n="shared.cancel"></button>
+        <button class="website-directory-confirm" id="website-directory-confirm" type="button" data-i18n="shared.confirm"></button>
       </div>
     </div>
   </div>
@@ -331,37 +331,37 @@
   <div class="website-delete-backdrop" data-website-delete-close></div>
   <div class="website-delete-panel" role="dialog" aria-modal="true" aria-labelledby="website-delete-title">
     <div class="website-delete-head">
-      <h3 id="website-delete-title">Delete site</h3>
-      <button class="panel-close-button panel-close-button--floating website-delete-close" id="website-delete-close" type="button" aria-label="Close delete site form"></button>
+      <h3 id="website-delete-title" data-i18n="website.delete_site"></h3>
+      <button class="panel-close-button panel-close-button--floating website-delete-close" id="website-delete-close" type="button" aria-label="" data-i18n-attr="aria-label:website.close_delete"></button>
     </div>
 
     <div class="website-delete-body">
       <div class="website-delete-warning">
         <span class="website-delete-warning-icon" aria-hidden="true">!</span>
         <div class="website-delete-warning-copy">
-          <strong id="website-delete-warning-title">This will delete the selected website profile.</strong>
-          <p>The document root will always be deleted with this action.</p>
+          <strong id="website-delete-warning-title" data-i18n="website.delete_warning"></strong>
+          <p data-i18n="website.delete_tip"></p>
         </div>
       </div>
 
       <div class="website-delete-options">
         <label class="website-delete-option is-disabled">
           <input id="website-delete-ftp" type="checkbox" disabled />
-          <span>FTP</span>
+          <span data-i18n="dashboard.ftp"></span>
         </label>
         <label class="website-delete-option is-disabled">
           <input id="website-delete-database" type="checkbox" disabled />
-          <span>Database</span>
+          <span data-i18n="nav.database"></span>
           <span class="website-delete-option-badge" aria-hidden="true">i</span>
         </label>
         <label class="website-delete-option is-disabled">
           <input id="website-delete-document-root" type="checkbox" checked disabled />
-          <span>Document Root</span>
+          <span data-i18n="website.delete_document_root"></span>
         </label>
       </div>
 
       <div class="website-delete-verify">
-        <span class="website-delete-verify-label">Result:</span>
+        <span class="website-delete-verify-label" data-i18n="shared.result"></span>
         <span class="website-delete-verify-expression" id="website-delete-verify-expression">1 + 1 =</span>
         <input class="website-delete-verify-input" id="website-delete-verify-input" type="text" inputmode="numeric" autocomplete="off" />
       </div>
@@ -369,8 +369,8 @@
     </div>
 
     <div class="website-delete-actions">
-      <button class="website-delete-cancel" id="website-delete-cancel" type="button">Cancel</button>
-      <button class="website-delete-confirm" id="website-delete-confirm" type="button" disabled>Confirm</button>
+      <button class="website-delete-cancel" id="website-delete-cancel" type="button" data-i18n="shared.cancel"></button>
+      <button class="website-delete-confirm" id="website-delete-confirm" type="button" disabled data-i18n="shared.confirm"></button>
     </div>
   </div>
 </section>

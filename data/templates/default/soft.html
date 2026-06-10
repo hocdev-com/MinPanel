@@ -1,15 +1,15 @@
-<section class="grid split-grid">
+<section class="grid split-grid" data-i18n-auto>
   <article class="card software-card" id="software">
     <div class="software-page-tabbar">
-      <button class="software-page-tab active" type="button">App Store</button>
+      <button class="software-page-tab active" type="button" data-i18n="nav.app_store"></button>
     </div>
     <div class="software-shell">
       <div class="software-filter-card">
         <div class="software-filter-row software-filter-row-primary">
-          <span class="software-filter-title">Search App</span>
+          <span class="software-filter-title" data-i18n="software.search"></span>
           <label class="software-search" for="software-search-input">
-            <input id="software-search-input" type="text" placeholder="search" />
-            <button id="software-search-button" type="button" aria-label="Search App">
+            <input id="software-search-input" type="text" placeholder="" data-i18n-attr="placeholder:software.search_placeholder" />
+            <button id="software-search-button" type="button" aria-label="" data-i18n-attr="aria-label:software.search">
               <svg viewBox="0 0 20 20">
                 <circle cx="9" cy="9" r="5.5"></circle>
                 <path d="M13 13 17 17"></path>
@@ -18,7 +18,7 @@
           </label>
         </div>
         <div class="software-filter-row software-filter-row-stack">
-          <span class="software-filter-title">App Sort</span>
+          <span class="software-filter-title" data-i18n="software.app_sort"></span>
           <div class="software-category-list" id="software-category-list"></div>
         </div>
       </div>
@@ -30,14 +30,14 @@
           <table class="software-table">
             <thead>
               <tr>
-                <th class="software-app-col">App Name</th>
-                <th class="software-developer-col">Developer</th>
-                <th class="software-description-col">Instructions</th>
-                <th class="software-price-col">Price</th>
-                <th class="software-location-col">Location</th>
-                <th class="software-status-col">Status</th>
-                <th class="software-display-col">Display</th>
-                <th class="software-operate-col">Operate</th>
+                <th class="software-app-col" data-i18n="software.app_name"></th>
+                <th class="software-developer-col" data-i18n="software.developer"></th>
+                <th class="software-description-col" data-i18n="software.instructions"></th>
+                <th class="software-price-col" data-i18n="software.price"></th>
+                <th class="software-location-col" data-i18n="database.location"></th>
+                <th class="software-status-col" data-i18n="shared.status"></th>
+                <th class="software-display-col" data-i18n="software.display"></th>
+                <th class="software-operate-col" data-i18n="shared.operate"></th>
               </tr>
             </thead>
             <tbody id="software-table-body"></tbody>
@@ -45,15 +45,15 @@
         </div>
 
         <div class="software-table-footer">
-          <div class="software-page-meta" id="software-page-meta">0 apps</div>
+          <div class="software-page-meta" id="software-page-meta" data-i18n="software.apps_zero"></div>
           <div class="software-pagination">
-            <button class="software-page-button" id="software-prev-page" type="button" aria-label="Previous page">
+            <button class="software-page-button" id="software-prev-page" type="button" aria-label="" data-i18n-attr="aria-label:shared.previous_page">
               <svg viewBox="0 0 20 20">
                 <path d="m11.5 5-5 5 5 5"></path>
               </svg>
             </button>
             <span class="software-page-current" id="software-page-current">1 / 1</span>
-            <button class="software-page-button" id="software-next-page" type="button" aria-label="Next page">
+            <button class="software-page-button" id="software-next-page" type="button" aria-label="" data-i18n-attr="aria-label:shared.next_page">
               <svg viewBox="0 0 20 20">
                 <path d="m8.5 5 5 5-5 5"></path>
               </svg>
@@ -68,39 +68,39 @@
 <section class="software-install-modal" id="software-install-modal" hidden>
   <div class="software-install-backdrop" data-software-install-close></div>
   <div class="software-install-panel" role="dialog" aria-modal="true" aria-labelledby="software-install-title">
-    <button class="panel-close-button panel-close-button--floating software-install-close" id="software-install-close" type="button" aria-label="Close installation window"></button>
+    <button class="panel-close-button panel-close-button--floating software-install-close" id="software-install-close" type="button" aria-label="" data-i18n-attr="aria-label:software.close_install"></button>
     <div class="software-install-header">
       <div class="software-install-header-left">
         <div class="software-install-icon" id="software-install-icon" aria-hidden="true"></div>
         <div class="software-install-info">
-          <h3 class="software-install-name" id="software-install-title">App Name</h3>
+          <h3 class="software-install-name" id="software-install-title" data-i18n="software.app_name"></h3>
           <div class="software-install-meta">
-            <span class="software-install-update" id="software-install-update-time">Select a version below to manage</span>
+            <span class="software-install-update" id="software-install-update-time" data-i18n="software.select_version_manage"></span>
           </div>
         </div>
       </div>
       <div class="software-install-header-right">
         <label class="software-install-select">
-          <select id="software-install-version-dropdown" aria-label="Select version"></select>
+          <select id="software-install-version-dropdown" aria-label="" data-i18n-attr="aria-label:software.select_version"></select>
           <span class="software-install-select-arrow" aria-hidden="true">
             <svg viewBox="0 0 20 20"><path d="M6 8l4 4 4-4"></path></svg>
           </span>
         </label>
-        <button class="software-install-confirm" id="software-install-confirm" type="button">Install Now</button>
-        <button class="software-manager-btn is-uninstall" id="software-install-uninstall" type="button" hidden>Uninstall</button>
+        <button class="software-install-confirm" id="software-install-confirm" type="button" data-i18n="software.install_now"></button>
+        <button class="software-manager-btn is-uninstall" id="software-install-uninstall" type="button" hidden data-i18n="software.uninstall"></button>
       </div>
     </div>
     <div class="software-install-body">
       <div id="software-manager-actions-row" class="software-manager-secondary-actions" style="margin-bottom: 0px; display: flex; justify-content: flex-end; gap: 8px;">
         <!-- Contextual secondary buttons will appear here -->
       </div>
-      <h4 class="software-install-desc-title">Plugin Description:</h4>
+      <h4 class="software-install-desc-title" data-i18n="software.plugin_description"></h4>
       <div class="software-install-desc-content" id="software-install-description">
-        <p>New: Image transmission security baseline scan</p>
+        <p data-i18n="software.new_scan"></p>
         <ul>
-          <li>If this plugin already exists, the file will be replaced!</li>
-          <li>Please install the plugin extensions and dependencies manually, if they are not installed, the plugin will not work properly</li>
-          <li>The installation process may take a few minutes, so please be patient!</li>
+          <li data-i18n="software.install_tip_replace"></li>
+          <li data-i18n="software.install_tip_dependencies"></li>
+          <li data-i18n="software.install_tip_wait"></li>
         </ul>
       </div>
     </div>
@@ -110,9 +110,9 @@
 <section class="software-settings-modal" id="software-settings-modal" hidden>
   <div class="software-settings-backdrop" data-software-settings-close></div>
   <div class="software-settings-panel" role="dialog" aria-modal="true" aria-labelledby="software-settings-title">
-    <button class="panel-close-button panel-close-button--floating software-settings-close" id="software-settings-close" type="button" aria-label="Close settings window"></button>
+    <button class="panel-close-button panel-close-button--floating software-settings-close" id="software-settings-close" type="button" aria-label="" data-i18n-attr="aria-label:software.close_settings"></button>
     <div class="software-settings-head">
-      <h3 class="software-settings-title" id="software-settings-title">Settings</h3>
+      <h3 class="software-settings-title" id="software-settings-title" data-i18n="nav.settings"></h3>
     </div>
     <div class="software-settings-shell">
       <aside class="software-settings-sidebar">

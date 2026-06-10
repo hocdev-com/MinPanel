@@ -21,9 +21,7 @@ const DEFAULT_LOCAL_DOMAIN_SUFFIX: &str = ".test";
 #[cfg(windows)]
 const WINDOWS_HOSTS_FILE: &str = r"C:\Windows\System32\drivers\etc\hosts";
 #[cfg(windows)]
-const WINDOWS_HOSTS_UPDATE_SCRIPT: &str = r"data\bin\update-hosts.bat";
-#[cfg(windows)]
-const WINDOWS_CMD_EXECUTABLE: &str = r"C:\Windows\System32\cmd.exe";
+const WINDOWS_HOSTS_UPDATE_HELPER: &str = "update-hosts.exe";
 #[cfg(windows)]
 const WINDOWS_CREATE_NO_WINDOW: u32 = 0x08000000;
 static WEBSITE_ROUTING_SYNC_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
@@ -161,22 +159,23 @@ pub async fn website_page() -> impl IntoResponse {
         Ok(layout) => layout,
         Err(error) => return dashboard::template_load_error_response(error),
     };
-    Html(
-        layout
-            .replace("{{TITLE}}", "MinPanel Website")
-            .replace("{{ACTIVE_TEMPLATE}}", &dashboard::active_template_name())
-            .replace("{{TOPBAR}}", "")
-            .replace(
-                "{{CONTENT}}",
-                &content
-                    .replace("{{WEB_SERVER_KIND}}", &web_server.kind)
-                    .replace("{{WEB_SERVER_STATUS}}", &web_server.status)
-                    .replace("{{WEB_SERVER_ICON}}", &web_server.icon)
-                    .replace("{{WEB_SERVER_LABEL}}", &web_server.label)
-                    .replace("{{WEB_SERVER_TITLE}}", &web_server.title),
-            ),
-    )
-    .into_response()
+    let page = layout
+        .replace("{{TITLE}}", "MinPanel Website")
+        .replace("{{ACTIVE_TEMPLATE}}", &dashboard::active_template_name())
+        .replace("{{TOPBAR}}", "")
+        .replace(
+            "{{CONTENT}}",
+            &content
+                .replace("{{WEB_SERVER_KIND}}", &web_server.kind)
+                .replace("{{WEB_SERVER_STATUS}}", &web_server.status)
+                .replace("{{WEB_SERVER_ICON}}", &web_server.icon)
+                .replace("{{WEB_SERVER_LABEL}}", &web_server.label)
+                .replace("{{WEB_SERVER_TITLE}}", &web_server.title),
+        );
+    match dashboard::render_default_i18n_fallbacks(&page) {
+        Ok(page) => Html(page).into_response(),
+        Err(error) => dashboard::template_load_error_response(error),
+    }
 }
 
 struct InitialWebsiteWebServer {
@@ -1390,20 +1389,18 @@ fn hosts_content_with_domain(content: &str, domain: &str) -> Option<String> {
 fn request_elevated_windows_hosts_update(updated: &str, domain: &str) -> Result<(), String> {
     let source_path = write_pending_hosts_file(updated, domain)?;
     let status_path = write_hosts_update_status_path(domain)?;
-    let script_path = resolve_windows_hosts_update_script()?;
-    let args = format!(
-        "/d /s /c \"\"{}\" \"{}\" \"{}\" \"{}\"\"",
-        script_path.display(),
-        source_path.display(),
-        WINDOWS_HOSTS_FILE,
-        status_path.display()
-    );
+    let helper_path = resolve_windows_hosts_update_helper()?;
+    let args = quote_windows_arguments([
+        source_path.as_path(),
+        Path::new(WINDOWS_HOSTS_FILE),
+        status_path.as_path(),
+    ]);
 
     let result = unsafe {
         ShellExecuteW(
             null_mut(),
             to_wide("runas").as_ptr(),
-            to_wide(WINDOWS_CMD_EXECUTABLE).as_ptr(),
+            to_wide_path(&helper_path).as_ptr(),
             to_wide(&args).as_ptr(),
             null(),
             SW_HIDE,
@@ -1491,7 +1488,7 @@ fn read_hosts_update_status(path: &Path) -> Option<String> {
 }
 
 #[cfg(windows)]
-fn resolve_windows_hosts_update_script() -> Result<PathBuf, String> {
+fn resolve_windows_hosts_update_helper() -> Result<PathBuf, String> {
     let mut candidates = Vec::new();
     if let Ok(executable) = env::current_exe() {
         if let Some(parent) = executable.parent() {
@@ -1503,21 +1500,44 @@ fn resolve_windows_hosts_update_script() -> Result<PathBuf, String> {
     }
 
     for candidate in candidates {
-        let script = candidate.join(WINDOWS_HOSTS_UPDATE_SCRIPT);
-        if script.exists() {
-            return Ok(script);
+        let helper = candidate
+            .join("data")
+            .join("bin")
+            .join(WINDOWS_HOSTS_UPDATE_HELPER);
+        if helper.exists() {
+            return Ok(helper);
+        }
+
+        let helper = candidate.join(WINDOWS_HOSTS_UPDATE_HELPER);
+        if helper.exists() {
+            return Ok(helper);
         }
         if let Some(root) = find_workspace_root(&candidate) {
-            let script = root.join(WINDOWS_HOSTS_UPDATE_SCRIPT);
-            if script.exists() {
-                return Ok(script);
+            for profile in ["debug", "release"] {
+                let helper = root
+                    .join("target")
+                    .join(profile)
+                    .join("data")
+                    .join("bin")
+                    .join(WINDOWS_HOSTS_UPDATE_HELPER);
+                if helper.exists() {
+                    return Ok(helper);
+                }
+
+                let helper = root
+                    .join("target")
+                    .join(profile)
+                    .join(WINDOWS_HOSTS_UPDATE_HELPER);
+                if helper.exists() {
+                    return Ok(helper);
+                }
             }
         }
     }
 
     Err(format!(
         "Windows hosts update helper was not found at {}",
-        WINDOWS_HOSTS_UPDATE_SCRIPT
+        WINDOWS_HOSTS_UPDATE_HELPER
     ))
 }
 
@@ -1536,6 +1556,19 @@ fn find_workspace_root(start: &Path) -> Option<PathBuf> {
 #[cfg(windows)]
 fn to_wide(value: &str) -> Vec<u16> {
     OsStr::new(value).encode_wide().chain(Some(0)).collect()
+}
+
+#[cfg(windows)]
+fn to_wide_path(value: &Path) -> Vec<u16> {
+    value.as_os_str().encode_wide().chain(Some(0)).collect()
+}
+
+#[cfg(windows)]
+fn quote_windows_arguments<const N: usize>(args: [&Path; N]) -> String {
+    args.into_iter()
+        .map(|arg| format!("\"{}\"", arg.display()))
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 // ─── SSL Support ─────────────────────────────────────────────────────────────
@@ -1915,28 +1948,6 @@ keyUsage = critical, keyCertSign, cRLSign\n"
 }
 
 #[cfg(windows)]
-fn certificate_request_config() -> &'static str {
-    "[ req ]\n\
-prompt = no\n\
-distinguished_name = req_distinguished_name\n\
-\n\
-[ req_distinguished_name ]\n\
-C = US\n\
-O = HocDev\n\
-OU = Local Certificate Authority\n\
-CN = HocDev Placeholder\n"
-}
-
-#[cfg(windows)]
-fn intermediate_ca_openssl_config() -> &'static str {
-    "[ v3_intermediate_ca ]\n\
-subjectKeyIdentifier = hash\n\
-authorityKeyIdentifier = keyid:always,issuer\n\
-basicConstraints = critical, CA:true, pathlen:0\n\
-keyUsage = critical, keyCertSign, cRLSign\n"
-}
-
-#[cfg(windows)]
 fn site_certificate_openssl_config(domain: &str) -> String {
     format!(
         "[ req ]\n\
@@ -1970,26 +1981,15 @@ fn ensure_local_ssl_ca_exists(openssl_dir: &Path, ssl_dir: &Path) -> Result<(), 
     let ca_dir = ssl_dir.join("ca");
     let root_cert = ca_dir.join("rootCA.pem");
     let root_key = ca_dir.join("rootCA-key.pem");
-    let root_serial = ca_dir.join("rootCA.srl");
-    let intermediate_cert = ca_dir.join("intermediateCA.pem");
-    let intermediate_key = ca_dir.join("intermediateCA-key.pem");
-    let intermediate_csr = ca_dir.join("intermediateCA.csr");
     let openssl_exe = openssl_executable(openssl_dir)?;
 
-    if root_cert.exists()
-        && root_key.exists()
-        && intermediate_cert.exists()
-        && intermediate_key.exists()
-    {
+    if root_cert.exists() && root_key.exists() {
         return Ok(());
     }
 
     fs::create_dir_all(&ca_dir).map_err(|e| format!("Failed to create local CA directory: {e}"))?;
 
     let root_config_path = write_temp_ssl_file("root-ca", ".cnf", root_ca_openssl_config())?;
-    let req_config_path = write_temp_ssl_file("ca-req", ".cnf", certificate_request_config())?;
-    let intermediate_ext_path =
-        write_temp_ssl_file("intermediate-ca", ".cnf", intermediate_ca_openssl_config())?;
 
     let result = (|| -> Result<(), String> {
         if !root_key.exists() {
@@ -2016,78 +2016,20 @@ fn ensure_local_ssl_ca_exists(openssl_dir: &Path, ssl_dir: &Path) -> Result<(), 
             run_checked_command("OpenSSL root CA certificate generation", &mut command)?;
         }
 
-        if !intermediate_key.exists() {
-            let mut command = std::process::Command::new(&openssl_exe);
-            command.args(["ecparam", "-name", "secp384r1", "-genkey", "-noout", "-out"]);
-            command.arg(&intermediate_key);
-            run_checked_command("OpenSSL intermediate CA key generation", &mut command)?;
-        }
-
-        if !intermediate_cert.exists() {
-            let mut csr_command = std::process::Command::new(&openssl_exe);
-            csr_command.args(["req", "-new", "-key"]);
-            csr_command.arg(&intermediate_key);
-            csr_command.args(["-out"]);
-            csr_command.arg(&intermediate_csr);
-            csr_command.args([
-                "-config",
-                req_config_path.to_str().unwrap_or_default(),
-                "-subj",
-                "/C=US/O=HocDev/OU=Local Certificate Authority/CN=HocDev Private CA Intermediate",
-            ]);
-            run_checked_command("OpenSSL intermediate CA CSR generation", &mut csr_command)?;
-
-            let mut cert_command = std::process::Command::new(&openssl_exe);
-            cert_command.args(["x509", "-req", "-in"]);
-            cert_command.arg(&intermediate_csr);
-            cert_command.args(["-CA"]);
-            cert_command.arg(&root_cert);
-            cert_command.args(["-CAkey"]);
-            cert_command.arg(&root_key);
-            cert_command.args(["-set_serial", "2", "-out"]);
-            cert_command.arg(&intermediate_cert);
-            cert_command.args([
-                "-days",
-                "1825",
-                "-sha384",
-                "-extensions",
-                "v3_intermediate_ca",
-                "-extfile",
-            ]);
-            cert_command.arg(&intermediate_ext_path);
-            run_checked_command(
-                "OpenSSL intermediate CA certificate generation",
-                &mut cert_command,
-            )?;
-        }
-
         Ok(())
     })();
 
-    remove_file_if_exists(&intermediate_csr);
-    remove_file_if_exists(&root_serial);
     remove_file_if_exists(&root_config_path);
-    remove_file_if_exists(&req_config_path);
-    remove_file_if_exists(&intermediate_ext_path);
 
-    if result.is_err() {
-        if !intermediate_cert.exists() {
-            remove_file_if_exists(&intermediate_key);
-        }
-        if !root_cert.exists() {
-            remove_file_if_exists(&root_key);
-        }
+    if result.is_err() && !root_cert.exists() {
+        remove_file_if_exists(&root_key);
     }
     result?;
 
-    if root_cert.exists()
-        && root_key.exists()
-        && intermediate_cert.exists()
-        && intermediate_key.exists()
-    {
+    if root_cert.exists() && root_key.exists() {
         Ok(())
     } else {
-        Err("HocDev CA bootstrap finished but the CA files were not created.".to_string())
+        Err("Local SSL CA bootstrap finished but the root CA files were not created.".to_string())
     }
 }
 
@@ -2179,28 +2121,46 @@ fn ensure_windows_ssl_root_installed(openssl_dir: &Path, ssl_dir: &Path) -> Resu
 }
 
 #[cfg(windows)]
-fn ssl_cert_issued_by_local_ca(openssl_dir: &Path, cert_path: &Path) -> Result<bool, String> {
-    const MINI_PANEL_INTERMEDIATE_SUBJECT: &str = "HocDev Private CA Intermediate";
-
+fn ssl_cert_issued_by_local_ca(
+    openssl_dir: &Path,
+    ssl_dir: &Path,
+    cert_path: &Path,
+    domain: &str,
+) -> Result<bool, String> {
     if !cert_path.exists() {
         return Ok(false);
     }
 
     let openssl_exe = openssl_executable(openssl_dir)?;
-
-    let output = std::process::Command::new(&openssl_exe)
-        .args(["x509", "-in"])
-        .arg(cert_path)
-        .args(["-noout", "-issuer"])
-        .creation_flags(WINDOWS_CREATE_NO_WINDOW)
-        .output()
-        .map_err(|e| format!("Failed to inspect existing SSL certificate: {e}"))?;
-    if !output.status.success() {
+    let root_cert = ssl_dir.join("ca").join("rootCA.pem");
+    if !root_cert.exists() {
         return Ok(false);
     }
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    Ok(stdout.contains(MINI_PANEL_INTERMEDIATE_SUBJECT))
+    let verify_output = std::process::Command::new(&openssl_exe)
+        .args(["verify", "-CAfile"])
+        .arg(&root_cert)
+        .arg(cert_path)
+        .creation_flags(WINDOWS_CREATE_NO_WINDOW)
+        .output()
+        .map_err(|e| format!("Failed to inspect existing SSL certificate: {e}"))?;
+    if !verify_output.status.success() {
+        return Ok(false);
+    }
+
+    let san_output = std::process::Command::new(&openssl_exe)
+        .args(["x509", "-in"])
+        .arg(cert_path)
+        .args(["-noout", "-ext", "subjectAltName"])
+        .creation_flags(WINDOWS_CREATE_NO_WINDOW)
+        .output()
+        .map_err(|e| format!("Failed to inspect existing SSL certificate SAN: {e}"))?;
+    if !san_output.status.success() {
+        return Ok(false);
+    }
+
+    let stdout = String::from_utf8_lossy(&san_output.stdout);
+    Ok(stdout.contains(&format!("DNS:{domain}")))
 }
 
 #[cfg(windows)]
@@ -2217,16 +2177,16 @@ fn apply_ssl_for_domain(domain: &str) -> Result<(), String> {
     let cert_path = ssl_dir.join(format!("{domain}.crt"));
     let key_path = ssl_dir.join(format!("{domain}.key"));
     if cert_path.exists() && key_path.exists() {
-        if ssl_cert_issued_by_local_ca(&openssl_dir, &cert_path)? {
+        if ssl_cert_issued_by_local_ca(&openssl_dir, &ssl_dir, &cert_path, domain)? {
             return Ok(());
         }
         let _ = fs::remove_file(&cert_path);
         let _ = fs::remove_file(&key_path);
     }
 
-    let intermediate_cert = ssl_dir.join("ca").join("intermediateCA.pem");
-    let intermediate_key = ssl_dir.join("ca").join("intermediateCA-key.pem");
-    let intermediate_serial = ssl_dir.join("ca").join("intermediateCA.srl");
+    let root_cert = ssl_dir.join("ca").join("rootCA.pem");
+    let root_key = ssl_dir.join("ca").join("rootCA-key.pem");
+    let root_serial = ssl_dir.join("ca").join("rootCA.srl");
     let site_config_path = write_temp_ssl_file(
         "site-cert",
         ".cnf",
@@ -2254,11 +2214,11 @@ fn apply_ssl_for_domain(domain: &str) -> Result<(), String> {
         cert_command.args(["x509", "-req", "-in"]);
         cert_command.arg(&csr_path);
         cert_command.args(["-CA"]);
-        cert_command.arg(&intermediate_cert);
+        cert_command.arg(&root_cert);
         cert_command.args(["-CAkey"]);
-        cert_command.arg(&intermediate_key);
+        cert_command.arg(&root_key);
         cert_command.args(["-CAserial"]);
-        cert_command.arg(&intermediate_serial);
+        cert_command.arg(&root_serial);
         cert_command.args(["-CAcreateserial", "-out"]);
         cert_command.arg(&temp_cert_path);
         cert_command.args([
@@ -2272,14 +2232,8 @@ fn apply_ssl_for_domain(domain: &str) -> Result<(), String> {
         cert_command.arg(&site_config_path);
         run_checked_command("OpenSSL site certificate signing", &mut cert_command)?;
 
-        let mut fullchain = fs::read(&temp_cert_path)
-            .map_err(|e| format!("Failed to read generated site certificate: {e}"))?;
-        fullchain.extend(
-            fs::read(&intermediate_cert)
-                .map_err(|e| format!("Failed to read intermediate certificate chain: {e}"))?,
-        );
-        fs::write(&cert_path, fullchain)
-            .map_err(|e| format!("Failed to write site certificate fullchain: {e}"))?;
+        fs::copy(&temp_cert_path, &cert_path)
+            .map_err(|e| format!("Failed to write site certificate: {e}"))?;
 
         Ok(())
     })();

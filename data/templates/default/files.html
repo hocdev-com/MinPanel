@@ -1,0 +1,123 @@
+<section class="file-manager-card" id="files" aria-label="" data-i18n-auto data-i18n-attr="aria-label:files.file_manager">
+  <div class="file-tabs-row">
+    <div class="file-tabs" role="tablist" aria-label="" data-i18n-attr="aria-label:files.open_directories">
+      <button class="file-tab active" id="file-active-tab" type="button" aria-selected="true">
+        <span class="file-tab-icon" aria-hidden="true"></span>
+        <span id="file-tab-label">www</span>
+        <span class="file-tab-close" aria-hidden="true"></span>
+      </button>
+      <button class="file-tab-add" type="button" aria-label="" data-i18n-attr="aria-label:files.open_new_tab">+</button>
+    </div>
+  </div>
+
+  <div class="file-path-row">
+    <button class="file-nav-button" id="file-back-button" type="button" aria-label="" data-i18n-attr="aria-label:files.go_parent"><span aria-hidden="true">&lsaquo;</span></button>
+    <nav class="file-breadcrumbs" id="file-breadcrumbs" aria-label="" data-i18n-attr="aria-label:files.current_path"></nav>
+    <button class="file-refresh-button" id="file-refresh-button" type="button" aria-label="" data-i18n-attr="aria-label:files.refresh_directory"><span class="file-refresh-glyph" aria-hidden="true"></span></button>
+    <a class="file-feedback-link" href="/website" data-i18n="files.feedback"></a>
+    <label class="file-search">
+      <span class="sr-only" data-i18n="files.search_scope"></span>
+      <input id="file-search-input" type="search" placeholder="" autocomplete="off" data-i18n-attr="placeholder:files.search_placeholder" />
+      <span class="file-search-options">
+        <input id="file-include-subdirs" type="checkbox" disabled />
+        <span data-i18n="files.include_subdirectories"></span>
+      </span>
+      <button id="file-search-button" type="button" aria-label="" data-i18n-attr="aria-label:files.search"><span class="file-search-glyph" aria-hidden="true"></span></button>
+    </label>
+  </div>
+
+  <div class="file-toolbar">
+    <div class="file-toolbar-left">
+      <div class="file-upload-menu">
+        <button class="file-tool-button file-upload-button" id="file-upload-button" type="button" aria-haspopup="menu" aria-expanded="false"><span data-i18n="files.upload_download"></span><span class="file-tool-caret" aria-hidden="true"></span></button>
+        <div class="file-upload-popover" id="file-upload-popover" role="menu" hidden>
+          <button type="button" data-file-upload-action="upload"><span class="file-upload-popover-icon upload" aria-hidden="true"></span><span data-i18n="files.upload_file_folder"></span></button>
+          <button type="button" data-file-upload-action="url" disabled><span class="file-upload-popover-icon link" aria-hidden="true"></span><span data-i18n="files.url_download"></span></button>
+          <button type="button" data-file-upload-action="baidu" disabled><span class="file-cloud-icon baidu" aria-hidden="true"></span><span data-i18n="files.baidu_cloud"></span><span class="file-vip-badge">VIP</span></button>
+          <button type="button" data-file-upload-action="aliyun" disabled><span class="file-cloud-icon aliyun" aria-hidden="true"></span><span data-i18n="files.alibaba_cloud"></span><span class="file-vip-badge">VIP</span></button>
+          <button type="button" data-file-upload-action="tencent" disabled><span class="file-cloud-icon tencent" aria-hidden="true"></span><span data-i18n="files.tencent_cloud"></span><span class="file-vip-badge">VIP</span></button>
+          <button type="button" data-file-upload-action="huawei" disabled><span class="file-cloud-icon huawei" aria-hidden="true"></span><span data-i18n="files.huawei_cloud"></span><span class="file-vip-badge">VIP</span></button>
+        </div>
+      </div>
+      <div class="file-new-menu">
+        <button class="file-tool-button" id="file-new-button" type="button" aria-haspopup="menu" aria-expanded="false"><span class="file-tool-icon new" aria-hidden="true"></span><span data-i18n="files.new"></span><span class="file-tool-caret" aria-hidden="true"></span></button>
+        <div class="file-new-popover" id="file-new-popover" role="menu" hidden>
+          <button type="button" data-file-create="file" data-i18n="files.new_file"></button>
+          <button type="button" data-file-create="directory" data-i18n="website.new_directory"></button>
+        </div>
+      </div>
+      <button class="file-tool-button" id="file-content-search-button" type="button" disabled data-i18n="files.content_search"></button>
+      <button class="file-tool-button" id="file-favorites-button" type="button" disabled><span class="file-tool-icon favorite" aria-hidden="true"></span><span data-i18n="files.favorites"></span><span class="file-tool-caret" aria-hidden="true"></span></button>
+      <button class="file-tool-button" id="file-terminal-button" type="button" disabled><span class="file-tool-icon terminal" aria-hidden="true"></span><span data-i18n="nav.terminal"></span></button>
+      <button class="file-tool-button file-disk-button" id="file-disk-button" type="button" disabled><span class="file-tool-icon disk" aria-hidden="true"></span><span id="file-disk-label">/ (Root)</span><span class="file-tool-caret" aria-hidden="true"></span></button>
+      <button class="file-tool-button" id="file-more-button" type="button" disabled><span data-i18n="files.more_functions"></span><span class="file-tool-caret" aria-hidden="true"></span></button>
+    </div>
+
+    <div class="file-toolbar-right">
+      <button class="file-recycle-button" id="file-recycle-button" type="button" disabled><span class="file-recycle-glyph" aria-hidden="true"></span><span data-i18n="files.recycle_bin"></span></button>
+      <div class="file-view-toggle" role="group" aria-label="" data-i18n-attr="aria-label:files.view_mode">
+        <button class="active" id="file-list-view-button" type="button" aria-label="" data-i18n-attr="aria-label:files.list_view"><span class="file-list-glyph" aria-hidden="true"></span></button>
+        <button id="file-grid-view-button" type="button" aria-label="" data-i18n-attr="aria-label:files.grid_view"><span class="file-grid-glyph" aria-hidden="true"></span></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="file-table-shell">
+    <table class="file-table">
+      <thead>
+        <tr>
+          <th class="file-check-col"><input id="file-check-all" type="checkbox" aria-label="" data-i18n-attr="aria-label:files.select_all" /></th>
+          <th class="file-name-col">File name <span class="file-sort" aria-hidden="true"></span></th>
+          <th class="file-protect-col" data-i18n="files.enterprise_tamper"></th>
+          <th class="file-owner-col" data-i18n="files.permission_owner"></th>
+          <th class="file-size-col">Size <span class="file-sort" aria-hidden="true"></span></th>
+          <th class="file-time-col">Modified time <span class="file-sort" aria-hidden="true"></span></th>
+          <th class="file-remark-col" data-i18n="files.remark"></th>
+          <th class="file-operate-col" data-i18n="shared.operate"></th>
+        </tr>
+      </thead>
+      <tbody id="file-table-body"><tr><td colspan="8" class="file-empty-cell" data-i18n="files.loading"></td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="file-footer">
+    <div class="file-summary" id="file-summary">0 directories, 0 files, file size 0 B</div>
+    <div class="file-pagination">
+      <button class="file-page-nav" type="button" disabled aria-label="" data-i18n-attr="aria-label:shared.previous_page">&lsaquo;</button>
+      <span class="file-page-current">1</span>
+      <button class="file-page-nav" type="button" disabled aria-label="" data-i18n-attr="aria-label:shared.next_page">&rsaquo;</button>
+      <label class="file-page-size"><select id="file-page-size" aria-label="" data-i18n-attr="aria-label:shared.rows_per_page"><option value="100">100/page</option><option value="500" selected>500/page</option></select></label>
+      <span id="file-total-count" data-i18n="shared.page_total_zero"></span>
+      <label class="file-goto">Go to <input type="number" min="1" value="1" disabled /> page</label>
+    </div>
+  </div>
+
+  <div class="file-side-actions" aria-label="" data-i18n-attr="aria-label:files.support_links">
+    <a href="/website" data-i18n="files.support"></a>
+    <a href="/software" data-i18n="files.review"></a>
+  </div>
+
+  <div class="file-upload-modal" id="file-upload-modal" hidden>
+    <div class="file-upload-panel" role="dialog" aria-modal="true" aria-labelledby="file-upload-title">
+      <button class="panel-close-button file-upload-close" id="file-upload-close" type="button" aria-label="" data-i18n-attr="aria-label:files.close_upload"></button>
+      <div class="file-upload-head"><strong id="file-upload-title">Upload to [/www]</strong><span data-i18n="files.supports_resumable"></span></div>
+      <div class="file-upload-body">
+        <div class="file-upload-controls">
+          <div class="file-upload-select-menu">
+            <button class="file-upload-select-button" id="file-upload-select-button" type="button"><span data-i18n="files.upload_file"></span><span class="file-tool-caret" aria-hidden="true"></span></button>
+            <div class="file-upload-select-popover" id="file-upload-select-popover" hidden>
+              <button type="button" data-file-upload-pick="files" data-i18n="files.upload_file"></button>
+              <button type="button" data-file-upload-pick="folder" data-i18n="files.upload_folder"></button>
+            </div>
+          </div>
+          <button class="file-upload-clear" id="file-upload-clear" type="button" disabled data-i18n="files.clear_list"></button>
+        </div>
+        <input id="file-upload-input" type="file" multiple hidden />
+        <input id="file-upload-folder-input" type="file" multiple webkitdirectory hidden />
+        <div class="file-upload-drop" id="file-upload-drop"><span data-i18n="files.drop_here"></span></div>
+        <div class="file-upload-list" id="file-upload-list" hidden></div>
+      </div>
+      <div class="file-upload-footer"><button class="file-upload-start" id="file-upload-start" type="button" data-i18n="files.start_upload"></button></div>
+    </div>
+  </div>
+</section>

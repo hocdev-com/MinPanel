@@ -45,6 +45,7 @@
   function initEscapeShortcuts() {
     document.addEventListener("keydown", (event) => {
       if (event.key !== "Escape") return;
+      closeLanguagePicker();
       closeThemePicker();
       closeSoftwareInstallModal();
       closeSoftwareSettingsModal();
@@ -106,6 +107,7 @@
     renderLogModal();
     initTrafficControls();
     initLogModalControls();
+    initLanguagePicker();
     initThemePicker();
     initColorModeToggle();
     initEscapeShortcuts();

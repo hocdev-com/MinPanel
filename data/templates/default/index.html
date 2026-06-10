@@ -1,64 +1,64 @@
-<section class="card status-shell" id="disks">
+<section class="card status-shell" id="disks" data-i18n-auto>
   <div class="card-head">
-    <h2>Sys Status</h2>
+    <h2 data-i18n="dashboard.sys_status"></h2>
   </div>
   <div class="grid status-grid">
     <article class="card status-card" tabindex="0">
       <div class="meter-wrap">
-        <div class="status-title">Load status</div>
+        <div class="status-title" data-i18n="dashboard.load_status"></div>
         <div class="meter" id="load-meter" style="--accent-color: #20a53a">
           <strong id="load-meter-value">0%</strong>
         </div>
-        <div class="status-summary" id="load-summary">Preparing...</div>
+        <div class="status-summary" id="load-summary" data-i18n="dashboard.preparing"></div>
         <div class="status-copy">
-          <h3>Load Status</h3>
+          <h3 data-i18n="dashboard.load_status_title"></h3>
           <p id="load-label">0.00</p>
-          <small id="load-detail">1 min average / normal</small>
+          <small id="load-detail" data-i18n="dashboard.load_average_initial"></small>
         </div>
       </div>
     </article>
 
     <article class="card status-card" tabindex="0">
       <div class="meter-wrap">
-        <div class="status-title">CPU usage</div>
+        <div class="status-title" data-i18n="dashboard.cpu_usage"></div>
         <div class="meter" id="cpu-meter" style="--accent-color: #20a53a">
           <strong id="cpu-meter-value">0%</strong>
         </div>
-        <div class="status-summary" id="cpu-summary">Preparing...</div>
+        <div class="status-summary" id="cpu-summary" data-i18n="dashboard.preparing"></div>
         <div class="status-copy">
-          <h3>CPU Usage</h3>
+          <h3 data-i18n="dashboard.cpu_usage_title"></h3>
           <p id="cpu-label">0%</p>
-          <small id="cpu-detail">Preparing processor telemetry...</small>
+          <small id="cpu-detail" data-i18n="dashboard.preparing_processor"></small>
         </div>
       </div>
     </article>
 
     <article class="card status-card" tabindex="0">
       <div class="meter-wrap">
-        <div class="status-title">RAM usage</div>
+        <div class="status-title" data-i18n="dashboard.ram_usage"></div>
         <div class="meter" id="memory-meter" style="--accent-color: #20a53a">
           <strong id="memory-meter-value">0%</strong>
         </div>
-        <div class="status-summary" id="memory-summary">Preparing...</div>
+        <div class="status-summary" id="memory-summary" data-i18n="dashboard.preparing"></div>
         <div class="status-copy">
-          <h3>Memory Usage</h3>
+          <h3 data-i18n="dashboard.memory_usage_title"></h3>
           <p id="memory-label">0%</p>
-          <small id="memory-detail">Preparing memory telemetry...</small>
+          <small id="memory-detail" data-i18n="dashboard.preparing_memory"></small>
         </div>
       </div>
     </article>
 
     <article class="card status-card" tabindex="0">
       <div class="meter-wrap">
-        <div class="status-title">Disk usage</div>
+        <div class="status-title" data-i18n="dashboard.disk_usage"></div>
         <div class="meter" id="disk-meter" style="--accent-color: #20a53a">
           <strong id="disk-meter-value">0%</strong>
         </div>
-        <div class="status-summary" id="disk-summary">Preparing...</div>
+        <div class="status-summary" id="disk-summary" data-i18n="dashboard.preparing"></div>
         <div class="status-copy">
-          <h3>Disk Usage</h3>
+          <h3 data-i18n="dashboard.disk_usage_title"></h3>
           <p id="disk-label">0%</p>
-          <small id="disk-detail">Preparing disk telemetry...</small>
+          <small id="disk-detail" data-i18n="dashboard.preparing_disk"></small>
         </div>
       </div>
     </article>
@@ -67,23 +67,23 @@
 
 <section class="card overview-card" id="overview">
   <div class="card-head">
-    <h2>Overview</h2>
+    <h2 data-i18n="dashboard.overview"></h2>
   </div>
   <div class="overview-grid">
     <article class="overview-item">
-      <span>Site</span>
+      <span data-i18n="dashboard.site"></span>
       <strong class="overview-value is-good" id="overview-site-count">0</strong>
     </article>
     <article class="overview-item">
-      <span>FTP</span>
+      <span data-i18n="dashboard.ftp"></span>
       <strong class="overview-value is-good" id="overview-ftp-count">0</strong>
     </article>
     <article class="overview-item">
-      <span>DB</span>
+      <span data-i18n="dashboard.db"></span>
       <strong class="overview-value is-good" id="overview-db-count">0</strong>
     </article>
     <article class="overview-item">
-      <span>Security</span>
+      <span data-i18n="dashboard.security"></span>
       <strong class="overview-value is-danger" id="overview-security-count">0</strong>
     </article>
     <div class="overview-spacer" aria-hidden="true"></div>
@@ -94,50 +94,50 @@
 <section class="grid split-grid dashboard-split-grid">
   <article class="card software-card" id="software">
     <div class="card-head software-head">
-      <h2>Software</h2>
-      <span>Installed software overview</span>
+      <h2 data-i18n="dashboard.software"></h2>
+      <span data-i18n="dashboard.installed_software_overview"></span>
     </div>
     <div class="software-list" id="software-list"></div>
   </article>
 
   <article class="card traffic-card" id="traffic">
     <div class="traffic-toolbar">
-      <div class="traffic-tabs" role="tablist" aria-label="Traffic metrics">
-        <button class="traffic-tab active" type="button" data-traffic-tab="traffic" aria-selected="true">Traffic</button>
-        <button class="traffic-tab" type="button" data-traffic-tab="disk" aria-selected="false">Disk IO</button>
+      <div class="traffic-tabs" role="tablist" aria-label="" data-i18n-attr="aria-label:dashboard.traffic_metrics">
+        <button class="traffic-tab active" type="button" data-traffic-tab="traffic" aria-selected="true" data-i18n="dashboard.traffic"></button>
+        <button class="traffic-tab" type="button" data-traffic-tab="disk" aria-selected="false" data-i18n="dashboard.disk_io"></button>
       </div>
       <label class="traffic-select traffic-network-select">
-        <span class="sr-only">Network interface</span>
-        <select id="traffic-network-select" aria-label="Network interface">
-          <option value="all">Net: All</option>
+        <span class="sr-only" data-i18n="dashboard.network_interface"></span>
+        <select id="traffic-network-select" aria-label="" data-i18n-attr="aria-label:dashboard.network_interface">
+          <option value="all" data-i18n="dashboard.net_all"></option>
         </select>
       </label>
     </div>
     <div class="traffic-panel" data-traffic-panel="traffic">
       <div class="traffic-meta">
         <div class="traffic-meta-item">
-          <span class="traffic-stat-label traffic-up"><span class="traffic-dot"></span>Upstream</span>
+          <span class="traffic-stat-label traffic-up"><span class="traffic-dot"></span><span data-i18n="dashboard.up"></span></span>
           <strong id="upload-speed">0 KB/s</strong>
         </div>
         <div class="traffic-meta-item">
-          <span class="traffic-stat-label traffic-down"><span class="traffic-dot"></span>Downstream</span>
+          <span class="traffic-stat-label traffic-down"><span class="traffic-dot"></span><span data-i18n="dashboard.down"></span></span>
           <strong id="download-speed">0 KB/s</strong>
         </div>
         <div class="traffic-meta-item">
-          <span>Total sent</span>
+          <span data-i18n="dashboard.total_sent"></span>
           <strong id="total-upload">0 B</strong>
         </div>
         <div class="traffic-meta-item">
-          <span>Total received</span>
+          <span data-i18n="dashboard.total_received"></span>
           <strong id="total-download">0 B</strong>
         </div>
         <div class="traffic-meta-control">
           <label class="traffic-select traffic-unit-select">
-          <span class="sr-only">Display unit</span>
-          <select id="traffic-unit-select" aria-label="Display unit">
-            <option value="kb">Unit: KB/s</option>
-            <option value="mb">Unit: MB/s</option>
-            <option value="bytes">Unit: B/s</option>
+          <span class="sr-only" data-i18n="dashboard.display_unit"></span>
+          <select id="traffic-unit-select" aria-label="" data-i18n-attr="aria-label:dashboard.display_unit">
+            <option value="kb" data-i18n="dashboard.unit_kb"></option>
+            <option value="mb" data-i18n="dashboard.unit_mb"></option>
+            <option value="bytes" data-i18n="dashboard.unit_bytes"></option>
           </select>
           </label>
         </div>

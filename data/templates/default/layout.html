@@ -7,12 +7,13 @@
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32' fill='none'%3E%3Cpath d='M6 26V6H10L16 12L22 6H26V26H22V12L16 18L10 12V26H6Z' fill='%2320a53a'/%3E%3Cpath d='M11 17H21' stroke='%2320a53a' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E" />
     <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32' fill='none'%3E%3Cpath d='M6 26V6H10L16 12L22 6H26V26H22V12L16 18L10 12V26H6Z' fill='%2320a53a'/%3E%3Cpath d='M11 17H21' stroke='%2320a53a' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E" />
     <link rel="stylesheet" href="/assets/dashboard/icons.css?v=3&t={{ACTIVE_TEMPLATE}}" />
-    <link rel="stylesheet" href="/assets/dashboard/styles.css?v=7&t={{ACTIVE_TEMPLATE}}" />
-    <script src="/assets/shared/core.js?v=4" defer></script>
+    <link rel="stylesheet" href="/assets/dashboard/styles.css?v=8&t={{ACTIVE_TEMPLATE}}" />
+    <script src="/assets/shared/core.js?v=5" defer></script>
     <script src="/assets/shared/pages/dashboard.js?v=1" defer></script>
     <script src="/assets/shared/pages/software.js?v=1" defer></script>
     <script src="/assets/shared/pages/database.js?v=1" defer></script>
     <script src="/assets/shared/pages/website.js?v=1" defer></script>
+    <script src="/assets/shared/pages/file.js?v=1" defer></script>
     <script src="/assets/dashboard/app.js?v=6&t={{ACTIVE_TEMPLATE}}" defer></script>
   </head>
   <body>
@@ -31,23 +32,24 @@
         </div>
 
         <div class="menu-group">
-          <div class="menu-title">Panel</div>
+          <div class="menu-title" data-i18n="nav.group_panel"></div>
           <ul class="menu">
-            <li><a href="/dashboard" data-menu="Dashboard"><span class="menu-icon dashboard-icon icon-dashboard" aria-hidden="true"></span><span>Dashboard</span></a></li>
-            <li><a href="/website" data-menu="Website"><span class="menu-icon dashboard-icon icon-website" aria-hidden="true"></span><span>Website</span></a></li>
-            <li><a href="/database" data-menu="Database"><span class="menu-icon dashboard-icon icon-database" aria-hidden="true"></span><span>Database</span></a></li>
-            <li><a href="/software" data-menu="App Store"><span class="menu-icon dashboard-icon icon-app-store" aria-hidden="true"></span><span>App Store</span></a></li>
-            <li><a href="/disks" data-menu="Disk"><span class="menu-icon dashboard-icon icon-disk" aria-hidden="true"></span><span>Disk</span></a></li>
-            <li><a href="/processes" data-menu="Process"><span class="menu-icon dashboard-icon icon-process" aria-hidden="true"></span><span>Process</span></a></li>
+            <li><a href="/dashboard" data-menu="Dashboard"><span class="menu-icon dashboard-icon icon-dashboard" aria-hidden="true"></span><span data-i18n="nav.dashboard"></span></a></li>
+            <li><a href="/website" data-menu="Website"><span class="menu-icon dashboard-icon icon-website" aria-hidden="true"></span><span data-i18n="nav.website"></span></a></li>
+            <li><a href="/database" data-menu="Database"><span class="menu-icon dashboard-icon icon-database" aria-hidden="true"></span><span data-i18n="nav.database"></span></a></li>
+            <li><a href="/files" data-menu="Files"><span class="menu-icon dashboard-icon icon-files" aria-hidden="true"></span><span data-i18n="nav.files"></span></a></li>
+            <li><a href="/software" data-menu="App Store"><span class="menu-icon dashboard-icon icon-app-store" aria-hidden="true"></span><span data-i18n="nav.app_store"></span></a></li>
+            <li><a href="/disks" data-menu="Disk"><span class="menu-icon dashboard-icon icon-disk" aria-hidden="true"></span><span data-i18n="nav.disk"></span></a></li>
+            <li><a href="/processes" data-menu="Process"><span class="menu-icon dashboard-icon icon-process" aria-hidden="true"></span><span data-i18n="nav.process"></span></a></li>
           </ul>
         </div>
 
         <div class="menu-group">
-          <div class="menu-title">Management</div>
+          <div class="menu-title" data-i18n="nav.group_management"></div>
           <ul class="menu">
-            <li><a href="/system" data-menu="System API"><span class="menu-icon dashboard-icon icon-system-api" aria-hidden="true"></span><span>System API</span></a></li>
-            <li><a href="/process" data-menu="Process API"><span class="menu-icon dashboard-icon icon-process-api" aria-hidden="true"></span><span>Process API</span></a></li>
-            <li><a href="/login" data-menu="Login API"><span class="menu-icon dashboard-icon icon-login-api" aria-hidden="true"></span><span>Login API</span></a></li>
+            <li><a href="/system" data-menu="System API"><span class="menu-icon dashboard-icon icon-system-api" aria-hidden="true"></span><span data-i18n="nav.system_api"></span></a></li>
+            <li><a href="/process" data-menu="Process API"><span class="menu-icon dashboard-icon icon-process-api" aria-hidden="true"></span><span data-i18n="nav.process_api"></span></a></li>
+            <li><a href="/login" data-menu="Login API"><span class="menu-icon dashboard-icon icon-login-api" aria-hidden="true"></span><span data-i18n="nav.login_api"></span></a></li>
           </ul>
         </div>
       </aside>
@@ -83,7 +85,7 @@
             <div id="tab-task-list" class="messages-tab-content">
               <div class="messages-tip-row">
                 <span class="messages-tip-text">Tip: If the task is stalled, click [Restart Panel] to reset the queue</span>
-                <button class="messages-restart-btn" type="button">Restart</button>
+                <button class="messages-restart-btn" type="button" data-i18n="topbar.restart"></button>
               </div>
               <div id="messages-active-tasks" class="messages-active-tasks">
                 <!-- Task items will be injected here -->

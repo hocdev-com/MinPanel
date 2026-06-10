@@ -2,21 +2,42 @@
   <div class="topbar-main">
     <div class="topbar-item topbar-system-item">
       <i id="topbar-os-icon" class="topbar-os-icon dashboard-icon iconfont icon-linux" aria-hidden="true"></i>
-      <span id="topbar-system" class="topbar-text">System: Collecting realtime panel information...</span>
+      <span id="topbar-system" class="topbar-text" data-i18n="topbar.system_collecting"></span>
     </div>
     <div class="topbar-item topbar-uptime-item">
-      <span>Up Time: <strong id="topbar-uptime">--</strong></span>
+      <span><span data-i18n="topbar.uptime_label"></span> <strong id="topbar-uptime">--</strong></span>
     </div>
   </div>
 
   <div class="top-actions">
     <div class="top-actions-group top-status-group">
+      <div class="top-language-switcher">
+        <button
+          class="top-mini-button top-mini-button-translate"
+          id="top-language-button"
+          type="button"
+          aria-label=""
+          aria-haspopup="menu"
+          aria-expanded="false"
+          data-i18n-attr="aria-label:actions.change_language;title:actions.change_language"
+        >
+          <span class="top-mini-button-icon" aria-hidden="true">
+            <span class="dashboard-icon icon-top-language"></span>
+          </span>
+        </button>
+        <div class="top-theme-popover top-language-popover" id="top-language-popover" role="menu" hidden>
+          <div class="top-theme-list top-language-list" id="top-language-list">
+            <button class="top-theme-option" type="button" disabled data-i18n="language.loading"></button>
+          </div>
+        </div>
+      </div>
       <button
         class="top-icon-button top-color-mode-button"
         id="top-color-mode-button"
         type="button"
-        aria-label="Switch to dark mode"
+        aria-label=""
         aria-pressed="false"
+        data-i18n-attr="aria-label:actions.switch_dark;title:actions.switch_dark"
       >
         <span class="dashboard-icon icon-top-brightness" aria-hidden="true"></span>
       </button>
@@ -47,19 +68,19 @@
         <span class="top-action-link-icon-wrap" aria-hidden="true">
           <span class="dashboard-icon top-action-link-icon icon-top-update"></span>
         </span>
-        <span>Update</span>
+        <span data-i18n="topbar.update"></span>
       </a>
       <a class="top-action-link" href="/website">
         <span class="top-action-link-icon-wrap" aria-hidden="true">
           <span class="dashboard-icon top-action-link-icon icon-top-fix"></span>
         </span>
-        <span>Fix</span>
+        <span data-i18n="topbar.fix"></span>
       </a>
       <a class="top-action-link" href="/traffic">
         <span class="top-action-link-icon-wrap" aria-hidden="true">
           <span class="dashboard-icon top-action-link-icon icon-top-restart"></span>
         </span>
-        <span>Restart</span>
+        <span data-i18n="topbar.restart"></span>
       </a>
     </div>
   </div>

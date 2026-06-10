@@ -1,5 +1,5 @@
-<section class="card database-tab-card" aria-label="Database type navigation">
-  <div class="database-tabs" role="tablist" aria-label="Database type">
+<section class="card database-tab-card" aria-label="" data-i18n-auto data-i18n-attr="aria-label:database.type_navigation">
+  <div class="database-tabs" role="tablist" aria-label="" data-i18n-attr="aria-label:database.type">
     <button class="database-tab active" type="button" data-database-engine="mysql" aria-selected="true">MySQL</button>
     <button class="database-tab" type="button" data-database-engine="sqlserver" aria-selected="false">SQLServer</button>
     <button class="database-tab" type="button" data-database-engine="mongodb" aria-selected="false">MongoDB</button>
@@ -12,33 +12,33 @@
   <div class="database-shell">
     <div class="database-tip" id="database-backup-tip">
       <span class="database-tip-icon" aria-hidden="true">!</span>
-      <span>After adding the database, be sure to</span>
+      <span data-i18n="database.tip_after_add"></span>
       <a href="/dashboard#processes">[Cron]</a>
-      <span>page adds scheduled backup tasks to ensure your data security.</span>
+      <span data-i18n="database.tip_schedule"></span>
     </div>
 
     <div class="database-toolbar">
       <div class="database-toolbar-left">
-        <button class="database-primary-button" id="database-add-button" type="button">Add Database</button>
-        <button class="database-toolbar-button" id="database-root-password-button" type="button" disabled>Root password</button>
+        <button class="database-primary-button" id="database-add-button" type="button" data-i18n="database.add"></button>
+        <button class="database-toolbar-button" id="database-root-password-button" type="button" disabled data-i18n="database.root_password"></button>
         <button class="database-toolbar-button" id="database-phpmyadmin-button" type="button" disabled>phpMyAdmin</button>
         <button class="database-runtime-button" id="database-runtime-button" type="button" disabled hidden></button>
-        <div class="website-runtime-popover database-runtime-popover" id="database-runtime-popover" role="menu" aria-label="Database runtime quick actions" hidden></div>
+        <div class="website-runtime-popover database-runtime-popover" id="database-runtime-popover" role="menu" aria-label="" hidden data-i18n-attr="aria-label:database.runtime_actions"></div>
       </div>
 
       <div class="database-toolbar-right">
         <label class="database-toolbar-select">
-          <span class="sr-only">Database filter</span>
-          <select id="database-filter-select" aria-label="Database filter">
-            <option value="all">All</option>
-            <option value="saved">Saved password</option>
-            <option value="missing">Not saved</option>
+          <span class="sr-only" data-i18n="database.filter"></span>
+          <select id="database-filter-select" aria-label="" data-i18n-attr="aria-label:database.filter">
+            <option value="all" data-i18n="database.all"></option>
+            <option value="saved" data-i18n="database.saved"></option>
+            <option value="missing" data-i18n="database.missing"></option>
           </select>
         </label>
         <label class="database-search">
-          <span class="sr-only">Database search</span>
-          <input id="database-search-input" type="search" placeholder="Database search" aria-label="Database search" />
-          <button id="database-search-button" type="button" aria-label="Search database">
+          <span class="sr-only" data-i18n="database.search"></span>
+          <input id="database-search-input" type="search" placeholder="" aria-label="" data-i18n-attr="placeholder:database.search;aria-label:database.search" />
+          <button id="database-search-button" type="button" aria-label="" data-i18n-attr="aria-label:database.search_action">
             <svg viewBox="0 0 20 20" aria-hidden="true">
               <circle cx="9" cy="9" r="5.5"></circle>
               <path d="M13 13l3.5 3.5"></path>
@@ -53,16 +53,16 @@
         <thead>
           <tr>
             <th class="database-check-col">
-              <input id="database-check-all" type="checkbox" aria-label="Select all databases on page" disabled />
+              <input id="database-check-all" type="checkbox" aria-label="" disabled data-i18n-attr="aria-label:database.select_all" />
             </th>
-            <th class="database-name-col">Database name</th>
-            <th class="database-username-col">Username</th>
-            <th class="database-password-col">Password</th>
-            <th class="database-quota-col">Quota</th>
-            <th class="database-backup-col">Backup</th>
-            <th class="database-location-col">Location</th>
-            <th class="database-note-col">Note</th>
-            <th class="database-operate-col">Operate</th>
+            <th class="database-name-col" data-i18n="database.name"></th>
+            <th class="database-username-col" data-i18n="database.username"></th>
+            <th class="database-password-col" data-i18n="database.password"></th>
+            <th class="database-quota-col" data-i18n="database.quota"></th>
+            <th class="database-backup-col" data-i18n="database.backup"></th>
+            <th class="database-location-col" data-i18n="database.location"></th>
+            <th class="database-note-col" data-i18n="database.note"></th>
+            <th class="database-operate-col" data-i18n="shared.operate"></th>
           </tr>
         </thead>
         <tbody id="database-table-body"></tbody>
@@ -72,29 +72,29 @@
     <div class="database-footer">
       <div class="database-batch-actions">
         <label class="database-select">
-          <span class="sr-only">Batch action</span>
+          <span class="sr-only" data-i18n="database.batch_action"></span>
           <select disabled>
-            <option>Please choose</option>
-            <option>Backup</option>
-            <option>Delete database</option>
+            <option data-i18n="shared.please_choose"></option>
+            <option data-i18n="database.backup"></option>
+            <option data-i18n="database.delete"></option>
           </select>
         </label>
-        <button class="database-execute-button" type="button" disabled>Execute</button>
+        <button class="database-execute-button" type="button" disabled data-i18n="shared.execute"></button>
       </div>
 
       <div class="database-pagination">
-        <button class="database-page-nav" id="database-prev-page" type="button" aria-label="Previous page">
+        <button class="database-page-nav" id="database-prev-page" type="button" aria-label="" data-i18n-attr="aria-label:shared.previous_page">
           <svg viewBox="0 0 20 20" aria-hidden="true">
             <path d="m12 5-5 5 5 5"></path>
           </svg>
         </button>
         <span class="database-page-current" id="database-page-current">1</span>
-        <button class="database-page-nav" id="database-next-page" type="button" aria-label="Next page">
+        <button class="database-page-nav" id="database-next-page" type="button" aria-label="" data-i18n-attr="aria-label:shared.next_page">
           <svg viewBox="0 0 20 20" aria-hidden="true">
             <path d="m8 5 5 5-5 5"></path>
           </svg>
         </button>
-        <span class="database-total" id="database-total-count">Total 0</span>
+        <span class="database-total" id="database-total-count" data-i18n="shared.page_total_zero"></span>
       </div>
     </div>
   </div>
@@ -103,36 +103,36 @@
 <section class="database-create-modal" id="database-create-modal" hidden>
   <div class="database-modal-backdrop" data-database-create-close></div>
   <div class="database-create-panel" role="dialog" aria-modal="true" aria-labelledby="database-create-title">
-    <button class="panel-close-button panel-close-button--floating database-modal-close" id="database-create-close" type="button" aria-label="Close Add Database"></button>
+    <button class="panel-close-button panel-close-button--floating database-modal-close" id="database-create-close" type="button" aria-label="" data-i18n-attr="aria-label:database.close_add"></button>
     <div class="database-modal-head">
-      <h3 id="database-create-title">Add Database</h3>
+      <h3 id="database-create-title" data-i18n="database.add"></h3>
     </div>
     <form class="database-create-form" id="database-create-form">
       <label class="database-form-row">
-        <span>Database name</span>
+        <span data-i18n="database.name"></span>
         <input id="database-create-name" name="name" type="text" autocomplete="off" required />
       </label>
       <label class="database-form-row">
-        <span>Username</span>
+        <span data-i18n="database.username"></span>
         <input id="database-create-username" name="username" type="text" autocomplete="off" required />
       </label>
       <label class="database-form-row">
-        <span>Password</span>
+        <span data-i18n="database.password"></span>
         <div class="database-password-field">
           <input id="database-create-password" name="password" type="text" autocomplete="new-password" required />
-          <button id="database-generate-password" type="button">Random</button>
+          <button id="database-generate-password" type="button" data-i18n="database.random"></button>
         </div>
       </label>
       <label class="database-form-row">
-        <span>Permission</span>
+        <span data-i18n="database.permission"></span>
         <select id="database-create-permission" disabled>
-          <option>Local server</option>
+          <option data-i18n="database.local_server"></option>
         </select>
       </label>
       <p class="database-form-message" id="database-create-message" role="status"></p>
       <div class="database-modal-footer">
-        <button class="database-toolbar-button" id="database-create-cancel" type="button">Cancel</button>
-        <button class="database-primary-button" id="database-create-submit" type="submit">Confirm</button>
+        <button class="database-toolbar-button" id="database-create-cancel" type="button" data-i18n="shared.cancel"></button>
+        <button class="database-primary-button" id="database-create-submit" type="submit" data-i18n="shared.confirm"></button>
       </div>
     </form>
   </div>
@@ -141,26 +141,26 @@
 <section class="database-create-modal" id="database-root-password-modal" hidden>
   <div class="database-modal-backdrop" data-database-root-password-close></div>
   <div class="database-create-panel" role="dialog" aria-modal="true" aria-labelledby="database-root-password-title">
-    <button class="panel-close-button panel-close-button--floating database-modal-close" id="database-root-password-close" type="button" aria-label="Close Root Password"></button>
+    <button class="panel-close-button panel-close-button--floating database-modal-close" id="database-root-password-close" type="button" aria-label="" data-i18n-attr="aria-label:database.close_root"></button>
     <div class="database-modal-head">
-      <h3 id="database-root-password-title">Change Root Password</h3>
+      <h3 id="database-root-password-title" data-i18n="database.change_root_password"></h3>
     </div>
     <form class="database-create-form" id="database-root-password-form">
       <div class="database-tip" style="margin-bottom: 20px;">
         <span class="database-tip-icon" aria-hidden="true">!</span>
-        <span>Modifying the root password will affect all applications using the root account.</span>
+        <span data-i18n="database.tip_root_password"></span>
       </div>
       <label class="database-form-row">
-        <span>New Password</span>
+        <span data-i18n="database.new_password"></span>
         <div class="database-password-field">
           <input id="database-root-password-input" name="password" type="text" autocomplete="new-password" required />
-          <button id="database-generate-root-password" type="button">Random</button>
+          <button id="database-generate-root-password" type="button" data-i18n="database.random"></button>
         </div>
       </label>
       <p class="database-form-message" id="database-root-password-message" role="status"></p>
       <div class="database-modal-footer">
-        <button class="database-toolbar-button" id="database-root-password-cancel" type="button">Cancel</button>
-        <button class="database-primary-button" id="database-root-password-submit" type="submit">Confirm</button>
+        <button class="database-toolbar-button" id="database-root-password-cancel" type="button" data-i18n="shared.cancel"></button>
+        <button class="database-primary-button" id="database-root-password-submit" type="submit" data-i18n="shared.confirm"></button>
       </div>
     </form>
   </div>
@@ -169,9 +169,9 @@
 <section class="software-settings-modal" id="software-settings-modal" hidden>
   <div class="software-settings-backdrop" data-software-settings-close></div>
   <div class="software-settings-panel" role="dialog" aria-modal="true" aria-labelledby="software-settings-title">
-    <button class="panel-close-button panel-close-button--floating software-settings-close" id="software-settings-close" type="button" aria-label="Close settings window"></button>
+    <button class="panel-close-button panel-close-button--floating software-settings-close" id="software-settings-close" type="button" aria-label="" data-i18n-attr="aria-label:software.close_settings"></button>
     <div class="software-settings-head">
-      <h3 class="software-settings-title" id="software-settings-title">Settings</h3>
+      <h3 class="software-settings-title" id="software-settings-title" data-i18n="nav.settings"></h3>
     </div>
     <div class="software-settings-shell">
       <aside class="software-settings-sidebar">

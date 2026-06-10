@@ -1,8 +1,9 @@
 use axum::Json;
+use base64::{engine::general_purpose, Engine as _};
 use serde::{Deserialize, Serialize};
 use std::{
     fs,
-    path::{Path, PathBuf},
+    path::{Component, Path, PathBuf},
     time::UNIX_EPOCH,
 };
 
@@ -38,6 +39,89 @@ pub async fn write(Json(req): Json<WriteRequest>) -> Json<String> {
     match fs::write(&path, &req.content) {
         Ok(_) => Json("Written".into()),
         Err(_) => Json("Error writing file".into()),
+    }
+}
+
+#[derive(Deserialize)]
+pub struct FileUploadRequest {
+    parent_path: String,
+    relative_path: String,
+    content_base64: String,
+}
+
+#[derive(Serialize)]
+pub struct FileUploadResponse {
+    status: bool,
+    message: String,
+    path: String,
+}
+
+pub async fn upload(Json(req): Json<FileUploadRequest>) -> Json<FileUploadResponse> {
+    match upload_file(&req.parent_path, &req.relative_path, &req.content_base64) {
+        Ok(path) => Json(FileUploadResponse {
+            status: true,
+            message: "Uploaded".to_string(),
+            path: path.display().to_string(),
+        }),
+        Err(error) => Json(FileUploadResponse {
+            status: false,
+            message: error,
+            path: String::new(),
+        }),
+    }
+}
+
+#[derive(Deserialize, Default)]
+pub struct FileListRequest {
+    #[serde(default)]
+    path: String,
+    #[serde(default)]
+    search: String,
+}
+
+#[derive(Serialize, Clone)]
+pub struct FileListEntry {
+    name: String,
+    path: String,
+    kind: String,
+    extension: String,
+    size: u64,
+    modified_ms: u128,
+    permissions: String,
+    owner: String,
+    protected: bool,
+    remark: String,
+}
+
+#[derive(Serialize)]
+pub struct FileListResponse {
+    status: bool,
+    message: String,
+    root: String,
+    current: String,
+    parent: Option<String>,
+    disk_label: String,
+    total_dirs: usize,
+    total_files: usize,
+    total_size: u64,
+    entries: Vec<FileListEntry>,
+}
+
+pub async fn list_files(Json(req): Json<FileListRequest>) -> Json<FileListResponse> {
+    match collect_files(&req.path, &req.search) {
+        Ok(response) => Json(response),
+        Err(error) => Json(FileListResponse {
+            status: false,
+            message: error,
+            root: String::new(),
+            current: String::new(),
+            parent: None,
+            disk_label: "Website root".to_string(),
+            total_dirs: 0,
+            total_files: 0,
+            total_size: 0,
+            entries: Vec::new(),
+        }),
     }
 }
 
@@ -78,6 +162,102 @@ fn validate_file_access(path: &Path) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+fn collect_files(path: &str, search: &str) -> Result<FileListResponse, String> {
+    let (root, current) = resolve_directory_picker_path(path)?;
+    let search = search.trim().to_lowercase();
+    let mut total_dirs = 0usize;
+    let mut total_files = 0usize;
+    let mut total_size = 0u64;
+    let mut entries = Vec::new();
+
+    for entry in fs::read_dir(&current)
+        .map_err(|error| format!("Failed to read directory: {error}"))?
+        .filter_map(|entry| entry.ok())
+    {
+        let path = entry.path();
+        let metadata = match entry.metadata() {
+            Ok(metadata) => metadata,
+            Err(_) => continue,
+        };
+        let name = entry.file_name().to_string_lossy().to_string();
+        if !search.is_empty() && !name.to_lowercase().contains(&search) {
+            continue;
+        }
+
+        let is_dir = metadata.is_dir();
+        if is_dir {
+            total_dirs += 1;
+        } else {
+            total_files += 1;
+            total_size = total_size.saturating_add(metadata.len());
+        }
+
+        let modified_ms = metadata
+            .modified()
+            .ok()
+            .and_then(|modified| modified.duration_since(UNIX_EPOCH).ok())
+            .map(|duration| duration.as_millis())
+            .unwrap_or_default();
+        let extension = if is_dir {
+            String::new()
+        } else {
+            path.extension()
+                .map(|value| value.to_string_lossy().to_ascii_lowercase())
+                .unwrap_or_default()
+        };
+        let permissions = if metadata.permissions().readonly() {
+            if is_dir {
+                "555/www"
+            } else {
+                "444/www"
+            }
+        } else if is_dir {
+            "755/www"
+        } else {
+            "644/www"
+        }
+        .to_string();
+
+        entries.push(FileListEntry {
+            name,
+            path: path.display().to_string(),
+            kind: if is_dir { "directory" } else { "file" }.to_string(),
+            extension,
+            size: metadata.len(),
+            modified_ms,
+            permissions,
+            owner: "www".to_string(),
+            protected: false,
+            remark: String::new(),
+        });
+    }
+
+    entries.sort_by(|left, right| {
+        left.kind
+            .cmp(&right.kind)
+            .then_with(|| left.name.to_lowercase().cmp(&right.name.to_lowercase()))
+            .then_with(|| left.name.cmp(&right.name))
+    });
+
+    let parent = current
+        .parent()
+        .filter(|parent| path_starts_with(parent, &root) && *parent != root)
+        .map(|parent| parent.display().to_string());
+
+    Ok(FileListResponse {
+        status: true,
+        message: String::new(),
+        root: root.display().to_string(),
+        current: current.display().to_string(),
+        parent,
+        disk_label: "/ (Root)".to_string(),
+        total_dirs,
+        total_files,
+        total_size,
+        entries,
+    })
 }
 
 #[derive(Deserialize, Default)]
@@ -221,6 +401,50 @@ fn create_website_directory(parent_path: &str, name: &str) -> Result<PathBuf, St
     }
     fs::create_dir_all(&path).map_err(|error| format!("Failed to create directory: {error}"))?;
     Ok(path)
+}
+
+fn upload_file(
+    parent_path: &str,
+    relative_path: &str,
+    content_base64: &str,
+) -> Result<PathBuf, String> {
+    let (root, parent) = resolve_directory_picker_path(parent_path)?;
+    let relative = safe_relative_upload_path(relative_path)?;
+    let path = parent.join(relative);
+    if !path_starts_with(&path, &root) {
+        return Err("Upload path must stay inside the website root".to_string());
+    }
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|error| format!("Failed to create upload directory: {error}"))?;
+    }
+    let bytes = general_purpose::STANDARD
+        .decode(content_base64)
+        .map_err(|_| "Uploaded file content is not valid base64".to_string())?;
+    fs::write(&path, bytes).map_err(|error| format!("Failed to write uploaded file: {error}"))?;
+    Ok(path)
+}
+
+fn safe_relative_upload_path(relative_path: &str) -> Result<PathBuf, String> {
+    let relative_path = relative_path.trim().replace('\\', "/");
+    if relative_path.is_empty() {
+        return Err("Missing upload file name".to_string());
+    }
+    let path = PathBuf::from(relative_path);
+    if path.is_absolute() {
+        return Err("Upload file name must be relative".to_string());
+    }
+    let mut safe = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::Normal(part) => safe.push(part),
+            _ => return Err("Upload file name contains unsupported path components".to_string()),
+        }
+    }
+    if safe.as_os_str().is_empty() {
+        return Err("Missing upload file name".to_string());
+    }
+    Ok(safe)
 }
 
 fn resolve_directory_picker_path(path: &str) -> Result<(PathBuf, PathBuf), String> {

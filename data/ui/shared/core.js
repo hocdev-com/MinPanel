@@ -58,6 +58,7 @@ const sidebarNavConfig = {
   Dashboard: { path: "/dashboard", section: "dashboard" },
   Website: { path: "/website", section: "website" },
   Database: { path: "/database", section: "database" },
+  Files: { path: "/files", section: "files" },
   "App Store": { path: "/software", section: "software" },
   Disk: { path: "/disks", section: "disks" },
   Process: { path: "/processes", section: "processes" },
@@ -82,6 +83,17 @@ const themeState = {
   loading: false,
   active: "default",
   themes: [],
+};
+
+const LANGUAGE_STORAGE_KEY = "minpanel.language";
+const DEFAULT_LANGUAGE = "en";
+const languageState = {
+  open: false,
+  loading: false,
+  active: DEFAULT_LANGUAGE,
+  available: [],
+  messages: {},
+  defaultMessages: {},
 };
 
 const websiteState = {
@@ -378,6 +390,277 @@ function closeThemePicker() {
   themeState.open = false;
 }
 
+function normalizeLanguage(value) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+  return normalized || DEFAULT_LANGUAGE;
+}
+
+function readStoredLanguage() {
+  try {
+    return normalizeLanguage(window.localStorage?.getItem(LANGUAGE_STORAGE_KEY));
+  } catch {
+    return DEFAULT_LANGUAGE;
+  }
+}
+
+function writeStoredLanguage(locale) {
+  try {
+    window.localStorage?.setItem(LANGUAGE_STORAGE_KEY, normalizeLanguage(locale));
+  } catch {}
+}
+
+function translate(key, fallback = "") {
+  const value = languageState.messages?.[key];
+  if (typeof value === "string") return value;
+  return fallback || key;
+}
+
+function translateFormat(key, replacements = {}, fallback = "") {
+  return translate(key, fallback).replace(/\{([a-zA-Z0-9_]+)\}/g, (match, name) => {
+    const value = replacements[name];
+    return value === undefined || value === null ? match : String(value);
+  });
+}
+
+window.MinPanel = window.MinPanel || {};
+window.MinPanel.t = translate;
+window.MinPanel.tf = translateFormat;
+
+function applyTranslations() {
+  document.documentElement.lang = languageState.active || DEFAULT_LANGUAGE;
+  document.querySelectorAll("[data-i18n]").forEach((node) => {
+    const key = node.getAttribute("data-i18n");
+    if (!key) return;
+    node.textContent = translate(key, node.textContent || "");
+  });
+
+  document.querySelectorAll("[data-i18n-attr]").forEach((node) => {
+    const spec = node.getAttribute("data-i18n-attr") || "";
+    spec.split(";").forEach((entry) => {
+      const [rawAttr, rawKey] = entry.split(":");
+      const attr = rawAttr?.trim();
+      const key = rawKey?.trim();
+      if (!attr || !key) return;
+      node.setAttribute(attr, translate(key, node.getAttribute(attr) || ""));
+    });
+  });
+
+  applyAutomaticTranslations();
+  renderLanguagePicker();
+  applyColorMode(normalizeColorMode(document.documentElement.dataset.colorMode));
+}
+
+function normalizeTranslationText(value) {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function buildDefaultTranslationLookup() {
+  const lookup = new Map();
+  Object.entries(languageState.defaultMessages || {}).forEach(([key, value]) => {
+    if (typeof value !== "string") return;
+    const normalized = normalizeTranslationText(value);
+    if (!normalized || lookup.has(normalized)) return;
+    lookup.set(normalized, key);
+  });
+  return lookup;
+}
+
+function applyAutomaticTranslations() {
+  const lookup = buildDefaultTranslationLookup();
+  if (!lookup.size) return;
+
+  const skippedTags = new Set(["SCRIPT", "STYLE", "SVG", "CANVAS", "TEXTAREA"]);
+  document.querySelectorAll("body *").forEach((node) => {
+    if (skippedTags.has(node.tagName)) return;
+    if (node.closest("[data-i18n-skip]")) return;
+
+    ["placeholder", "aria-label", "title"].forEach((attr) => {
+      if (!node.hasAttribute(attr)) return;
+      const keyAttr = `data-i18n-auto-${attr}`;
+      const existingKey = node.getAttribute(keyAttr);
+      const key = existingKey || lookup.get(normalizeTranslationText(node.getAttribute(attr)));
+      if (key && !existingKey) node.setAttribute(keyAttr, key);
+      const translated = key ? translate(key, node.getAttribute(attr) || "") : null;
+      if (translated) node.setAttribute(attr, translated);
+    });
+
+    const existingTextKey = node.getAttribute("data-i18n-auto-text");
+    node.childNodes.forEach((child) => {
+      if (child.nodeType !== 3) return;
+      const key = existingTextKey || lookup.get(normalizeTranslationText(child.textContent));
+      if (key && !existingTextKey) node.setAttribute("data-i18n-auto-text", key);
+      const translated = key ? translate(key, child.textContent || "") : null;
+      if (!translated) return;
+      child.textContent = child.textContent.replace(normalizeTranslationText(child.textContent), translated);
+    });
+  });
+}
+
+function renderLanguagePicker() {
+  const button = document.getElementById("top-language-button");
+  const list = document.getElementById("top-language-list");
+  if (!button || !list) return;
+
+  const current = languageState.available.find((item) => item.id === languageState.active);
+  button.title = translate(
+    "actions.change_language",
+    `Language: ${current?.nativeName || current?.label || languageState.active.toUpperCase()}`,
+  );
+
+  if (languageState.loading) {
+    list.innerHTML = `<button class="top-theme-option" type="button" disabled>${escapeHtml(translate("language.loading", "Loading languages..."))}</button>`;
+    return;
+  }
+
+  if (!languageState.available.length) {
+    list.innerHTML = `<button class="top-theme-option" type="button" disabled>${escapeHtml(translate("language.none", "No languages found"))}</button>`;
+    return;
+  }
+
+  list.innerHTML = languageState.available
+    .map((item) => {
+      const active = item.id === languageState.active;
+      const label = item.nativeName || item.label || item.id;
+      return `
+        <button
+          class="top-theme-option${active ? " is-active" : ""}"
+          type="button"
+          role="menuitemradio"
+          aria-checked="${active ? "true" : "false"}"
+          data-language-id="${escapeHtml(item.id)}"
+        >
+          <span class="top-theme-option-main">
+            <span class="top-theme-option-icon" aria-hidden="true">
+              <span class="dashboard-icon icon-top-language"></span>
+            </span>
+            <span>${escapeHtml(label)}</span>
+          </span>
+          <span class="top-theme-option-check">${active ? "✓" : ""}</span>
+        </button>
+      `;
+    })
+    .join("");
+}
+
+function closeLanguagePicker() {
+  const button = document.getElementById("top-language-button");
+  const popover = document.getElementById("top-language-popover");
+  if (button) button.setAttribute("aria-expanded", "false");
+  if (popover) popover.hidden = true;
+  languageState.open = false;
+}
+
+async function loadLanguageIndex() {
+  try {
+    const { response, body } = await fetchJsonWithTimeout("/assets/lang/index.json", { cache: "no-store" }, 10000);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    languageState.available = Array.isArray(body.languages)
+      ? body.languages.map((item) => ({
+          id: normalizeLanguage(item.id),
+          label: item.label || item.id,
+          nativeName: item.nativeName || item.label || item.id,
+        }))
+      : [];
+  } catch {
+    languageState.available = [
+      { id: "en", label: "English", nativeName: "English" },
+      { id: "vi", label: "Vietnamese", nativeName: "Vietnamese" },
+    ];
+  }
+}
+
+async function loadDefaultLanguageMessages() {
+  if (Object.keys(languageState.defaultMessages || {}).length) return;
+  if (languageState.active === DEFAULT_LANGUAGE && Object.keys(languageState.messages || {}).length) {
+    languageState.defaultMessages = languageState.messages;
+    return;
+  }
+
+  const { response, body } = await fetchJsonWithTimeout(`/assets/lang/${DEFAULT_LANGUAGE}.json`, { cache: "no-store" }, 10000);
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  languageState.defaultMessages = body?.messages && typeof body.messages === "object" ? body.messages : {};
+}
+
+async function loadLanguagePack(locale) {
+  const normalized = normalizeLanguage(locale);
+  languageState.loading = true;
+  renderLanguagePicker();
+  try {
+    const { response, body } = await fetchJsonWithTimeout(`/assets/lang/${normalized}.json`, { cache: "no-store" }, 10000);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    languageState.active = normalizeLanguage(body?.meta?.locale || normalized);
+    languageState.messages = body?.messages && typeof body.messages === "object" ? body.messages : {};
+    if (languageState.active === DEFAULT_LANGUAGE) {
+      languageState.defaultMessages = languageState.messages;
+    } else {
+      await loadDefaultLanguageMessages();
+    }
+    writeStoredLanguage(languageState.active);
+    applyTranslations();
+  } catch (error) {
+    if (normalized !== DEFAULT_LANGUAGE) {
+      await loadLanguagePack(DEFAULT_LANGUAGE);
+      return;
+    }
+    console.warn("Failed to load language pack:", error);
+  } finally {
+    languageState.loading = false;
+    renderLanguagePicker();
+  }
+}
+
+async function applyLanguageSelection(locale) {
+  closeLanguagePicker();
+  await loadLanguagePack(locale);
+}
+
+function openLanguagePicker() {
+  const button = document.getElementById("top-language-button");
+  const popover = document.getElementById("top-language-popover");
+  if (!button || !popover) return;
+  languageState.open = true;
+  button.setAttribute("aria-expanded", "true");
+  popover.hidden = false;
+  renderLanguagePicker();
+}
+
+function initLanguagePicker() {
+  const switcher = document.querySelector(".top-language-switcher");
+  const button = document.getElementById("top-language-button");
+  const list = document.getElementById("top-language-list");
+  if (!switcher || !button || !list || button.dataset.languageBound === "true") return;
+  button.dataset.languageBound = "true";
+
+  button.addEventListener("click", () => {
+    if (languageState.open) {
+      closeLanguagePicker();
+    } else {
+      openLanguagePicker();
+    }
+  });
+
+  list.addEventListener("click", (event) => {
+    const option = event.target.closest("[data-language-id]");
+    if (!option) return;
+    applyLanguageSelection(option.getAttribute("data-language-id"));
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!languageState.open) return;
+    if (!switcher.contains(event.target)) {
+      closeLanguagePicker();
+    }
+  });
+
+  languageState.active = readStoredLanguage();
+  loadLanguageIndex().finally(() => loadLanguagePack(languageState.active));
+}
+
 function normalizeColorMode(mode) {
   return mode === "dark" ? "dark" : DEFAULT_COLOR_MODE;
 }
@@ -396,7 +679,9 @@ function applyColorMode(mode) {
   document.documentElement.style.colorScheme = normalized;
 
   const isDark = normalized === "dark";
-  const label = isDark ? "Switch to light mode" : "Switch to dark mode";
+  const label = isDark
+    ? translate("actions.switch_light", "Switch to light mode")
+    : translate("actions.switch_dark", "Switch to dark mode");
   const button = document.getElementById("top-color-mode-button");
   if (button) {
     button.setAttribute("aria-pressed", String(isDark));
@@ -550,10 +835,10 @@ function formatAaPanelMegabytes(bytes) {
 }
 
 function getAaPanelStatus(percent) {
-  if (percent >= 90) return "Running blocked";
-  if (percent >= 80) return "Running slowly";
-  if (percent >= 70) return "Running normally";
-  return "Running smoothly";
+  if (percent >= 90) return translate("dashboard.running_blocked", "Running blocked");
+  if (percent >= 80) return translate("dashboard.running_slowly", "Running slowly");
+  if (percent >= 70) return translate("dashboard.running_normally", "Running normally");
+  return translate("dashboard.running_smoothly", "Running smoothly");
 }
 
 function getAaPanelStatusColor(percent) {
@@ -651,8 +936,11 @@ function getSelectedTrafficSample(networks) {
 function populateNetworkSelect(networks) {
   const select = document.getElementById("traffic-network-select");
   const available = getNonLoopbackNetworks(networks);
-  const nextOptions = [{ value: "all", label: "Net: All" }].concat(
-    available.map((entry) => ({ value: entry.name, label: `Net: ${entry.name}` })),
+  const nextOptions = [{ value: "all", label: translate("dashboard.net_all", "Net: All") }].concat(
+    available.map((entry) => ({
+      value: entry.name,
+      label: translateFormat("dashboard.net_named", { name: entry.name }, `Net: ${entry.name}`),
+    })),
   );
   const currentMarkup = Array.from(select.options)
     .map((option) => `${option.value}:${option.textContent}`)
@@ -4168,12 +4456,22 @@ function updateStatus(data) {
     const color = getAaPanelStatusColor(percent);
     setMeter(meterId, percent, color);
     setOptionalText(`${prefix}-meter-value`, `${Math.round(percent)}%`);
-    setOptionalText(titleId, diskData?.mount_point || "Disk");
-    setOptionalText(`${prefix}-label`, diskData ? `${formatBytes(used)} / ${formatBytes(diskData.total_space)}` : "Unavailable");
-    setOptionalText(`${prefix}-detail`, diskData ? `${formatBytes(used)} / ${formatBytes(diskData.total_space)} - ${diskData.mount_point}` : "Disk information unavailable");
-    setOptionalText(`${prefix}-summary`, diskData ? `${formatBytes(used)} / ${formatBytes(diskData.total_space)}` : "Disk unavailable");
-    setOptionalText(`${prefix}-hover-usage`, `Usage ${Math.round(percent)}%`);
-    setOptionalText(`${prefix}-hover-basic`, diskData ? `${formatBytes(used)} / ${formatBytes(diskData.total_space)} - ${diskData.mount_point}` : "Disk information unavailable");
+    setOptionalText(titleId, diskData?.mount_point || translate("nav.disk", "Disk"));
+    setOptionalText(`${prefix}-label`, diskData ? `${formatBytes(used)} / ${formatBytes(diskData.total_space)}` : translate("dashboard.unavailable", "Unavailable"));
+    setOptionalText(
+      `${prefix}-detail`,
+      diskData
+        ? `${formatBytes(used)} / ${formatBytes(diskData.total_space)} - ${diskData.mount_point}`
+        : translate("dashboard.disk_information_unavailable", "Disk information unavailable"),
+    );
+    setOptionalText(`${prefix}-summary`, diskData ? `${formatBytes(used)} / ${formatBytes(diskData.total_space)}` : translate("dashboard.disk_unavailable", "Disk unavailable"));
+    setOptionalText(`${prefix}-hover-usage`, translateFormat("dashboard.usage_percent", { percent: Math.round(percent) }, `Usage ${Math.round(percent)}%`));
+    setOptionalText(
+      `${prefix}-hover-basic`,
+      diskData
+        ? `${formatBytes(used)} / ${formatBytes(diskData.total_space)} - ${diskData.mount_point}`
+        : translate("dashboard.disk_information_unavailable", "Disk information unavailable"),
+    );
     setOptionalText(`${prefix}-hover-core`, diskData?.mount_point || "--");
   };
   const loadMax = Math.max(Number(data.load_avg?.max) || ((data.cpu_cores || 1) * 2), 1);
@@ -4197,23 +4495,47 @@ function updateStatus(data) {
   document.getElementById("memory-meter-value").textContent = `${Math.round(memoryPercent)}%`;
 
   document.getElementById("load-label").textContent = loadSummary;
-  document.getElementById("load-detail").textContent = `1m ${(Number(data.load_avg?.one) || 0).toFixed(2)} - 5m ${(Number(data.load_avg?.five) || 0).toFixed(2)} - 15m ${(Number(data.load_avg?.fifteen) || 0).toFixed(2)}`;
+  document.getElementById("load-detail").textContent = translateFormat(
+    "dashboard.load_average_values",
+    {
+      one: (Number(data.load_avg?.one) || 0).toFixed(2),
+      five: (Number(data.load_avg?.five) || 0).toFixed(2),
+      fifteen: (Number(data.load_avg?.fifteen) || 0).toFixed(2),
+    },
+    `1m ${(Number(data.load_avg?.one) || 0).toFixed(2)} - 5m ${(Number(data.load_avg?.five) || 0).toFixed(2)} - 15m ${(Number(data.load_avg?.fifteen) || 0).toFixed(2)}`,
+  );
   document.getElementById("load-summary").textContent = loadSummary;
-  setOptionalText("load-hover-usage", `Usage ${Math.round(loadPercent)}%`);
+  setOptionalText("load-hover-usage", translateFormat("dashboard.usage_percent", { percent: Math.round(loadPercent) }, `Usage ${Math.round(loadPercent)}%`));
   setOptionalText("load-hover-basic", document.getElementById("load-detail").textContent);
   setOptionalText("load-hover-core", loadSummary);
 
-  document.getElementById("cpu-label").textContent = `${data.cpu_cores} Core(s)`;
-  document.getElementById("cpu-detail").textContent = `${data.cpu_brand} - ${data.cpu_frequency || "--"} MHz - ${data.process_count} processes`;
-  document.getElementById("cpu-summary").textContent = `${data.cpu_cores} Core(s)`;
-  setOptionalText("cpu-hover-usage", `Usage ${Math.round(data.cpu_usage)}%`);
-  setOptionalText("cpu-hover-basic", data.cpu_brand || "CPU information unavailable");
-  setOptionalText("cpu-hover-core", `${data.cpu_cores} logical core(s), ${data.process_count} processes`);
+  document.getElementById("cpu-label").textContent = translateFormat("dashboard.core_count", { count: data.cpu_cores }, `${data.cpu_cores} Core(s)`);
+  document.getElementById("cpu-detail").textContent = translateFormat(
+    "dashboard.cpu_detail",
+    { brand: data.cpu_brand, frequency: data.cpu_frequency || "--", processes: data.process_count },
+    `${data.cpu_brand} - ${data.cpu_frequency || "--"} MHz - ${data.process_count} processes`,
+  );
+  document.getElementById("cpu-summary").textContent = translateFormat("dashboard.core_count", { count: data.cpu_cores }, `${data.cpu_cores} Core(s)`);
+  setOptionalText("cpu-hover-usage", translateFormat("dashboard.usage_percent", { percent: Math.round(data.cpu_usage) }, `Usage ${Math.round(data.cpu_usage)}%`));
+  setOptionalText("cpu-hover-basic", data.cpu_brand || translate("dashboard.cpu_information_unavailable", "CPU information unavailable"));
+  setOptionalText(
+    "cpu-hover-core",
+    translateFormat("dashboard.logical_core_processes", { cores: data.cpu_cores, processes: data.process_count }, `${data.cpu_cores} logical core(s), ${data.process_count} processes`),
+  );
 
   document.getElementById("memory-label").textContent = `${formatBytes(data.used_memory)} / ${formatBytes(data.total_memory)}`;
-  document.getElementById("memory-detail").textContent = `${formatBytes(data.used_memory)} / ${formatBytes(data.total_memory)} RAM - Swap ${formatBytes(data.used_swap)} / ${formatBytes(data.total_swap)}`;
+  document.getElementById("memory-detail").textContent = translateFormat(
+    "dashboard.memory_detail",
+    {
+      used: formatBytes(data.used_memory),
+      total: formatBytes(data.total_memory),
+      swapUsed: formatBytes(data.used_swap),
+      swapTotal: formatBytes(data.total_swap),
+    },
+    `${formatBytes(data.used_memory)} / ${formatBytes(data.total_memory)} RAM - Swap ${formatBytes(data.used_swap)} / ${formatBytes(data.total_swap)}`,
+  );
   document.getElementById("memory-summary").textContent = `${formatBytes(data.used_memory)} / ${formatBytes(data.total_memory)}`;
-  setOptionalText("memory-hover-usage", `Usage ${Math.round(memoryPercent)}%`);
+  setOptionalText("memory-hover-usage", translateFormat("dashboard.usage_percent", { percent: Math.round(memoryPercent) }, `Usage ${Math.round(memoryPercent)}%`));
   setOptionalText("memory-hover-basic", document.getElementById("memory-detail").textContent);
   setOptionalText("memory-hover-core", `${formatBytes(data.used_memory)} / ${formatBytes(data.total_memory)}`);
 

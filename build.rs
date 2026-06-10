@@ -5,9 +5,14 @@ fn main() {
     let icon_source = std::path::Path::new(&manifest_dir).join(icon_path);
     let data_path = "data";
     let data_source = std::path::Path::new(&manifest_dir).join(data_path);
+    let hosts_helper_source = std::path::Path::new(&manifest_dir)
+        .join("src")
+        .join("bin")
+        .join("update-hosts.rs");
 
     println!("cargo:rerun-if-changed={icon_path}");
     println!("cargo:rerun-if-changed={data_path}");
+    println!("cargo:rerun-if-changed={}", hosts_helper_source.display());
     emit_rerun_if_changed_recursive(&data_source);
 
     if !icon_source.exists() {
@@ -15,6 +20,12 @@ fn main() {
     }
     if !data_source.exists() {
         panic!("Windows data directory not found at {data_path}");
+    }
+    if !hosts_helper_source.exists() {
+        panic!(
+            "Windows hosts helper source not found at {}",
+            hosts_helper_source.display()
+        );
     }
 
     let mut resource = winres::WindowsResource::new();
@@ -24,14 +35,15 @@ fn main() {
         panic!("failed to compile Windows resources: {error}");
     }
 
-    sync_data_directory(&data_source);
+    let profile_dir = sync_data_directory(&data_source);
+    compile_hosts_update_helper(&hosts_helper_source, &profile_dir);
 }
 
 #[cfg(not(windows))]
 fn main() {}
 
 #[cfg(windows)]
-fn sync_data_directory(source: &std::path::Path) {
+fn sync_data_directory(source: &std::path::Path) -> std::path::PathBuf {
     let out_dir = std::env::var("OUT_DIR").expect("OUT_DIR is not set");
     let profile_dir = std::path::Path::new(&out_dir)
         .ancestors()
@@ -49,6 +61,55 @@ fn sync_data_directory(source: &std::path::Path) {
     }
 
     copy_dir_recursive(source, &target_dir, source);
+    profile_dir.to_path_buf()
+}
+
+#[cfg(windows)]
+fn compile_hosts_update_helper(source: &std::path::Path, profile_dir: &std::path::Path) {
+    let target_path = profile_dir
+        .join("data")
+        .join("bin")
+        .join("update-hosts.exe");
+    if let Some(parent) = target_path.parent() {
+        std::fs::create_dir_all(parent).unwrap_or_else(|error| {
+            panic!(
+                "failed to create hosts helper directory {}: {error}",
+                parent.display()
+            )
+        });
+    }
+
+    let rustc = std::env::var_os("RUSTC").unwrap_or_else(|| std::ffi::OsString::from("rustc"));
+    let mut command = std::process::Command::new(rustc);
+    command
+        .arg("--edition=2021")
+        .arg("--crate-name")
+        .arg("update_hosts_helper")
+        .arg(source)
+        .arg("-o")
+        .arg(&target_path);
+
+    if std::env::var("PROFILE").as_deref() == Ok("release") {
+        command
+            .arg("-C")
+            .arg("opt-level=3")
+            .arg("-C")
+            .arg("panic=abort");
+    }
+
+    let status = command.status().unwrap_or_else(|error| {
+        panic!(
+            "failed to compile hosts helper {}: {error}",
+            source.display()
+        )
+    });
+    if !status.success() {
+        panic!(
+            "failed to compile hosts helper {} to {}",
+            source.display(),
+            target_path.display()
+        );
+    }
 }
 
 #[cfg(windows)]

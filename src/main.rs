@@ -14,6 +14,7 @@ mod windows_gui;
 use axum::Router;
 use axum::{
     extract::DefaultBodyLimit,
+    extract::Path as AxumPath,
     http::{header, HeaderValue, StatusCode},
     response::IntoResponse,
 };
@@ -81,6 +82,11 @@ pub(crate) fn app_router() -> Router {
             "/assets/shared/pages/website.js",
             axum::routing::get(shared_website_page_script),
         )
+        .route(
+            "/assets/shared/pages/file.js",
+            axum::routing::get(shared_file_page_script),
+        )
+        .route("/assets/lang/:locale", axum::routing::get(language_pack))
         .route("/favicon.ico", axum::routing::get(dashboard_favicon_ico))
         .route(
             "/assets/dashboard/favicon.png",
@@ -306,6 +312,48 @@ async fn shared_website_page_script() -> impl IntoResponse {
                 ),
             ],
             script,
+        )
+            .into_response(),
+        Err(error) => dashboard::template_load_error_response(error),
+    }
+}
+
+async fn shared_file_page_script() -> impl IntoResponse {
+    match dashboard::load_shared_ui_asset("pages/file.js") {
+        Ok(script) => (
+            StatusCode::OK,
+            [
+                (
+                    header::CONTENT_TYPE,
+                    HeaderValue::from_static("application/javascript; charset=utf-8"),
+                ),
+                (
+                    header::CACHE_CONTROL,
+                    HeaderValue::from_static("public, max-age=3600"),
+                ),
+            ],
+            script,
+        )
+            .into_response(),
+        Err(error) => dashboard::template_load_error_response(error),
+    }
+}
+
+async fn language_pack(AxumPath(locale): AxumPath<String>) -> impl IntoResponse {
+    match dashboard::load_language_pack(&locale) {
+        Ok(pack) => (
+            StatusCode::OK,
+            [
+                (
+                    header::CONTENT_TYPE,
+                    HeaderValue::from_static("application/json; charset=utf-8"),
+                ),
+                (
+                    header::CACHE_CONTROL,
+                    HeaderValue::from_static("public, max-age=3600"),
+                ),
+            ],
+            pack,
         )
             .into_response(),
         Err(error) => dashboard::template_load_error_response(error),
